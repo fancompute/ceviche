@@ -25,7 +25,7 @@ class TestGrads(unittest.TestCase):
 
         print('setting up...')
         self.Nx = 10
-        self.Ny = 10
+        self.Ny = 1
         N = self.Nx * self.Ny
 
         self.omega = 2*np.pi*200e12
@@ -136,9 +136,6 @@ class TestGrads(unittest.TestCase):
             f.source = 1j * self.source_amp * eps_arr
             f.eps_r = eps_arr.reshape((self.Nx, self.Ny))
             Hx, Hy, Ez = f.solve()
-            Hx += 1e9
-            Hy += 1e9
-            Ez += 1e9
             return npa.sum(npa.square(npa.abs(Ez))) \
                  + npa.sum(npa.square(npa.abs(Hx))) \
                  + npa.sum(npa.square(npa.abs(Hy)))
