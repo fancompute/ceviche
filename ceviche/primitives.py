@@ -17,7 +17,7 @@ from ceviche.constants import *
 def make_A_Hz(matrices, eps_arr):
     """ constructs the system matrix for `Hz` polarization """
 
-    diag = sp.spdiags(1/eps_arr, [0], eps_arr.size, eps_arr.size)
+    diag = 1 / EPSILON_0 * sp.spdiags(1/eps_arr, [0], eps_arr.size, eps_arr.size)
     return matrices['Dxf'].dot(diag).dot(matrices['Dxb']) \
          + matrices['Dyf'].dot(diag).dot(matrices['Dyb']) \
          + matrices['omega']**2 * MU_0 * sp.eye(eps_arr.size)
@@ -25,7 +25,7 @@ def make_A_Hz(matrices, eps_arr):
 def make_A_Ez(matrices, eps_arr):
     """ constructs the system matrix for `Ez` polarization """
 
-    diag = sp.spdiags(eps_arr, [0], eps_arr.size, eps_arr.size)
+    diag = EPSILON_0 * sp.spdiags(eps_arr, [0], eps_arr.size, eps_arr.size)
     return 1 / MU_0 * matrices['Dxf'].dot(matrices['Dxb']) \
          + 1 / MU_0 * matrices['Dyf'].dot(matrices['Dyb']) \
          + matrices['omega']**2 * diag
@@ -35,25 +35,25 @@ def make_A_Ez(matrices, eps_arr):
 @primitive
 def Ez_to_Hx(Ez, matrices):
     """ Returns magnetic field `Hx` from electric field `Ez` """
-    Hx = - matrices['Dyb'].dot(Ez)
+    Hx = - matrices['Dyb'].dot(Ez) / MU_0
     return Hx
 
 def vjp_maker_Ez_to_Hx(Ez, Hx, matrices):
     """ Gives vjp for dHx/dEz """
     def vjp(v):
-        return -(matrices['Dyb'].T).dot(v)
+        return -(matrices['Dyb'].T).dot(v) / MU_0
     return vjp
 
 @primitive
 def Ez_to_Hy(Ez, matrices):
     """ Returns magnetic field `Hy` from electric field `Ez` """
-    Hy =  matrices['Dxb'].dot(Ez)
+    Hy =  matrices['Dxb'].dot(Ez) / MU_0
     return Hy
 
 def vjp_maker_Ez_to_Hy(Hy, Ez, matrices):
     """ Gives vjp for dHy/dEz """
     def vjp(v):
-        return (matrices['Dxb'].T).dot(v)
+        return (matrices['Dxb'].T).dot(v) / MU_0
     return vjp
 
 def E_to_H(Ez, matrices):
@@ -66,15 +66,15 @@ def E_to_H(Ez, matrices):
 def Hz_to_Ex(Hz, matrices, eps_arr, adjoint=False):
     """ Returns electric field `Ex` from magnetic field `Hz` """
     if adjoint:
-        Ex = (matrices['Dyf'].T).dot(Hz) / eps_arr
+        Ex = (matrices['Dyf'].T).dot(Hz) / eps_arr / EPSILON_0
     else:
-        Ex = -matrices['Dyb'].dot(Hz) / eps_arr
+        Ex = -matrices['Dyb'].dot(Hz) / eps_arr / EPSILON_0
     return Ex
 
 def vjp_maker_Hz_to_Ex_Hz(Ex, Hz, matrices, eps_arr, adjoint=False):
     """ Gives vjp for dEx/dHz """
     def vjp(v):
-        return -(matrices['Dyb'].T).dot(v / eps_arr)
+        return -(matrices['Dyb'].T).dot(v / eps_arr / EPSILON_0)
     return vjp
 
 def vjp_maker_Hz_to_Ex_eps_arr(Ex, Hz, matrices, eps_arr, adjoint=False):
@@ -87,15 +87,15 @@ def vjp_maker_Hz_to_Ex_eps_arr(Ex, Hz, matrices, eps_arr, adjoint=False):
 def Hz_to_Ey(Hz, matrices, eps_arr, adjoint=False):
     """ Returns electric field `Ey` from magnetic field `Hz` """
     if adjoint:
-        Ey = -(matrices['Dxf'].T).dot(Hz) / eps_arr
+        Ey = -(matrices['Dxf'].T).dot(Hz) / eps_arr / EPSILON_0
     else:
-        Ey = matrices['Dxb'].dot(Hz) / eps_arr
+        Ey = matrices['Dxb'].dot(Hz) / eps_arr / EPSILON_0
     return Ey
 
 def vjp_maker_Hz_to_Ey_Hz(Ey, Hz, matrices, eps_arr, adjoint=False):
     """ Gives vjp for dEy/dHz """
     def vjp(v):
-        return (matrices['Dxb'].T).dot(v / eps_arr)
+        return (matrices['Dxb'].T).dot(v / eps_arr / EPSILON_0)
     return vjp
 
 def vjp_maker_Hz_to_Ey_eps_arr(Ey, Hz, matrices, eps_arr, adjoint=False):
@@ -141,7 +141,7 @@ def vjp_maker_solve_Ez(Ez, matrices, eps_arr, b):
         Ez_aj = spl.spsolve(A.T, -v)
 
         # because we care about the diagonal elements, just element-wise multiply E and E_adj
-        return matrices['omega']**2 * np.real(Ez_aj * Ez)
+        return EPSILON_0 * matrices['omega']**2 * np.real(Ez_aj * Ez)
 
     # return this function for autograd to link-later
     return vjp
@@ -176,7 +176,7 @@ def vjp_maker_solve_Hz(Hz, matrices, eps_arr, b):
         Ex_aj, Ey_aj = H_to_E(Hz_aj, matrices, eps_arr, adjoint=True)
 
         # because we care about the diagonal elements, just element-wise multiply E and E_adj
-        return np.real(Ex_aj * Ex + Ey_aj * Ey)
+        return EPSILON_0 * np.real(Ex_aj * Ex + Ey_aj * Ey)
 
     # return this function for autograd to link-later
     return vjp
@@ -185,10 +185,10 @@ def vjp_maker_solve_Hz(Hz, matrices, eps_arr, b):
 
 def link_vjps():
     """ This links the vjp_maker functions to their primitives """
-    defvjp(solve_Ez, None, vjp_maker_solve_Ez)
+    defvjp(solve_Ez, None, vjp_maker_solve_Ez)   # to do, primitive w.r.t b (second arg)
     defvjp(Ez_to_Hx, vjp_maker_Ez_to_Hx, vjp_maker_Ez_to_Hx, None)
     defvjp(Ez_to_Hy, vjp_maker_Ez_to_Hy, vjp_maker_Ez_to_Hy, None)
-    defvjp(solve_Hz, None, vjp_maker_solve_Hz)
+    defvjp(solve_Hz, None, vjp_maker_solve_Hz)   # to do, primitive w.r.t b (second arg)
     defvjp(Hz_to_Ex, vjp_maker_Hz_to_Ex_Hz, None, vjp_maker_Hz_to_Ex_eps_arr, None)
     defvjp(Hz_to_Ey, vjp_maker_Hz_to_Ey_Hz, None, vjp_maker_Hz_to_Ey_eps_arr, None)
 

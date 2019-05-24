@@ -60,6 +60,11 @@ class fdfd():
         self.x_range = [0.0, 1]  # why does it only work with this??
         self.y_range = [0.0, 1]
 
+    @staticmethod
+    def make_A(matrices, eps_r):
+        # eventually make these functions in the fdfd class
+        raise NotImplementedError("need to make a solve() method")
+
     def solve(self):
         raise NotImplementedError("need to make a solve() method")
 
@@ -75,6 +80,14 @@ class fdfd_hz(fdfd):
         super().__init__(omega, L0, eps_r, source, npml)
         self.A = make_A_Hz(self.matrices, self.eps_arr)
         print('norm A: ', spl.norm(self.A))
+
+    # eventually load some of the functions defined in primitives.py into here
+    # @staticmethod
+    # def make_A(matrices, eps_arr):
+    #     diag = sp.spdiags(1/eps_arr, [0], eps_arr.size, eps_arr.size)
+    #     return matrices['Dxf'].dot(diag).dot(matrices['Dxb']) \
+    #          + matrices['Dyf'].dot(diag).dot(matrices['Dyb']) \
+    #          + matrices['omega']**2 * MU_0 * sp.eye(eps_arr.size)
 
     def solve(self):
         """ Solves the electromagnetic fields of the system """
@@ -94,6 +107,14 @@ class fdfd_ez(fdfd):
         super().__init__(omega, L0, eps_r, source, npml)
         self.A = make_A_Ez(self.matrices, self.eps_arr)
         print('norm A: ', spl.norm(self.A))
+
+    # eventually load some of the functions defined in primitives.py into here
+    # @staticmethod
+    # def make_A(matrices, eps_arr):
+    #     diag = sp.spdiags(eps_arr, [0], eps_arr.size, eps_arr.size)
+    #     return 1 / MU_0 * matrices['Dxf'].dot(matrices['Dxb']) \
+    #          + 1 / MU_0 * matrices['Dyf'].dot(matrices['Dyb']) \
+    #          + matrices['omega']**2 * diag
 
     def solve(self):
         """ Solves the electromagnetic fields of the system """
