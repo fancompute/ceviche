@@ -18,17 +18,19 @@ def make_A_Hz(matrices, eps_arr):
     """ constructs the system matrix for `Hz` polarization """
 
     diag = 1 / EPSILON_0 * sp.spdiags(1/eps_arr, [0], eps_arr.size, eps_arr.size)
-    return matrices['Dxf'].dot(diag).dot(matrices['Dxb']) \
-         + matrices['Dyf'].dot(diag).dot(matrices['Dyb']) \
-         + matrices['omega']**2 * MU_0 * sp.eye(eps_arr.size)
+    A = matrices['Dxf'].dot(diag).dot(matrices['Dxb']) \
+      + matrices['Dyf'].dot(diag).dot(matrices['Dyb']) \
+      + matrices['omega']**2 * MU_0 * sp.eye(eps_arr.size)
+    return A
 
 def make_A_Ez(matrices, eps_arr):
     """ constructs the system matrix for `Ez` polarization """
 
     diag = EPSILON_0 * sp.spdiags(eps_arr, [0], eps_arr.size, eps_arr.size)
-    return 1 / MU_0 * matrices['Dxf'].dot(matrices['Dxb']) \
-         + 1 / MU_0 * matrices['Dyf'].dot(matrices['Dyb']) \
-         + matrices['omega']**2 * diag
+    A = 1 / MU_0 * matrices['Dxf'].dot(matrices['Dxb']) \
+      + 1 / MU_0 * matrices['Dyf'].dot(matrices['Dyb']) \
+      + matrices['omega']**2 * diag
+    return A
 
 """====================== FIELD CONVERSION PRIMITIVIES ====================="""
 

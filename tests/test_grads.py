@@ -25,11 +25,11 @@ class TestGrads(unittest.TestCase):
 
         print('setting up...')
         self.Nx = 10
-        self.Ny = 1
+        self.Ny = 10
         N = self.Nx * self.Ny
 
-        self.omega = 10
-        self.L0 = 10
+        self.omega = 2*np.pi*200e12
+        self.dL = 1e-7
 
         # make the FDFD matrices (random for now)
         Dxf = make_sparse(N, 0)
@@ -43,7 +43,8 @@ class TestGrads(unittest.TestCase):
                          'omega': self.omega}
 
         # source
-        self.b = np.ones((N,))
+        self.source_amp = 1
+        self.b = self.source_amp * np.ones((N,))
 
         # starting relative permittivity
         self.eps_r   = np.random.random((self.Nx, self.Ny)) + 1
@@ -78,7 +79,7 @@ class TestGrads(unittest.TestCase):
         print('\ttesting Hz in FDFD')
 
         # a function using the fdfd object
-        f = fdfd_hz(self.omega, self.L0, self.eps_r, self.b, [0,0])
+        f = fdfd_hz(self.omega, self.dL, self.eps_r, self.b, [0,0])
 
         def J_fdfd(eps_arr):
 
@@ -129,12 +130,15 @@ class TestGrads(unittest.TestCase):
         print('\ttesting Ez in FDFD')
 
         # a function using the fdfd object
-        f = fdfd_ez(self.omega, self.L0, self.eps_r, self.b, [3, 4])
+        f = fdfd_ez(self.omega, self.dL, self.eps_r, self.b, [3, 4])
 
         def J_fdfd(eps_arr):
-            f.source = 1j * eps_arr
+            f.source = 1j * self.source_amp * eps_arr
             f.eps_r = eps_arr.reshape((self.Nx, self.Ny))
             Hx, Hy, Ez = f.solve()
+            Hx += 1e9
+            Hy += 1e9
+            Ez += 1e9
             return npa.sum(npa.square(npa.abs(Ez))) \
                  + npa.sum(npa.square(npa.abs(Hx))) \
                  + npa.sum(npa.square(npa.abs(Hy)))
