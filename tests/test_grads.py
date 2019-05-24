@@ -57,7 +57,7 @@ class TestGrads(unittest.TestCase):
         def J_direct(eps_r):
 
             # get the fields
-            Hz = solve_Ez(self.matrices, eps_r, self.b)
+            Hz = solve_Hz(self.matrices, eps_r, self.b)
             Ex, Ey = H_to_E(Hz, self.matrices, eps_r)
 
             # some objective function of Hz, Ex, Ey.
