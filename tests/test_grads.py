@@ -78,8 +78,10 @@ class TestGrads(unittest.TestCase):
 
         # a function using the fdfd object
         f = fdfd_hz(self.omega, self.L0, self.eps_r, self.b, [0,0])
-        # import pdb;pdb.set_trace()
+
         def J_fdfd(eps_arr):
+
+            f.source = 1j * eps_arr
             f.eps_r = eps_arr.reshape((self.Nx, self.Ny))
             Ex, Ey, Hz = f.solve()
             return npa.sum(npa.square(npa.abs(Hz))) \
@@ -128,6 +130,7 @@ class TestGrads(unittest.TestCase):
         f = fdfd_ez(self.omega, self.L0, self.eps_r, self.b, [3, 4])
 
         def J_fdfd(eps_arr):
+            f.source = 1j * eps_arr
             f.eps_r = eps_arr.reshape((self.Nx, self.Ny))
             Hx, Hy, Ez = f.solve()
             return npa.sum(npa.square(npa.abs(Ez))) \

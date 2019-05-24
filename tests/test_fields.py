@@ -4,27 +4,24 @@ import matplotlib.pylab as plt
 
 from ceviche.fdfd import fdfd_ez, fdfd_hz
 
-DECIMAL_PRECISION = 3  # how many decimal places to check correctness in gradients
-VERBOSE = False
+class TestFields(unittest.TestCase):
 
-class TestGrads(unittest.TestCase):
-
-    """ Tests the flexible objective function specifier """
+    """ Tests the field patterns """
 
     def setUp(self):
-        self.omega = 2*np.pi*1e3
-        self.L0 = 1                 # 1 micron
-        self.Nx, self.Ny = 500, 101    # grid size
+        self.omega = 2*np.pi*200e12
+        self.dL = 1e-5                  # 1 micron
+        self.Nx, self.Ny = 131, 101    # grid size
         self.eps_r = np.ones((self.Nx, self.Ny))
         # self.eps_r[40:60, 40:60] = 5
         self.source = np.zeros((self.Nx, self.Ny))
-        self.source[30, :] = 10
-        self.npml = [20, 0]
+        self.source[self.Nx//2, self.Ny//2] = 1
+        self.npml = [20, 20]
 
     def test_Hz(self):
         print('\ttesting Hz')
 
-        F = fdfd_hz(self.omega, self.L0, self.eps_r, self.source, self.npml)
+        F = fdfd_hz(self.omega, self.dL, self.eps_r, self.source, self.npml)
         Ex, Ey, Hz = F.solve()
         plt.imshow(np.real(Hz))
         plt.show()
@@ -32,7 +29,7 @@ class TestGrads(unittest.TestCase):
     def test_Ez(self):
         print('\ttesting Ez')
 
-        F = fdfd_ez(self.omega, self.L0, self.eps_r, self.source, self.npml)
+        F = fdfd_ez(self.omega, self.dL, self.eps_r, self.source, self.npml)
         Hx, Hy, Ez = F.solve()
         plt.imshow(np.real(Ez))
         plt.show()

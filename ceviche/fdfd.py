@@ -10,34 +10,25 @@ from time import time
 class fdfd():
     """ Base class for FDFD simulation """
 
-    def __init__(self, omega, L0, eps_r, source, npml):
+    def __init__(self, omega, dL, eps_r, source, npml):
         """ initialize with a given structure and source """
 
         self.omega = omega
-        self.L0 = L0
+        self.dL = dL
+        self.npml = npml
+
         self.eps_r = eps_r
         self.source = source
-        self.source_arr = source.flatten()        
-        self.npml = npml
 
         self.matrices = {'omega': self.omega}
         self.setup_derivatives()
 
-    def setup_derivatives(self, random=False):
+    def setup_derivatives(self):
 
-        """ Creates all of the operators needed for later """
+        # Creates all of the operators needed for later
+        self.Dxf, self.Dxb, self.Dyf, self.Dyb = compute_derivatives(self.omega, 1, self.shape, self.npml, self.x_range, self.y_range, self.N)
 
-        if random:
-            # for debugging, make a bunch of random sparse matrices
-            self.Dxf = make_sparse(self.N, 0, density=0.2)
-            self.Dxb = make_sparse(self.N, 0, density=0.2)
-            self.Dyf = make_sparse(self.N, 0, density=0.2)
-            self.Dyb = make_sparse(self.N, 0, density=0.2)
-        else:
-            # or, make the physical derivatives
-            self.Dxf, self.Dxb, self.Dyf, self.Dyb = compute_derivatives(self.omega, self.L0, self.shape, self.npml, self.x_range, self.y_range, self.N)
-
-        # save to a dictionary for convenience
+        # save to a dictionary for convenience passing to primitives
         self.matrices['Dxf'] = self.Dxf
         self.matrices['Dxb'] = self.Dxb
         self.matrices['Dyf'] = self.Dyf
@@ -57,8 +48,19 @@ class fdfd():
         self.shape = self.__eps_r.shape
         self.Nx = self.shape[0]
         self.Ny = self.shape[1]
-        self.x_range = [0.0, 1]  # why does it only work with this??
-        self.y_range = [0.0, 1]
+        self.x_range = [0.0, self.Nx * self.dL]
+        self.y_range = [0.0, self.Ny * self.dL]
+
+    @property
+    def source(self):
+        """ Returns the source grid """
+        return self.__source
+
+    @source.setter
+    def source(self, new_source):
+        """ Defines some attributes when source is set. """
+        self.__source = new_source
+        self.source_arr = self.__source.flatten()
 
     @staticmethod
     def make_A(matrices, eps_r):
@@ -81,14 +83,6 @@ class fdfd_hz(fdfd):
         self.A = make_A_Hz(self.matrices, self.eps_arr)
         print('norm A: ', spl.norm(self.A))
 
-    # eventually load some of the functions defined in primitives.py into here
-    # @staticmethod
-    # def make_A(matrices, eps_arr):
-    #     diag = sp.spdiags(1/eps_arr, [0], eps_arr.size, eps_arr.size)
-    #     return matrices['Dxf'].dot(diag).dot(matrices['Dxb']) \
-    #          + matrices['Dyf'].dot(diag).dot(matrices['Dyb']) \
-    #          + matrices['omega']**2 * MU_0 * sp.eye(eps_arr.size)
-
     def solve(self):
         """ Solves the electromagnetic fields of the system """
 
@@ -107,14 +101,6 @@ class fdfd_ez(fdfd):
         super().__init__(omega, L0, eps_r, source, npml)
         self.A = make_A_Ez(self.matrices, self.eps_arr)
         print('norm A: ', spl.norm(self.A))
-
-    # eventually load some of the functions defined in primitives.py into here
-    # @staticmethod
-    # def make_A(matrices, eps_arr):
-    #     diag = sp.spdiags(eps_arr, [0], eps_arr.size, eps_arr.size)
-    #     return 1 / MU_0 * matrices['Dxf'].dot(matrices['Dxb']) \
-    #          + 1 / MU_0 * matrices['Dyf'].dot(matrices['Dyb']) \
-    #          + matrices['omega']**2 * diag
 
     def solve(self):
         """ Solves the electromagnetic fields of the system """

@@ -128,14 +128,11 @@ def vjp_maker_solve_Ez(Ez, matrices, eps_arr, b):
           takes in the output of solve_Ez (Hz) and solve_Ez's other arguments. 
     """
     
-    # get the forward electric fields
-    # Ex, Ey = E_to_H(Hz, matrices, eps_arr, adjoint=False)
+    # construct the system matrix again
+    A = make_A_Ez(matrices, eps_arr)
 
     # vector-jacobian product function to return
     def vjp(v):
-
-        # construct the system matrix again
-        A = make_A_Ez(matrices, eps_arr)
 
         # solve the adjoint problem and get those electric fields (note D matrices are different and transposed)
         Ez_aj = spl.spsolve(A.T, -v)
@@ -146,6 +143,15 @@ def vjp_maker_solve_Ez(Ez, matrices, eps_arr, b):
     # return this function for autograd to link-later
     return vjp
 
+def vjp_maker_solve_Ez_source(Ez, matrices, eps_arr, b):
+    """ Gives vjp for solve_Hz with respect to source """    
+
+    A = make_A_Ez(matrices, eps_arr)
+
+    def vjp(v):
+        return 1j * matrices['omega'] * spl.spsolve(A.T, v)
+    return vjp
+
 @primitive
 def solve_Hz(matrices, eps_arr, source):
     """ solve `Hz = A^-1 b` where A is constructed from the FDFD `matrices`
@@ -153,7 +159,7 @@ def solve_Hz(matrices, eps_arr, source):
     """
     A = make_A_Hz(matrices, eps_arr)
     b = 1j * matrices['omega'] * source    
-    Hz = spl.spsolve(A, source)
+    Hz = spl.spsolve(A, b)
     return Hz
 
 # define the gradient of solve_Hz w.r.t. eps_arr (in Hz)
@@ -165,11 +171,11 @@ def vjp_maker_solve_Hz(Hz, matrices, eps_arr, b):
     # get the forward electric fields
     Ex, Ey = H_to_E(Hz, matrices, eps_arr, adjoint=False)
 
+    # construct the system matrix again
+    A = make_A_Hz(matrices, eps_arr)
+
     # vector-jacobian product function to return
     def vjp(v):
-
-        # construct the system matrix again
-        A = make_A_Hz(matrices, eps_arr)
 
         # solve the adjoint problem and get those electric fields (note D matrices are different and transposed)
         Hz_aj = spl.spsolve(A.T, -v)
@@ -181,14 +187,23 @@ def vjp_maker_solve_Hz(Hz, matrices, eps_arr, b):
     # return this function for autograd to link-later
     return vjp
 
+def vjp_maker_solve_Hz_source(Hz, matrices, eps_arr, b):
+    """ Gives vjp for solve_Hz with respect to source """    
+
+    A = make_A_Hz(matrices, eps_arr)
+
+    def vjp(v):
+        return 1j * matrices['omega'] * spl.spsolve(A.T, v)
+    return vjp
+
 """=================== LINKING PRIMITIVIES TO DERIVATIVES =================="""
 
 def link_vjps():
     """ This links the vjp_maker functions to their primitives """
-    defvjp(solve_Ez, None, vjp_maker_solve_Ez)   # to do, primitive w.r.t b (second arg)
+    defvjp(solve_Ez, None, vjp_maker_solve_Ez, vjp_maker_solve_Ez_source)   # to do, primitive w.r.t b (3rd arg)
     defvjp(Ez_to_Hx, vjp_maker_Ez_to_Hx, vjp_maker_Ez_to_Hx, None)
     defvjp(Ez_to_Hy, vjp_maker_Ez_to_Hy, vjp_maker_Ez_to_Hy, None)
-    defvjp(solve_Hz, None, vjp_maker_solve_Hz)   # to do, primitive w.r.t b (second arg)
+    defvjp(solve_Hz, None, vjp_maker_solve_Hz, vjp_maker_solve_Hz_source)
     defvjp(Hz_to_Ex, vjp_maker_Hz_to_Ex_Hz, None, vjp_maker_Hz_to_Ex_eps_arr, None)
     defvjp(Hz_to_Ey, vjp_maker_Hz_to_Ey_Hz, None, vjp_maker_Hz_to_Ey_eps_arr, None)
 
