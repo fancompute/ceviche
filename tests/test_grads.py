@@ -22,13 +22,14 @@ class TestGrads(unittest.TestCase):
     """ Tests the flexible objective function specifier """
 
     def setUp(self):
+
         print('setting up...')
         self.Nx = 10
         self.Ny = 1
         N = self.Nx * self.Ny
 
-        self.omega = 1
-        self.L0 = 1
+        self.omega = 10
+        self.L0 = 10
 
         # make the FDFD matrices (random for now)
         Dxf = make_sparse(N, 0)
@@ -124,6 +125,7 @@ class TestGrads(unittest.TestCase):
         np.testing.assert_allclose(grad_autograd, grad_numerical, rtol=RELATIVE_TOLERANCE)
         
     def test_Ez_fdfd(self):
+
         print('\ttesting Ez in FDFD')
 
         # a function using the fdfd object
