@@ -9,8 +9,9 @@ import copy
 from autograd.extend import primitive, defvjp
 from autograd import grad
 
-from autotrack.utils import make_sparse, grad_num
-from autotrack.primitives import *
+from ceviche.utils import make_sparse, grad_num
+from ceviche.primitives import *
+from ceviche.fdfd import fdfd_hz, fdfd_ez
 
 import sys
 sys.path.append('..')
@@ -78,8 +79,6 @@ class TestGrads(unittest.TestCase):
     def test_Hz_fdfd(self):
         print('\ttesting Hz in FDFD')
 
-        from autotrack.fdfd import fdfd_hz
-
         # a function using the fdfd object
         f = fdfd_hz(self.omega, self.L0, self.eps_r, self.b, [0,0])
         # import pdb;pdb.set_trace()
@@ -127,8 +126,6 @@ class TestGrads(unittest.TestCase):
         
     def test_Ez_fdfd(self):
         print('\ttesting Ez in FDFD')
-
-        from autotrack.fdfd import fdfd_ez
 
         # a function using the fdfd object
         f = fdfd_ez(self.omega, self.L0, self.eps_r, self.b, [3, 4])

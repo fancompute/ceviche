@@ -1,9 +1,8 @@
 import autograd.numpy as np
 import scipy.sparse as sp
 
-from autotrack.primitives import *
-from autotrack.utils import make_sparse
-from autotrack.interpolations import interp
+from ceviche.primitives import *
+from ceviche.utils import make_sparse
 
 import copy
 from time import time

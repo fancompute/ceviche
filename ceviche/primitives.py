@@ -3,7 +3,7 @@ import scipy.sparse as sp
 import scipy.sparse.linalg as spl
 
 from autograd.extend import primitive, defvjp
-from autotrack.constants import *
+from ceviche.constants import *
 
 """ This file is the meat and bones of the FDFD.
     It defines the basic operations needed for FDFD and also their derivatives

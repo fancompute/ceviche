@@ -2,7 +2,7 @@ import unittest
 import numpy as np
 import matplotlib.pylab as plt
 
-from autotrack.fdfd import fdfd_ez, fdfd_hz
+from ceviche.fdfd import fdfd_ez, fdfd_hz
 
 import sys
 sys.path.append('..')
