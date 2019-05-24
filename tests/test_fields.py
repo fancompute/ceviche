@@ -4,9 +4,6 @@ import matplotlib.pylab as plt
 
 from ceviche.fdfd import fdfd_ez, fdfd_hz
 
-import sys
-sys.path.append('..')
-
 DECIMAL_PRECISION = 3  # how many decimal places to check correctness in gradients
 VERBOSE = False
 

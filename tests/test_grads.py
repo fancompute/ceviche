@@ -13,9 +13,6 @@ from ceviche.utils import make_sparse, grad_num
 from ceviche.primitives import *
 from ceviche.fdfd import fdfd_hz, fdfd_ez
 
-import sys
-sys.path.append('..')
-
 RELATIVE_TOLERANCE = 1e-3
 VERBOSE = True
 DEPS = 1e-6
