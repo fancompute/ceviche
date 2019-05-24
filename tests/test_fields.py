@@ -11,9 +11,8 @@ class TestFields(unittest.TestCase):
     def setUp(self):
         self.omega = 2*np.pi*200e12
         self.dL = 1e-5                  # 1 micron
-        self.Nx, self.Ny = 131, 101    # grid size
+        self.Nx, self.Ny = 131, 131    # grid size
         self.eps_r = np.ones((self.Nx, self.Ny))
-        # self.eps_r[40:60, 40:60] = 5
         self.source = np.zeros((self.Nx, self.Ny))
         self.source[self.Nx//2, self.Ny//2] = 1
         self.npml = [20, 20]

@@ -24,12 +24,12 @@ class TestGrads(unittest.TestCase):
     def setUp(self):
 
         print('setting up...')
-        self.Nx = 10
+        self.Nx = 11
         self.Ny = 1
         N = self.Nx * self.Ny
 
         self.omega = 2*np.pi*200e12
-        self.dL = 1e-7
+        self.dL = 1e-5
 
         # make the FDFD matrices (random for now)
         Dxf = make_sparse(N, 0)
@@ -43,8 +43,9 @@ class TestGrads(unittest.TestCase):
                          'omega': self.omega}
 
         # source
-        self.source_amp = 1
-        self.b = self.source_amp * np.ones((N,))
+        self.source_amp = 1e-5
+        self.b = self.source_amp * np.zeros((self.Nx, self.Ny))
+        self.b[self.Nx//2, self.Ny//2] = self.source_amp
 
         # starting relative permittivity
         self.eps_r   = np.random.random((self.Nx, self.Ny)) + 1
@@ -57,7 +58,7 @@ class TestGrads(unittest.TestCase):
         def J_direct(eps_r):
 
             # get the fields
-            Hz = solve_Hz(self.matrices, eps_r, self.b)
+            Hz = solve_Hz(self.matrices, eps_r, npa.real(eps_r))
             Ex, Ey = H_to_E(Hz, self.matrices, eps_r)
 
             # some objective function of Hz, Ex, Ey.
@@ -130,10 +131,10 @@ class TestGrads(unittest.TestCase):
         print('\ttesting Ez in FDFD')
 
         # a function using the fdfd object
-        f = fdfd_ez(self.omega, self.dL, self.eps_r, self.b, [3, 4])
+        f = fdfd_ez(self.omega, self.dL, self.eps_r, self.b, [0, 0])
 
         def J_fdfd(eps_arr):
-            f.source = 1j * self.source_amp * eps_arr
+            #f.source = 1j * self.source_amp * eps_arr
             f.eps_r = eps_arr.reshape((self.Nx, self.Ny))
             Hx, Hy, Ez = f.solve()
             return npa.sum(npa.square(npa.abs(Ez))) \
@@ -141,6 +142,7 @@ class TestGrads(unittest.TestCase):
                  + npa.sum(npa.square(npa.abs(Hy)))
 
         grad_autograd = grad(J_fdfd)(self.eps_arr)
+        print('done with autograd')
         grad_numerical = grad_num(J_fdfd, self.eps_arr, step_size=DEPS)
 
         if VERBOSE:
