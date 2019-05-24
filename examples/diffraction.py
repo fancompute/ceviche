@@ -3,23 +3,23 @@ import matplotlib.pylab as plt
 
 from autograd import grad
 
-from ceviche.fdfd import fdfd_hz as fdfd_hz
+from ceviche.fdfd import fdfd_ez as fdfd_hz
 from ceviche.constants import C_0
 
 # some parameters
-wavelengths = [450e-9, 450e-9]#, 550e-9]#, 650e-9]
-angles = [0, 450e-9]#, 0]#, 30, 30]
+wavelengths = [10e-9]#, 10e-9]#, 550e-9]#, 650e-9]
+angles = [0]#, 10e-9]#, 0]#, 30, 30]
 
 omegas = [2 * np.pi * C_0 / wavelength for wavelength in wavelengths]
 
 H = 3e-6  # height of slab
-L = 3e-6  # width of slab
+L = 5e-6  # width of slab
 
 spc = 3e-6   # space between source and PML, source and structure
-dL = 5e-8
+dL = 1e-7
 
 npml = 10       # number of PML grids
-mat_index = 15   # material index
+mat_index = 5   # material index
 
 # setup arrays
 Nx = int(L / dL)
@@ -30,7 +30,7 @@ slab_region = np.zeros((Nx, Ny))
 slab_region[:, npml + int(spc / dL):npml + int(spc / dL) + int(H / dL)] = 1
 
 eps_r = np.ones((Nx, Ny))
-eps_r[slab_region == 1] = mat_index**2
+# eps_r[slab_region == 1] = mat_index**2
 
 source = np.zeros((Nx, Ny))
 source[:, npml + int(spc / 2 / dL)] = 1
@@ -78,12 +78,12 @@ probes = [probe1, probe2]
 fdfds = []
 for angle, wavelength in zip(angles, wavelengths):
     omega = 2 * np.pi * C_0 / wavelength
-    f_new = fdfd_hz(omega, dL, eps_r, source, npml=[npml, npml])
+    f_new = fdfd_hz(omega, dL, eps_r, source, npml=[0, npml])
     fdfds.append(f_new)
 
 def plot_field(fdfd):
     Ex, Ey, Hz = fdfd.solve()
-    plt.imshow(np.real(Hz._value))
+    plt.imshow(np.abs(Hz._value))
     plt.show()
 
 def objective(eps_r):
@@ -102,8 +102,8 @@ def objective(eps_r):
 grad_J = grad(objective)
 
 # optimization loop
-NIter = 1000
-step_size = 1e17
+NIter = 100
+step_size = 1e5
 for i in range(NIter):
     J = objective(eps_r)
     print('on iter {} / {}, objective = {}'.format(i, NIter, J))    

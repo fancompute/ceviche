@@ -24,12 +24,12 @@ class TestGrads(unittest.TestCase):
     def setUp(self):
 
         print('setting up...')
-        self.Nx = 11
-        self.Ny = 1
+        self.Nx = 15
+        self.Ny = 15
         N = self.Nx * self.Ny
 
         self.omega = 2*np.pi*200e12
-        self.dL = 1e-5
+        self.dL = 1e-6
 
         # make the FDFD matrices (random for now)
         Dxf = make_sparse(N, 0)
@@ -48,7 +48,7 @@ class TestGrads(unittest.TestCase):
         self.b[self.Nx//2, self.Ny//2] = self.source_amp
 
         # starting relative permittivity
-        self.eps_r   = np.random.random((self.Nx, self.Ny)) + 1
+        self.eps_r   = np.ones((self.Nx, self.Ny))#np.random.random((self.Nx, self.Ny)) + 1
         self.eps_arr = self.eps_r.flatten()
 
     def test_Hz_direct(self):

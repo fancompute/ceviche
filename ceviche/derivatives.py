@@ -69,7 +69,7 @@ def dL(N, x_range, y_range=None):
     return L/N
 
 # def sig_w(l, dw, m=4, lnR=-12):
-def sig_w(l, dw, m=3, lnR=-12e6):
+def sig_w(l, dw, m=3, lnR=-12e4):
     # helper for S()
 
     sig_max = -(m+1)*lnR/(2*ETA_0*dw)
