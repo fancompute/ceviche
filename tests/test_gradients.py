@@ -34,15 +34,12 @@ class TestGrads(unittest.TestCase):
         self.Ny = 30
         self.omega = 2*np.pi*200e12
         self.dL = 1e-6
-        self.pml = [0, 0]
+        self.pml = [5, 5]
 
         self.source_mask = np.ones((self.Nx, self.Ny))
-        self.source_mask[5, 5] = 0   # comment this out and look at the result
-        self.source_mask = np.random.random((self.Nx, self.Ny))
+        self.source_mask[5, 5] = 1   # comment this out and look at the result
 
-        # print(self.source_mask)
-
-        # sources (chosen to be around 1)
+        # sources (chosen to have objectives around 1)
         self.source_amp_ez = 1e-8
         self.source_amp_hz = 1e-8
 
@@ -70,7 +67,7 @@ class TestGrads(unittest.TestCase):
         self.assertLessEqual(norm_ratio, ALLOWED_RATIO)
         print('')
 
-    def t1est_Hz(self):
+    def test_Hz(self):
         print('\ttesting Hz in FDFD')
 
         f = fdfd_hz(self.omega, self.dL, self.eps_r, self.source_hz, self.pml)
@@ -79,8 +76,11 @@ class TestGrads(unittest.TestCase):
 
             eps_r = eps_arr.reshape((self.Nx, self.Ny))
 
+            # set the permittivity
             f.eps_r = eps_r
-            f.source = self.source_hz * eps_r
+
+            # set the source amplitude to the permittivity at that point
+            f.source = eps_r * self.source_hz
 
             Ex, Ey, Hz = f.solve()
 
@@ -102,16 +102,19 @@ class TestGrads(unittest.TestCase):
 
         print('\ttesting Ez in FDFD')
 
-        f = fdfd_ez(self.omega, self.dL, self.eps_r, self.source_hz, self.pml)
+        f = fdfd_ez(self.omega, self.dL, self.eps_r, self.source_ez, self.pml)
 
         def J_fdfd(eps_arr):
 
             eps_r = eps_arr.reshape((self.Nx, self.Ny))
 
+            # set the permittivity
             f.eps_r = eps_r
-            f.source = self.source_amp_ez * self.source_mask * eps_r
 
-            Hx, Hy, Ez = f.solve(eps_arr)
+            # set the source amplitude to the permittivity at that point
+            f.source = eps_r * self.source_ez
+
+            Hx, Hy, Ez = f.solve()
 
             return npa.sum(npa.square(npa.abs(Ez))) \
                  + npa.sum(npa.square(npa.abs(Hx))) \
@@ -121,7 +124,7 @@ class TestGrads(unittest.TestCase):
         grad_numerical = grad_num(J_fdfd, self.eps_arr, step_size=DEPS)
 
         if VERBOSE:
-            print('\tobjective function value: ', J_fdfd(self.eps_arr))
+            print('\tobjective function value: ', J_fdfd(self.eps_arr2))
             print('\tgrad (auto):  \n\t\t', grad_autograd)
             print('\tgrad (num):   \n\t\t', grad_numerical)
 

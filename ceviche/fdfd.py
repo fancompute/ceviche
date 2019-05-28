@@ -103,7 +103,7 @@ class fdfd_ez(fdfd):
         super().__init__(omega, L0, eps_r, source, npml)
         # self.A = make_A_Ez(self.matrices, self.eps_arr)
 
-    def solve(self, source):
+    def solve(self):
         """ Solves the electromagnetic fields of the system """
 
         Ez_arr = solve_Ez(self.matrices, self.eps_arr, self.source_arr)
