@@ -37,7 +37,7 @@ class TestGrads(unittest.TestCase):
         self.pml = [5, 5]
 
         self.source_mask = np.ones((self.Nx, self.Ny))
-        self.source_mask[5, 5] = 1   # comment this out and look at the result
+        self.source_mask[5, 5] = 1
 
         # sources (chosen to have objectives around 1)
         self.source_amp_ez = 1e-8
@@ -68,6 +68,7 @@ class TestGrads(unittest.TestCase):
         print('')
 
     def test_Hz(self):
+
         print('\ttesting Hz in FDFD')
 
         f = fdfd_hz(self.omega, self.dL, self.eps_r, self.source_hz, self.pml)
