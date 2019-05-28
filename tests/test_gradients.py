@@ -30,8 +30,8 @@ class TestGrads(unittest.TestCase):
     def setUp(self):
 
         # basic simulation parameters
-        self.Nx = 20
-        self.Ny = 20
+        self.Nx = 10
+        self.Ny = 10
         self.omega = 2*np.pi*200e12
         self.dL = 1e-6
         self.pml = [5, 5]
@@ -67,14 +67,17 @@ class TestGrads(unittest.TestCase):
     def test_Hz(self):
         print('\ttesting Hz in FDFD')
 
-        # a function using the fdfd object
         f = fdfd_hz(self.omega, self.dL, self.eps_r, self.source_hz, self.pml)
 
         def J_fdfd(eps_arr):
 
-            # f.source = eps_arr
-            f.eps_r = eps_arr.reshape((self.Nx, self.Ny))
+            eps_r = eps_arr.reshape((self.Nx, self.Ny))
+
+            f.eps_r = eps_r
+            f.source = self.source_hz * eps_r
+
             Ex, Ey, Hz = f.solve()
+
             return npa.sum(npa.square(npa.abs(Hz))) \
                  + npa.sum(npa.square(npa.abs(Ex))) \
                  + npa.sum(npa.square(npa.abs(Ey)))
@@ -93,13 +96,17 @@ class TestGrads(unittest.TestCase):
 
         print('\ttesting Ez in FDFD')
 
-        # a function using the fdfd object
-        f = fdfd_ez(self.omega, self.dL, self.eps_r, self.source_ez, self.pml)
+        f = fdfd_ez(self.omega, self.dL, self.eps_r, self.source_hz, self.pml)
 
         def J_fdfd(eps_arr):
 
-            f.eps_r = eps_arr.reshape((self.Nx, self.Ny))
-            Hx, Hy, Ez = f.solve()
+            eps_r = eps_arr.reshape((self.Nx, self.Ny))
+
+            f.eps_r = eps_r
+            f.source = self.source_ez * eps_r
+
+            Hx, Hy, Ez = f.solve(eps_arr)
+
             return npa.sum(npa.square(npa.abs(Ez))) \
                  + npa.sum(npa.square(npa.abs(Hx))) \
                  + npa.sum(npa.square(npa.abs(Hy)))
@@ -113,6 +120,7 @@ class TestGrads(unittest.TestCase):
             print('\tgrad (num):   \n\t\t', grad_numerical)
 
         self.check_gradient_error(grad_autograd, grad_numerical)
+
 
 if __name__ == '__main__':
     unittest.main()

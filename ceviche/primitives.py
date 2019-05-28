@@ -125,7 +125,7 @@ def solve_Ez(matrices, eps_arr, source):
     return Ez
 
 # define the gradient of solve_Ez w.r.t. eps_arr (in Hz)
-def vjp_maker_solve_Ez(Ez, matrices, eps_arr, b):
+def vjp_maker_solve_Ez(Ez, matrices, eps_arr, source):
     """ Returns a function of the error signal (v) that computes the vector-jacobian product.
           takes in the output of solve_Ez (Hz) and solve_Ez's other arguments. 
     """
@@ -145,13 +145,14 @@ def vjp_maker_solve_Ez(Ez, matrices, eps_arr, b):
     # return this function for autograd to link-later
     return vjp
 
-def vjp_maker_solve_Ez_source(Ez, matrices, eps_arr, b):
-    """ Gives vjp for solve_Hz with respect to source """    
+def vjp_maker_solve_Ez_source(Ez, matrices, eps_arr, source):
+    """ Gives vjp for solve_Ez with respect to source """    
 
     A = make_A_Ez(matrices, eps_arr)
 
     def vjp(v):
         return 1j * matrices['omega'] * spl.spsolve(A.T, v)
+
     return vjp
 
 @primitive
@@ -165,7 +166,7 @@ def solve_Hz(matrices, eps_arr, source):
     return Hz
 
 # define the gradient of solve_Hz w.r.t. eps_arr (in Hz)
-def vjp_maker_solve_Hz(Hz, matrices, eps_arr, b):
+def vjp_maker_solve_Hz(Hz, matrices, eps_arr, source):
     """ Returns a function of the error signal (v) that computes the vector-jacobian product.
           takes in the output of solve_Hz (Hz) and solve_Hz's other arguments. 
     """
@@ -196,13 +197,14 @@ def vjp_maker_solve_Hz_source(Hz, matrices, eps_arr, b):
 
     def vjp(v):
         return 1j * matrices['omega'] * spl.spsolve(A.T, v)
+
     return vjp
 
 """=================== LINKING PRIMITIVIES TO DERIVATIVES =================="""
 
 def link_vjps():
     """ This links the vjp_maker functions to their primitives """
-    defvjp(solve_Ez, None, vjp_maker_solve_Ez, vjp_maker_solve_Ez_source)   # to do, primitive w.r.t b (3rd arg)
+    defvjp(solve_Ez, None, vjp_maker_solve_Ez, vjp_maker_solve_Ez_source)
     defvjp(Ez_to_Hx, vjp_maker_Ez_to_Hx, vjp_maker_Ez_to_Hx, None)
     defvjp(Ez_to_Hy, vjp_maker_Ez_to_Hy, vjp_maker_Ez_to_Hy, None)
     defvjp(solve_Hz, None, vjp_maker_solve_Hz, vjp_maker_solve_Hz_source)
