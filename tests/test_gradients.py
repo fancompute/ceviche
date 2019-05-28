@@ -34,7 +34,7 @@ class TestGrads(unittest.TestCase):
         self.Ny = 10
         self.omega = 2*np.pi*200e12
         self.dL = 1e-6
-        self.pml = [5, 5]
+        self.pml = [0, 0]
 
         # sources (chosen to be around 1)
         self.source_amp_ez = 1e-8
