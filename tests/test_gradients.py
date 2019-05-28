@@ -30,11 +30,17 @@ class TestGrads(unittest.TestCase):
     def setUp(self):
 
         # basic simulation parameters
-        self.Nx = 10
-        self.Ny = 10
+        self.Nx = 30
+        self.Ny = 30
         self.omega = 2*np.pi*200e12
         self.dL = 1e-6
         self.pml = [0, 0]
+
+        self.source_mask = np.ones((self.Nx, self.Ny))
+        self.source_mask[5, 5] = 0   # comment this out and look at the result
+        self.source_mask = np.random.random((self.Nx, self.Ny))
+
+        # print(self.source_mask)
 
         # sources (chosen to be around 1)
         self.source_amp_ez = 1e-8
@@ -64,7 +70,7 @@ class TestGrads(unittest.TestCase):
         self.assertLessEqual(norm_ratio, ALLOWED_RATIO)
         print('')
 
-    def test_Hz(self):
+    def t1est_Hz(self):
         print('\ttesting Hz in FDFD')
 
         f = fdfd_hz(self.omega, self.dL, self.eps_r, self.source_hz, self.pml)
@@ -103,7 +109,7 @@ class TestGrads(unittest.TestCase):
             eps_r = eps_arr.reshape((self.Nx, self.Ny))
 
             f.eps_r = eps_r
-            f.source = self.source_ez * eps_r
+            f.source = self.source_amp_ez * self.source_mask * eps_r
 
             Hx, Hy, Ez = f.solve(eps_arr)
 
