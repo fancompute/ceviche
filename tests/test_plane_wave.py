@@ -10,9 +10,14 @@ class TestFields(unittest.TestCase):
     """ Tests the field patterns """
 
     def setUp(self):
+
+        # wavelength should be 1.5 um
         wavelength = 1.5e-6
-        self.omega = 2 * np.pi * C_0 / wavelength#200e12
-        self.dL = 2e3                  # 1 micron
+        self.omega = 2 * np.pi * C_0 / wavelength  # corresponding angular frequency
+        self.dL = 1e-5  # this dL is ~10x bigger than wavelength!
+        # but I still see a plane with with 20 cells per period.
+        # what gives?
+
         self.Nx, self.Ny = 131, 131    # grid size
         self.eps_r = np.ones((self.Nx, self.Ny))
         # self.eps_r[40:60, 40:60] = 10
