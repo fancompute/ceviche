@@ -3,10 +3,10 @@ import scipy.sparse as sp
 
 from ceviche.constants import *
 
-def compute_derivatives(omega, L0, shape, npml, x_range, y_range, N):
+def compute_derivatives(omega, shape, npml, x_range, y_range, N):
 
     # make the S-matrices for PML
-    (Sxf, Sxb, Syf, Syb) = S_create(omega, L0, shape, npml, x_range, y_range)
+    (Sxf, Sxb, Syf, Syb) = S_create(omega, shape, npml, x_range, y_range)
 
     # Construct derivate matrices without PML
     Dxf_0 = createDws('x', 'f', dL(N, x_range, y_range), shape)
@@ -76,13 +76,13 @@ def sig_w(l, dw, m=3, lnR=-12e4):
     return sig_max*(l/dw)**m
 
 
-def S(l, dw, omega, L0):
+def S(l, dw, omega):
     # helper for create_sfactor()
 
-    return 1 - 1j*sig_w(l, dw)/(omega*EPSILON_0*L0)
+    return 1 - 1j*sig_w(l, dw)/(omega*EPSILON_0)
 
 
-def create_sfactor(wrange, L0, s, omega, Nw, Nw_pml):
+def create_sfactor(wrange, s, omega, Nw, Nw_pml):
     # used to help construct the S matrices for the PML creation
 
     sfactor_array = np.ones(Nw, dtype=np.complex128)
@@ -93,18 +93,18 @@ def create_sfactor(wrange, L0, s, omega, Nw, Nw_pml):
     for i in range(0, Nw):
         if s is 'f':
             if i <= Nw_pml:
-                sfactor_array[i] = S(hw * (Nw_pml - i + 0.5), dw, omega, L0)
+                sfactor_array[i] = S(hw * (Nw_pml - i + 0.5), dw, omega)
             elif i > Nw - Nw_pml:
-                sfactor_array[i] = S(hw * (i - (Nw - Nw_pml) - 0.5), dw, omega, L0)
+                sfactor_array[i] = S(hw * (i - (Nw - Nw_pml) - 0.5), dw, omega)
         if s is 'b':
             if i <= Nw_pml:
-                sfactor_array[i] = S(hw * (Nw_pml - i + 1), dw, omega, L0)
+                sfactor_array[i] = S(hw * (Nw_pml - i + 1), dw, omega)
             elif i > Nw - Nw_pml:
-                sfactor_array[i] = S(hw * (i - (Nw - Nw_pml) - 1), dw, omega, L0)
+                sfactor_array[i] = S(hw * (i - (Nw - Nw_pml) - 1), dw, omega)
     return sfactor_array
 
 
-def S_create(omega, L0, N, Npml, x_range, y_range=None):
+def S_create(omega, N, Npml, x_range, y_range=None):
     # creates S matrices for the PML creation
 
     M = np.prod(N)
@@ -119,10 +119,10 @@ def S_create(omega, L0, N, Npml, x_range, y_range=None):
     Ny_pml = Npml[1]
 
     # Create the sfactor in each direction and for 'f' and 'b'
-    s_vector_x_f = create_sfactor(x_range, L0, 'f', omega, Nx, Nx_pml)
-    s_vector_x_b = create_sfactor(x_range, L0, 'b', omega, Nx, Nx_pml)
-    s_vector_y_f = create_sfactor(y_range, L0, 'f', omega, Ny, Ny_pml)
-    s_vector_y_b = create_sfactor(y_range, L0, 'b', omega, Ny, Ny_pml)
+    s_vector_x_f = create_sfactor(x_range, 'f', omega, Nx, Nx_pml)
+    s_vector_x_b = create_sfactor(x_range, 'b', omega, Nx, Nx_pml)
+    s_vector_y_f = create_sfactor(y_range, 'f', omega, Ny, Ny_pml)
+    s_vector_y_b = create_sfactor(y_range, 'b', omega, Ny, Ny_pml)
 
     # Fill the 2D space with layers of appropriate s-factors
     Sx_f_2D = np.zeros(N, dtype=np.complex128)
