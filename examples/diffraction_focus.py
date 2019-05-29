@@ -7,7 +7,7 @@ from ceviche.fdfd import fdfd_hz as fdfd_hz
 from ceviche.constants import C_0
 
 # some parameters
-wavelengths = [10e-9, 15e-9]#, 650e-9]
+wavelengths = [5e-9, 4.5e-9]#, 650e-9]
 
 H = 2e-6  # height of slab
 L = 2e-6  # width of slab
@@ -16,7 +16,7 @@ spc = 1e-6   # space between source and PML, source and structure
 dL = 0.2e-7
 
 npml = 20       # number of PML grids
-eps_max = 5   # material index
+eps_max = 15   # material index
 
 # setup arrays
 Nx = int(L / dL)
@@ -49,8 +49,8 @@ fdfd2 = fdfd_hz(omega2, dL, eps_r, source, npml=[0, npml])
 Ex, Ey, Hz = fdfd2.solve()
 P2 = np.sum(np.abs(Hz) * probe2)
 
-plt.imshow((probe1 + probe2 + source + slab_region).T)
-plt.show()
+# plt.imshow((probe1 + probe2 + source + slab_region).T)
+# plt.show()
 
 def plot_field(fdfd):
     Ex, Ey, Hz = fdfd.solve()
@@ -96,5 +96,3 @@ minimize(objective, eps_r, args=(), method='L-BFGS-B', jac=grad_J,
 
 plot_field_ag(fdfd1)
 plot_field_ag(fdfd2)
-
-
