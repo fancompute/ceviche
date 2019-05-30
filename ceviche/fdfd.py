@@ -27,7 +27,7 @@ class fdfd():
     def setup_derivatives(self):
 
         # Creates all of the operators needed for later
-        self.Dxf, self.Dxb, self.Dyf, self.Dyb = compute_derivatives(self.omega, self.shape, self.npml, self.x_range, self.y_range, self.dL)
+        self.Dxf, self.Dxb, self.Dyf, self.Dyb = compute_derivatives(self.omega, self.shape, self.npml, self.dL)
 
         # save to a dictionary for convenience passing to primitives
         self.matrices['Dxf'] = self.Dxf
@@ -46,11 +46,7 @@ class fdfd():
         self.__eps_r = new_eps
         self.eps_arr = self.__eps_r.flatten()
         self.N = self.eps_arr.size
-        self.shape = self.__eps_r.shape
-        self.Nx = self.shape[0]
-        self.Ny = self.shape[1]
-        self.x_range = [0.0, float(self.Nx * self.dL)]
-        self.y_range = [0.0, float(self.Ny * self.dL)]
+        self.shape = self.Nx, self.Ny = self.__eps_r.shape
 
     @property
     def source(self):
