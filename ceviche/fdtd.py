@@ -3,8 +3,8 @@ import autograd.numpy as npa
 # import numpy as np
 from copy import copy, deepcopy
 from ceviche.constants import *
-from ceviche.derivatives import curl_E_numpy, curl_E_loop, curl_E_old
-from ceviche.derivatives import curl_H_numpy, curl_H_loop, curl_H_old
+from ceviche.derivs_fdtd import curl_E_numpy, curl_E_loop, curl_E_old
+from ceviche.derivs_fdtd import curl_H_numpy, curl_H_loop, curl_H_old
 
 class FDTD():
 
@@ -217,13 +217,13 @@ class FDTD():
 
     def _set_time_step(self, stability_factor=0.5):
         """ Set the time step based on the generalized Courant stability condition
-                Delta T < 1 / c0 / sqrt(1 / dx^2 + 1/dy^2 + 1/dz^2)
+                Delta T < 1 / C_0 / sqrt(1 / dx^2 + 1/dy^2 + 1/dz^2)
                 dt = courant_condition * stability_factor, so stability factor should be < 1
         """
 
         dL_sum = sum([1 / dl ** 2 for dl in self.dL])
         dL_avg = 1 / npa.sqrt(dL_sum)
-        courant_stability = dL_avg / c0
+        courant_stability = dL_avg / C_0
         self.dt = courant_stability * stability_factor
 
     @staticmethod
@@ -302,22 +302,22 @@ class FDTD():
         for nx in range(2 * self.NPML[0]):
             nx1 = 2 * self.NPML[0] - nx + 1
             nx2 = 2 * self.Nx - 2 * self.NPML[0] + nx            
-            sigx2[nx1, :, :, :] = (0.5 * e0 / self.dt) * (nx / 2 / self.NPML[0])**3
-            sigx2[nx2, :, :, :] = (0.5 * e0 / self.dt) * (nx / 2 / self.NPML[0])**3
+            sigx2[nx1, :, :, :] = (0.5 * EPSILON_0 / self.dt) * (nx / 2 / self.NPML[0])**3
+            sigx2[nx2, :, :, :] = (0.5 * EPSILON_0 / self.dt) * (nx / 2 / self.NPML[0])**3
 
         # sigma arrays in the Y direction
         for ny in range(2 * self.NPML[1]):
             ny1 = 2 * self.NPML[1] - ny + 1
             ny2 = 2 * self.Ny - 2 * self.NPML[1] + ny
-            sigy2[:, ny1, :, :] = (0.5 * e0 / self.dt) * (ny / 2 / self.NPML[1])**3
-            sigy2[:, ny2, :, :] = (0.5 * e0 / self.dt) * (ny / 2 / self.NPML[1])**3
+            sigy2[:, ny1, :, :] = (0.5 * EPSILON_0 / self.dt) * (ny / 2 / self.NPML[1])**3
+            sigy2[:, ny2, :, :] = (0.5 * EPSILON_0 / self.dt) * (ny / 2 / self.NPML[1])**3
 
         # sigma arrays in the Z direction
         for nz in range(2 * self.NPML[2]):
             nz1 = 2 * self.NPML[2] - nz + 1
             nz2 = 2 * self.Nz - 2 * self.NPML[2] + nz
-            sigz2[:, :, nz1, :] = (0.5 * e0 / self.dt) * (nz / 2 / self.NPML[2])**3
-            sigz2[:, :, nz2, :] = (0.5 * e0 / self.dt) * (nz / 2 / self.NPML[2])**3            
+            sigz2[:, :, nz1, :] = (0.5 * EPSILON_0 / self.dt) * (nz / 2 / self.NPML[2])**3
+            sigz2[:, :, nz2, :] = (0.5 * EPSILON_0 / self.dt) * (nz / 2 / self.NPML[2])**3            
 
         # # PML tensors for H field
         self.sigHx = sigx2[1::2,  ::2,  ::2]
@@ -336,46 +336,46 @@ class FDTD():
         """
 
         # H field update coefficients
-        self.mHx0 = (1 / self.dt + (self.sigHy + self.sigHz) / 2 / e0 + self.sigHy * self.sigHz * self.dt / 4 / e0**2)
-        self.mHy0 = (1 / self.dt + (self.sigHx + self.sigHz) / 2 / e0 + self.sigHx * self.sigHz * self.dt / 4 / e0**2)
-        self.mHz0 = (1 / self.dt + (self.sigHx + self.sigHy) / 2 / e0 + self.sigHx * self.sigHy * self.dt / 4 / e0**2)
+        self.mHx0 = (1 / self.dt + (self.sigHy + self.sigHz) / 2 / EPSILON_0 + self.sigHy * self.sigHz * self.dt / 4 / EPSILON_0**2)
+        self.mHy0 = (1 / self.dt + (self.sigHx + self.sigHz) / 2 / EPSILON_0 + self.sigHx * self.sigHz * self.dt / 4 / EPSILON_0**2)
+        self.mHz0 = (1 / self.dt + (self.sigHx + self.sigHy) / 2 / EPSILON_0 + self.sigHx * self.sigHy * self.dt / 4 / EPSILON_0**2)
 
-        self.mHx1 = (1 / self.mHx0 * (1/self.dt - (self.sigHy + self.sigHz) / 2 / e0 - self.sigHy * self.sigHz * self.dt / 4 / e0**2))
-        self.mHy1 = (1 / self.mHy0 * (1/self.dt - (self.sigHx + self.sigHz) / 2 / e0 - self.sigHx * self.sigHz * self.dt / 4 / e0**2))
-        self.mHz1 = (1 / self.mHz0 * (1/self.dt - (self.sigHx + self.sigHy) / 2 / e0 - self.sigHx * self.sigHy * self.dt / 4 / e0**2))
+        self.mHx1 = (1 / self.mHx0 * (1/self.dt - (self.sigHy + self.sigHz) / 2 / EPSILON_0 - self.sigHy * self.sigHz * self.dt / 4 / EPSILON_0**2))
+        self.mHy1 = (1 / self.mHy0 * (1/self.dt - (self.sigHx + self.sigHz) / 2 / EPSILON_0 - self.sigHx * self.sigHz * self.dt / 4 / EPSILON_0**2))
+        self.mHz1 = (1 / self.mHz0 * (1/self.dt - (self.sigHx + self.sigHy) / 2 / EPSILON_0 - self.sigHx * self.sigHy * self.dt / 4 / EPSILON_0**2))
 
-        self.mHx2 = (-1 / self.mHx0 * c0 / mu_r)
-        self.mHy2 = (-1 / self.mHy0 * c0 / mu_r)
-        self.mHz2 = (-1 / self.mHz0 * c0 / mu_r)
+        self.mHx2 = (-1 / self.mHx0 * C_0 / mu_r)
+        self.mHy2 = (-1 / self.mHy0 * C_0 / mu_r)
+        self.mHz2 = (-1 / self.mHz0 * C_0 / mu_r)
 
-        self.mHx3 = (-1 / self.mHx0 * c0 * self.dt * self.sigHx / e0 / mu_r)
-        self.mHy3 = (-1 / self.mHy0 * c0 * self.dt * self.sigHy / e0 / mu_r)
-        self.mHz3 = (-1 / self.mHz0 * c0 * self.dt * self.sigHz / e0 / mu_r)
+        self.mHx3 = (-1 / self.mHx0 * C_0 * self.dt * self.sigHx / EPSILON_0 / mu_r)
+        self.mHy3 = (-1 / self.mHy0 * C_0 * self.dt * self.sigHy / EPSILON_0 / mu_r)
+        self.mHz3 = (-1 / self.mHz0 * C_0 * self.dt * self.sigHz / EPSILON_0 / mu_r)
 
-        self.mHx4 = (-1 / self.mHx0 * self.dt * self.sigHy * self.sigHz / e0**2)
-        self.mHy4 = (-1 / self.mHy0 * self.dt * self.sigHx * self.sigHz / e0**2)
-        self.mHz4 = (-1 / self.mHz0 * self.dt * self.sigHx * self.sigHy / e0**2)
+        self.mHx4 = (-1 / self.mHx0 * self.dt * self.sigHy * self.sigHz / EPSILON_0**2)
+        self.mHy4 = (-1 / self.mHy0 * self.dt * self.sigHx * self.sigHz / EPSILON_0**2)
+        self.mHz4 = (-1 / self.mHz0 * self.dt * self.sigHx * self.sigHy / EPSILON_0**2)
 
         # D field update coefficients
-        self.mDx0 = (1 / self.dt + (self.sigDy + self.sigDz) / 2 / e0 + self.sigDy * self.sigDz * self.dt / 4 / e0**2)
-        self.mDy0 = (1 / self.dt + (self.sigDx + self.sigDz) / 2 / e0 + self.sigDx * self.sigDz * self.dt / 4 / e0**2)
-        self.mDz0 = (1 / self.dt + (self.sigDx + self.sigDy) / 2 / e0 + self.sigDx * self.sigDy * self.dt / 4 / e0**2)
+        self.mDx0 = (1 / self.dt + (self.sigDy + self.sigDz) / 2 / EPSILON_0 + self.sigDy * self.sigDz * self.dt / 4 / EPSILON_0**2)
+        self.mDy0 = (1 / self.dt + (self.sigDx + self.sigDz) / 2 / EPSILON_0 + self.sigDx * self.sigDz * self.dt / 4 / EPSILON_0**2)
+        self.mDz0 = (1 / self.dt + (self.sigDx + self.sigDy) / 2 / EPSILON_0 + self.sigDx * self.sigDy * self.dt / 4 / EPSILON_0**2)
 
-        self.mDx1 = (1 / self.mDx0 * (1/self.dt - (self.sigDy + self.sigDz) / 2 / e0 - self.sigDy * self.sigDz * self.dt / 4 / e0**2))
-        self.mDy1 = (1 / self.mDy0 * (1/self.dt - (self.sigDx + self.sigDz) / 2 / e0 - self.sigDx * self.sigDz * self.dt / 4 / e0**2))
-        self.mDz1 = (1 / self.mDz0 * (1/self.dt - (self.sigDx + self.sigDy) / 2 / e0 - self.sigDx * self.sigDy * self.dt / 4 / e0**2))
+        self.mDx1 = (1 / self.mDx0 * (1/self.dt - (self.sigDy + self.sigDz) / 2 / EPSILON_0 - self.sigDy * self.sigDz * self.dt / 4 / EPSILON_0**2))
+        self.mDy1 = (1 / self.mDy0 * (1/self.dt - (self.sigDx + self.sigDz) / 2 / EPSILON_0 - self.sigDx * self.sigDz * self.dt / 4 / EPSILON_0**2))
+        self.mDz1 = (1 / self.mDz0 * (1/self.dt - (self.sigDx + self.sigDy) / 2 / EPSILON_0 - self.sigDx * self.sigDy * self.dt / 4 / EPSILON_0**2))
 
-        self.mDx2 = (1 / self.mDx0 * c0)
-        self.mDy2 = (1 / self.mDy0 * c0)
-        self.mDz2 = (1 / self.mDz0 * c0)
+        self.mDx2 = (1 / self.mDx0 * C_0)
+        self.mDy2 = (1 / self.mDy0 * C_0)
+        self.mDz2 = (1 / self.mDz0 * C_0)
 
-        self.mDx3 = (1 / self.mDx0 * c0 * self.dt * self.sigDx / e0)
-        self.mDy3 = (1 / self.mDy0 * c0 * self.dt * self.sigDy / e0)
-        self.mDz3 = (1 / self.mDz0 * c0 * self.dt * self.sigDz / e0)
+        self.mDx3 = (1 / self.mDx0 * C_0 * self.dt * self.sigDx / EPSILON_0)
+        self.mDy3 = (1 / self.mDy0 * C_0 * self.dt * self.sigDy / EPSILON_0)
+        self.mDz3 = (1 / self.mDz0 * C_0 * self.dt * self.sigDz / EPSILON_0)
 
-        self.mDx4 = (-1 / self.mDx0 * self.dt * self.sigDy * self.sigDz / e0**2)
-        self.mDy4 = (-1 / self.mDy0 * self.dt * self.sigDx * self.sigDz / e0**2)
-        self.mDz4 = (-1 / self.mDz0 * self.dt * self.sigDx * self.sigDy / e0**2)
+        self.mDx4 = (-1 / self.mDx0 * self.dt * self.sigDy * self.sigDz / EPSILON_0**2)
+        self.mDy4 = (-1 / self.mDy0 * self.dt * self.sigDx * self.sigDz / EPSILON_0**2)
+        self.mDz4 = (-1 / self.mDz0 * self.dt * self.sigDx * self.sigDy / EPSILON_0**2)
 
         # D -> E update coefficients
         if self.chi3 is None:
