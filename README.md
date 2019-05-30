@@ -76,7 +76,7 @@ The `ceviche` directory contains everything needed.
 
 To get the FDFD and FDTD tools, import directly `from ceviche import fdtd, fdfd_ez, fdfd_hz`
 
-`constants.py` contains some constants `EPSILON_0`, `C_0`, `ETA_0`, `Q_E`, which are automatically available upon import from ceviche.
+`constants.py` contains some constants `EPSILON_0`, `C_0`, `ETA_0`, `Q_E`, which are needed throughout the package
 
 `utils.py` contains a few useful functions, more to be added later.
 
