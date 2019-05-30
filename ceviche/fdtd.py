@@ -3,12 +3,12 @@ import autograd.numpy as npa
 # import numpy as np
 from copy import copy, deepcopy
 from ceviche.constants import *
-from ceviche.derivs_fdtd import curl_E_numpy, curl_E_loop, curl_E_old
-from ceviche.derivs_fdtd import curl_H_numpy, curl_H_loop, curl_H_old
+from ceviche.derivs_fdtd import curl_E_numpy as curl_E
+from ceviche.derivs_fdtd import curl_H_numpy as curl_H
 
 class FDTD():
 
-    def __init__(self, eps_r, dL, NPML=None, chi3=None, deriv='numpy'):
+    def __init__(self, eps_r, dL, npml):
         """ Makes an FDTD object
                 eps_r: the relative permittivity (array > 1)
                     if eps_r.shape = 3, it holds a single permittivity
@@ -18,95 +18,43 @@ class FDTD():
                 chi3: the 3rd order nonlinear susceptibility (3 dimensional array))                
         """
 
-        # parse and save input arguments
-        self._parse_inputs(eps_r, dL, NPML, chi3, deriv)
-
-        # set time step
+        self.dL = dL
         self._set_time_step()
 
-        # need to create the PML sigma operators
+        self.npml = npml
+        self.Nx, self.Ny, self.Nz = eps_r.shape
         self._compute_sigmas()
 
-        # compute relevant parameters for the update equations
-        self._compute_update_parameters()
-
-        # initialize fields and integration terms
-        self.initialize_fields()
+        self.eps_r = eps_r
 
         # source lists
         self.sources = {'Jx': [], 'Jy': [], 'Jz': []}
 
-
-    def _parse_inputs(self, eps_r, dL, NPML, chi3, deriv):
-        """ Handles the input to the __init__ function """
-
-        # handle eps_r
-        assert len(eps_r.shape) == 4, "eps_r must be 4 dimensional, was given eps_r of shape {}".format(eps_r.shape)
-        assert np.all(eps_r >= 1), "all elements of eps_r must be >= 0"
-        self.eps_r = eps_r
-        self.grid_shape = (self.Nx, self.Ny, self.Nz, self.n_batches) = eps_r.shape
-
-        # snap the eps_r to eps_xx, eps_yy, eps_zz grids
-        self.eps_xx, self.eps_yy, self.eps_zz = self._grid_center_to_xyz(self.eps_r)
-
-        # handle grid spacings
-        if isinstance(dL, list):
-            assert len(dL) == 3, "dL specified as a list must contain 3 non-negative numbers, given dL = {}".format(dL)
-            assert all([n >= 0 for n in dL]), "dL specified as a list must contain 3 non-negative numbers, given dL = {}".format(dL)
-            self.dL = [float(d) for d in dL]
-        elif isinstance(dL, float) or isinstance(dL, int):
-            assert dL > 0, "dL specified as a number must be non-negative, given dL = {}".format(dL)
-            self.dL = 3 * [float(dL)]
-
-        # handle PML
-        if NPML is None:
-            self.NPML = 3 * [0]
-        else:
-            assert isinstance(NPML, list), "NPML must be a list, given NPML = {}".format(NPML)
-            assert len(NPML) == 3, "NPML must contain 3 non-negative integers, given NPML = {}".format(NPML)
-            assert all([isinstance(n, int) for n in NPML]), "NPML must contain 3 non-negative integers, given NPML = ".format(NPML)
-            assert all([n >= 0 for n in NPML]), "NPML must contain 3 non-negative integers, given NPML = ".format(NPML)
-            assert all([2 * n_pml <= N for n_pml, N in zip(NPML, [self.Nx, self.Ny, self.Nz])]), "PML extends beyond spatial region, make PML smaller"
-            self.NPML = NPML
-
-        # handle 3rd order nonlinear susceptibility
-        if chi3 is not None:
-            assert chi3.shape[:3] == self.eps_r.shape[:3], "first 3 elements of chi3 must have same shape as eps_r, given {} and {} respectively".format(chi3.shape, self.eps_r.shape)
-            assert np.all(chi3 >= 0), "all elements of chi3 must >= 0"
-        self.chi3 = chi3
-
-        # choose the curl operator implementation
-        if deriv == 'numpy':
-            self.curl_E = curl_E_numpy
-            self.curl_H = curl_H_numpy
-        elif deriv == 'numba':
-            from numba import njit
-            # jit compile the for loop curls
-            self.curl_E = njit(curl_E_loop)
-            self.curl_H = njit(curl_H_loop)
-            # compile the functions before use
-            self.curl_E(0, np.random.random((2,3,4,5)), np.random.random((2,3,4,5)), np.random.random((2,3,4,5)), 1, 2, 3)
-            self.curl_H(0, np.random.random((2,3,4,5)), np.random.random((2,3,4,5)), np.random.random((2,3,4,5)), 1, 2, 3)
-        elif deriv == 'old':
-            self.curl_E = curl_E_old
-            self.curl_H = curl_H_old
-        elif deriv == 'loop':
-            self.curl_E = curl_E_loop
-            self.curl_H = curl_H_loop
-        else:
-            raise ValueError("'deriv' kwarg must be one of 'numba', 'numpy', 'old', 'loop'")
-
-        self.deriv = deriv
-
     def __repr__(self):
-        return "FDTD(eps_r.shape={}, dL={}, NPML={})".format(self.grid_shape, self.dL, self.NPML)
+        return "FDTD(eps_r.shape={}, dL={}, NPML={})".format(self.grid_shape, self.dL, self.npml)
 
     def __str__(self):
         if self.sources:
             source_str = '[\n\t\t   ' + '\n\t\t   '.join([str(s) for s in self.sources]) + '\n\t]'
         else:
             source_str = '[]'
-        return "FDTD object:\n\tdomain size = {}\n\tdL = {}\n\tNPML = {}\n\tbatches = {}\n\tsources = {}".format(self.grid_shape[:3], self.dL, self.NPML, self.n_batches, source_str)
+        return "FDTD object:\n\tdomain size = {}\n\tdL = {}\n\tNPML = {}\n\tbatches = {}\n\tsources = {}".format(self.grid_shape[:3], self.dL, self.npml, self.n_batches, source_str)
+
+    @property
+    def eps_r(self):
+        """ Returns the relative permittivity grid """
+        return self.__eps_r
+
+    @eps_r.setter
+    def eps_r(self, new_eps):
+        """ Defines some attributes when eps_r is set. """
+        self.__eps_r = new_eps
+        self.eps_xx, self.eps_yy, self.eps_zz = self._grid_center_to_xyz(self.__eps_r)
+        self.eps_arr = self.__eps_r.flatten()
+        self.N = self.eps_arr.size
+        self.grid_shape = self.Nx, self.Ny, self.Nz = self.__eps_r.shape
+        self._compute_update_parameters()
+        self.initialize_fields()
 
     def run(self, steps):
         """ Generator that runs the FDTD forward `steps` time steps """
@@ -121,9 +69,9 @@ class FDTD():
         self.t_index += 1
 
         # get curls of E
-        CEx = self.curl_E(0, self.Ex, self.Ey, self.Ez, self.dL[0], self.dL[1], self.dL[2])
-        CEy = self.curl_E(1, self.Ex, self.Ey, self.Ez, self.dL[0], self.dL[1], self.dL[2])
-        CEz = self.curl_E(2, self.Ex, self.Ey, self.Ez, self.dL[0], self.dL[1], self.dL[2])
+        CEx = curl_E(0, self.Ex, self.Ey, self.Ez, self.dL, self.dL, self.dL)
+        CEy = curl_E(1, self.Ex, self.Ey, self.Ez, self.dL, self.dL, self.dL)
+        CEz = curl_E(2, self.Ex, self.Ey, self.Ez, self.dL, self.dL, self.dL)
 
         # update the curl E integrals
         self.ICEx = self.ICEx + CEx
@@ -146,9 +94,9 @@ class FDTD():
         self.fields['Hz'] = self.Hz
 
         # get curls of H
-        CHx = self.curl_H(0, self.Hx, self.Hy, self.Hz, self.dL[0], self.dL[1], self.dL[2])
-        CHy = self.curl_H(1, self.Hx, self.Hy, self.Hz, self.dL[0], self.dL[1], self.dL[2])
-        CHz = self.curl_H(2, self.Hx, self.Hy, self.Hz, self.dL[0], self.dL[1], self.dL[2])
+        CHx = curl_H(0, self.Hx, self.Hy, self.Hz, self.dL, self.dL, self.dL)
+        CHy = curl_H(1, self.Hx, self.Hy, self.Hz, self.dL, self.dL, self.dL)
+        CHz = curl_H(2, self.Hx, self.Hy, self.Hz, self.dL, self.dL, self.dL)
 
         # update the curl E integrals
         self.ICHx = self.ICHx + CHx
@@ -174,15 +122,9 @@ class FDTD():
         # I = self._compute_intensity(self.Ex, self.Ey, self.Ez)
 
         # update the E fields
-        if self.chi3 is None:
-            self.Ex = self.mEx1 * self.Dx 
-            self.Ey = self.mEy1 * self.Dy
-            self.Ez = self.mEz1 * self.Dz
-        else:
-            E2 = npa.square(self.Ex) + npa.square(self.Ey) + npa.square(self.Ez)
-            self.Ex = self.mEx1(E2) * self.Dx 
-            self.Ey = self.mEy1(E2) * self.Dy
-            self.Ez = self.mEz1(E2) * self.Dz            
+        self.Ex = self.mEx1 * self.Dx 
+        self.Ey = self.mEy1 * self.Dy
+        self.Ez = self.mEz1 * self.Dz           
 
         # add sources to the electric fields
         self._inject_sources()
@@ -221,7 +163,7 @@ class FDTD():
                 dt = courant_condition * stability_factor, so stability factor should be < 1
         """
 
-        dL_sum = sum([1 / dl ** 2 for dl in self.dL])
+        dL_sum = 3 / self.dL ** 2
         dL_avg = 1 / npa.sqrt(dL_sum)
         courant_stability = dL_avg / C_0
         self.dt = courant_stability * stability_factor
@@ -293,31 +235,31 @@ class FDTD():
 
         # initialize sigma matrices on the full 2X grid
 
-        grid_shape_2X = (2 * self.Nx, 2 * self.Ny, 2 * self.Nz, self.n_batches)
+        grid_shape_2X = (2 * self.Nx, 2 * self.Ny, 2 * self.Nz)
         sigx2 = np.zeros(grid_shape_2X)
         sigy2 = np.zeros(grid_shape_2X)
         sigz2 = np.zeros(grid_shape_2X)
 
         # sigma vector in the X direction
-        for nx in range(2 * self.NPML[0]):
-            nx1 = 2 * self.NPML[0] - nx + 1
-            nx2 = 2 * self.Nx - 2 * self.NPML[0] + nx            
-            sigx2[nx1, :, :, :] = (0.5 * EPSILON_0 / self.dt) * (nx / 2 / self.NPML[0])**3
-            sigx2[nx2, :, :, :] = (0.5 * EPSILON_0 / self.dt) * (nx / 2 / self.NPML[0])**3
+        for nx in range(2 * self.npml[0]):
+            nx1 = 2 * self.npml[0] - nx + 1
+            nx2 = 2 * self.Nx - 2 * self.npml[0] + nx            
+            sigx2[nx1, :, :] = (0.5 * EPSILON_0 / self.dt) * (nx / 2 / self.npml[0])**3
+            sigx2[nx2, :, :] = (0.5 * EPSILON_0 / self.dt) * (nx / 2 / self.npml[0])**3
 
         # sigma arrays in the Y direction
-        for ny in range(2 * self.NPML[1]):
-            ny1 = 2 * self.NPML[1] - ny + 1
-            ny2 = 2 * self.Ny - 2 * self.NPML[1] + ny
-            sigy2[:, ny1, :, :] = (0.5 * EPSILON_0 / self.dt) * (ny / 2 / self.NPML[1])**3
-            sigy2[:, ny2, :, :] = (0.5 * EPSILON_0 / self.dt) * (ny / 2 / self.NPML[1])**3
+        for ny in range(2 * self.npml[1]):
+            ny1 = 2 * self.npml[1] - ny + 1
+            ny2 = 2 * self.Ny - 2 * self.npml[1] + ny
+            sigy2[:, ny1, :] = (0.5 * EPSILON_0 / self.dt) * (ny / 2 / self.npml[1])**3
+            sigy2[:, ny2, :] = (0.5 * EPSILON_0 / self.dt) * (ny / 2 / self.npml[1])**3
 
         # sigma arrays in the Z direction
-        for nz in range(2 * self.NPML[2]):
-            nz1 = 2 * self.NPML[2] - nz + 1
-            nz2 = 2 * self.Nz - 2 * self.NPML[2] + nz
-            sigz2[:, :, nz1, :] = (0.5 * EPSILON_0 / self.dt) * (nz / 2 / self.NPML[2])**3
-            sigz2[:, :, nz2, :] = (0.5 * EPSILON_0 / self.dt) * (nz / 2 / self.NPML[2])**3            
+        for nz in range(2 * self.npml[2]):
+            nz1 = 2 * self.npml[2] - nz + 1
+            nz2 = 2 * self.Nz - 2 * self.npml[2] + nz
+            sigz2[:, :, nz1] = (0.5 * EPSILON_0 / self.dt) * (nz / 2 / self.npml[2])**3
+            sigz2[:, :, nz2] = (0.5 * EPSILON_0 / self.dt) * (nz / 2 / self.npml[2])**3            
 
         # # PML tensors for H field
         self.sigHx = sigx2[1::2,  ::2,  ::2]
@@ -378,14 +320,9 @@ class FDTD():
         self.mDz4 = (-1 / self.mDz0 * self.dt * self.sigDx * self.sigDy / EPSILON_0**2)
 
         # D -> E update coefficients
-        if self.chi3 is None:
-            self.mEx1 = (1 / self.eps_xx)
-            self.mEy1 = (1 / self.eps_yy)
-            self.mEz1 = (1 / self.eps_zz)
-        else:
-            self.mEx1 = lambda E2: (1 / (self.eps_xx + 3 * self.chi3 * E2))
-            self.mEy1 = lambda E2: (1 / (self.eps_yy + 3 * self.chi3 * E2))
-            self.mEz1 = lambda E2: (1 / (self.eps_zz + 3 * self.chi3 * E2))
+        self.mEx1 = (1 / self.eps_xx)
+        self.mEy1 = (1 / self.eps_yy)
+        self.mEz1 = (1 / self.eps_zz)
 
     def initialize_fields(self):
         """ Initializes:

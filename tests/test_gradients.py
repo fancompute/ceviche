@@ -9,7 +9,7 @@ import copy
 from autograd.extend import primitive, defvjp
 from autograd import grad
 
-from ceviche.utils import make_sparse, grad_num
+from ceviche.utils import grad_num
 from ceviche.primitives import *
 from ceviche.fdfd import fdfd_hz, fdfd_ez
 
@@ -97,7 +97,7 @@ class TestGrads(unittest.TestCase):
             print('\tgrad (auto):  \n\t\t', grad_autograd)
             print('\tgrad (num):   \n\t\t\n', grad_numerical)
 
-        self.check_gradient_error(grad_autograd, grad_numerical)
+        self.check_gradient_error(grad_numerical, grad_autograd)
 
     def test_Ez(self):
 
@@ -129,7 +129,7 @@ class TestGrads(unittest.TestCase):
             print('\tgrad (auto):  \n\t\t', grad_autograd)
             print('\tgrad (num):   \n\t\t', grad_numerical)
 
-        self.check_gradient_error(grad_autograd, grad_numerical)
+        self.check_gradient_error(grad_numerical, grad_autograd)
 
 
 if __name__ == '__main__':
