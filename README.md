@@ -60,3 +60,22 @@ for _ in range(10):
     eps_current += step_size * dI_deps_fn(eps_current)
 ```
 
+## What isn't ceviche?
+
+`ceviche` is not Lumerical.  `ceviche` is designed with simplicity in mind and is meant to serve as a base package for building your projects from.  However, with some exceptions, it does not provide streamlined interfaces for optimization, source or device creation, or visualization.  If you want that kind of thing, you need to build it around the base functionality of ceviche in your own project.  This decision was made to keep things clean and easy to understand, with a focus on the meaty bits that make this package unique.  For some inspiration, see the `examples` directory.
+
+## Installation
+
+For now, you just need to import ceviche from wherever it is located on your local machine.   A nicer installation will be added later.
+
+## Package Structure
+
+A few examples are given in `examples`.
+
+Tests are located in `tests`.  To run, `cd` into `tests` and
+
+ `python -m unittest` to run all or
+
+ `python specific_test.py` to run a specific one.
+
+Some of these tests involve visual inspection of the field plots rather than error checking on values.
