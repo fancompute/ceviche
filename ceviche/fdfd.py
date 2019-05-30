@@ -27,7 +27,7 @@ class fdfd():
     def setup_derivatives(self):
 
         # Creates all of the operators needed for later
-        self.Dxf, self.Dxb, self.Dyf, self.Dyb = compute_derivatives(self.omega, self.shape, self.npml, self.x_range, self.y_range, self.N)
+        self.Dxf, self.Dxb, self.Dyf, self.Dyb = compute_derivatives(self.omega, self.shape, self.npml, self.x_range, self.y_range, self.dL)
 
         # save to a dictionary for convenience passing to primitives
         self.matrices['Dxf'] = self.Dxf

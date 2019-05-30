@@ -3,16 +3,20 @@ import scipy.sparse as sp
 
 from ceviche.constants import *
 
-def compute_derivatives(omega, shape, npml, x_range, y_range, N):
+def compute_derivatives(omega, shape, npml, x_range, y_range, DL):
 
     # make the S-matrices for PML
     (Sxf, Sxb, Syf, Syb) = S_create(omega, shape, npml, x_range, y_range)
+    # d = dL(N, x_range, y_range)
+    # import pdb; pdb.set_trace()
+
+    DL_list = [DL, DL]
 
     # Construct derivate matrices without PML
-    Dxf_0 = createDws('x', 'f', dL(N, x_range, y_range), shape)
-    Dxb_0 = createDws('x', 'b', dL(N, x_range, y_range), shape)
-    Dyf_0 = createDws('y', 'f', dL(N, x_range, y_range), shape)
-    Dyb_0 = createDws('y', 'b', dL(N, x_range, y_range), shape)
+    Dxf_0 = createDws('x', 'f', DL_list, shape)
+    Dxb_0 = createDws('x', 'b', DL_list, shape)
+    Dyf_0 = createDws('y', 'f', DL_list, shape)
+    Dyb_0 = createDws('y', 'b', DL_list, shape)
 
     # apply PML to derivative matrices
     Dxf = Sxf.dot(Dxf_0)
@@ -58,16 +62,6 @@ def createDws(w, s, dL, N):
             Dws = sp.eye(Nx)
     return Dws
 
-def dL(N, x_range, y_range=None):
-    # solves for the grid spacing
-
-    if y_range is None:
-        L = np.array([np.diff(x_range)[0]])  # Simulation domain lengths
-    else:
-        L = np.array([np.diff(x_range)[0],
-                      np.diff(y_range)[0]])  # Simulation domain lengths
-    return L/N
-
 # def sig_w(l, dw, m=4, lnR=-12):
 def sig_w(l, dw, m=3, lnR=-12e4):
     # helper for S()
@@ -90,6 +84,7 @@ def create_sfactor(wrange, s, omega, Nw, Nw_pml):
         return sfactor_array
     hw = np.diff(wrange)[0]/Nw
     dw = Nw_pml*hw
+
     for i in range(0, Nw):
         if s is 'f':
             if i <= Nw_pml:

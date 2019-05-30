@@ -13,12 +13,14 @@ class TestFields(unittest.TestCase):
 
         # wavelength should be 1.5 um
         wavelength = 1.5e-6
-        self.omega = 2 * np.pi * C_0 / wavelength  # corresponding angular frequency
-        self.dL = 1e-5  # this dL is ~10x bigger than wavelength!
-        # but I still see a plane with with 20 cells per period.
-        # what gives?
+        self.omega = 2 * np.pi * C_0 / wavelength
+        self.dL = 1.5e-8
 
-        self.Nx, self.Ny = 131, 131    # grid size
+        print('for a wavelength of {} meters \n\
+            and grid spacing of {},\n\
+            we expect a wavelength of {} grid spaces'.format(wavelength, self.dL, int(wavelength/self.dL)))
+
+        self.Nx, self.Ny = 400, 10    # grid size
         self.eps_r = np.ones((self.Nx, self.Ny))
         # self.eps_r[40:60, 40:60] = 10
         self.source = np.zeros((self.Nx, self.Ny))
