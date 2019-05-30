@@ -2,14 +2,12 @@ import unittest
 import numpy as np
 import matplotlib.pylab as plt
 
-# import the FDFD
 from ceviche import fdfd_hz
 
-# get the automatic differentiation
 import autograd.numpy as npa
 from autograd import grad
 
-# whether to plot things below
+# whether to plot setup stuff
 PLOT = False
 
 # make parameters
@@ -18,7 +16,7 @@ dL = 4e-8
 eps_max = 2
 npml = 10
 spc = 10
-L = 5e-6
+L = 3e-6
 Nx, Ny = 2*npml + 4*spc + int(L/dL), 2*npml + 4*spc + int(L/dL)
 eps_r = np.ones((Nx, Ny))
 
@@ -47,26 +45,16 @@ H_mag = np.abs(Hz)
 I_E0 = np.abs(np.square(np.sum(E_mag * probe)))
 I_H0 = np.abs(np.square(np.sum(H_mag * probe)))
 
-print('I_H0 = {} V/m'.format(I_H0))
+print('I_H0 = {}'.format(I_H0))
 
 # plot the vacuum fields
 if PLOT:
     plt.imshow(np.real(Hz), cmap='RdBu')
-    plt.title('Hz / E0 (<-)')
+    plt.title('real(Hz)')
     plt.xlabel('y')
     plt.ylabel('x')
     plt.colorbar()
     plt.show()
-
-# maximum electric field magnitude in the domain
-def Emax(Ex, Ey):
-    E_mag = npa.sqrt(npa.square(npa.abs(Ex)) + npa.square(npa.abs(Ey)))
-    return npa.max(E_mag)
-
-# average electric field magnitude in the domain
-def Eavg(Ex, Ey):
-    E_mag = npa.sqrt(npa.square(npa.abs(Ex)) + npa.square(npa.abs(Ey)))
-    return npa.mean(E_mag)
 
 # defines the intensity on the other side of the box as a function of the relative permittivity grid
 def intensity(eps_arr):
@@ -83,17 +71,6 @@ def intensity(eps_arr):
 # define the gradient for autograd
 grad_I = grad(intensity)
 
-# optimization loop
-# NIter = 40
-# step_size = 1e0
-# for i in range(NIter):
-#     I = intensity(eps_r)
-#     print('on iter {} / {}, intensity gradient = {}'.format(i, NIter, I))
-#     dg_deps = grad_I(eps_r)
-#     eps_r = eps_r + step_size * box_region * dg_deps
-#     eps_r[eps_r < 1] = 1
-#     eps_r[eps_r > eps_max] = eps_max
-
 from scipy.optimize import minimize
 bounds = [(1, eps_max) if box_region.flatten()[i] == 1 else (1,1) for i in range(eps_r.size)]
 minimize(intensity, eps_r, args=(), method='L-BFGS-B', jac=grad_I,
@@ -105,9 +82,10 @@ plt.imshow(F.eps_r._value.T, cmap='nipy_spectral')
 plt.colorbar()
 plt.show()
 
+# plot the fields
 Ex, Ey, Hz = F.solve()
 plt.imshow(np.real(Hz._value).T, cmap='RdBu')
-plt.title('H_z / E0 (<-)')
+plt.title('real(H_z)')
 plt.xlabel('y')
 plt.ylabel('x')
 plt.colorbar()

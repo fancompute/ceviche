@@ -8,14 +8,12 @@ from autograd import checkpoint
 from copy import deepcopy, copy
 from time import time
 
-from ceviche.fdtd import fdtd
-from ceviche.sources import Gaussian
-from ceviche.constants import *
+from ceviche import fdtd
 from ceviche.utils import grad_num
 
 # gradient error tolerance
 ALLOWED_RATIO = 1e-4    # maximum allowed ratio of || grad_num - grad_auto || vs. || grad_num ||
-DEPS = 1e-6             # numerical gradient step size
+DEPS = 1e-4             # numerical gradient step size
 VERBOSE = False
 
 class TestFDTD(unittest.TestCase):
@@ -37,8 +35,9 @@ class TestFDTD(unittest.TestCase):
         self.t0 = 300
         self.sigma = 20        
         self.source_amp = 1
-        self.source = np.zeros((self.Nx, self.Ny, self.Nz))
-        self.source[self.Nx//2, self.Ny//2, self.Nz//2] = self.source_amp
+        self.source_pos = np.zeros((self.Nx, self.Ny, self.Nz))
+        self.source_pos[self.Nx//2, self.Ny//2, self.Nz//2] = self.source_amp
+        self.gaussian = lambda t: self.source_pos * self.source_amp * np.exp(-(t - self.t0)**2 / 2 / self.sigma**2)
 
         # starting relative permittivity (random for debugging)
         self.eps_r   = np.random.random((self.Nx, self.Ny, self.Nz)) + 1
@@ -64,19 +63,11 @@ class TestFDTD(unittest.TestCase):
 
         F = fdtd(self.eps_r, dL=self.dL, npml=self.pml)
 
-        G1 = Gaussian(mask=self.source, component='Jz', amp=self.source_amp, sigma=self.sigma, t0=self.t0)
-        G2 = Gaussian(mask=self.source, component='Jx', amp=self.source_amp, sigma=self.sigma, t0=self.t0)
-        G3 = Gaussian(mask=self.source, component='Jy', amp=self.source_amp, sigma=self.sigma, t0=self.t0)
-
-        F.add_src(G1)
-        F.add_src(G2)
-        F.add_src(G3)
-        F.add_src(G1)
-
         def objective(eps_arr):
             F.eps_r = eps_arr.reshape((self.Nx, self.Ny, self.Nz))
             S = 0.0
-            for t_index, fields in enumerate(F.run(self.steps)):
+            for t_index in range(self.steps):
+                fields = F.forward(Jz=self.gaussian(t_index))
                 S += npa.sum(fields['Ex'] + fields['Ey'] + fields['Ez'])
             return S
 
@@ -96,18 +87,11 @@ class TestFDTD(unittest.TestCase):
 
         F = fdtd(self.eps_r, dL=self.dL, npml=self.pml)
 
-        G1 = Gaussian(mask=self.source, component='Jz', amp=self.source_amp, sigma=self.sigma, t0=self.t0)
-        G2 = Gaussian(mask=self.source, component='Jx', amp=self.source_amp, sigma=self.sigma, t0=self.t0)
-        G3 = Gaussian(mask=self.source, component='Jy', amp=self.source_amp, sigma=self.sigma, t0=self.t0)
-
-        F.add_src(G1)
-        F.add_src(G2)
-        F.add_src(G3)
-
         def objective(eps_arr):
             F.eps_r = eps_arr.reshape((self.Nx, self.Ny, self.Nz))
             S = 0.0
-            for t_index, fields in enumerate(F.run(self.steps)):
+            for t_index in range(self.steps):
+                fields = F.forward(Jx=self.gaussian(t_index))
                 S += npa.sum(fields['Hx'] + fields['Hy'] + fields['Hz'])
             return S
 

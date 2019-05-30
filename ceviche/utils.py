@@ -13,10 +13,10 @@ def make_sparse(N, random=True, density=1):
 
 def grad_num(fn, arg, step_size=1e-7):
     """ numerically differentiate `fn` w.r.t. its argument `arg` """
-    NN = arg.size
-    gradient = np.zeros((NN,))
+    N = arg.size
+    gradient = np.zeros((N,))
     f_old = fn(arg)
-    for i in range(NN):
+    for i in range(N):
         arg_new = copy.copy(arg)
         arg_new[i] += step_size
         f_new_i = fn(arg_new)

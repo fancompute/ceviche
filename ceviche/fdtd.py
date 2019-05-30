@@ -1,7 +1,8 @@
-import autograd.numpy as np
+import numpy as np
 import autograd.numpy as npa
-# import numpy as np
+
 from copy import copy, deepcopy
+
 from ceviche.constants import *
 from ceviche.derivatives import curl_E, curl_H
 
@@ -17,27 +18,41 @@ class fdtd():
                 chi3: the 3rd order nonlinear susceptibility (3 dimensional array))                
         """
 
+        # set the grid shape
+        self.Nx, self.Ny, self.Nz = self.grid_shape = eps_r.shape
+
+        # set the attributes
         self.dL = dL
-        self._set_time_step()
-
         self.npml = npml
-        self.Nx, self.Ny, self.Nz = eps_r.shape
-        self._compute_sigmas()
-
         self.eps_r = eps_r
-
-        # source lists
-        self.sources = {'Jx': [], 'Jy': [], 'Jz': []}
 
     def __repr__(self):
         return "FDTD(eps_r.shape={}, dL={}, NPML={})".format(self.grid_shape, self.dL, self.npml)
 
     def __str__(self):
-        if self.sources:
-            source_str = '[\n\t\t   ' + '\n\t\t   '.join([str(s) for s in self.sources]) + '\n\t]'
-        else:
-            source_str = '[]'
-        return "FDTD object:\n\tdomain size = {}\n\tdL = {}\n\tNPML = {}\n\tbatches = {}\n\tsources = {}".format(self.grid_shape[:3], self.dL, self.npml, self.n_batches, source_str)
+        return "FDTD object:\n\tdomain size = {}\n\tdL = {}\n\tNPML = {}".format(self.grid_shape, self.dL, self.npml)
+
+    @property
+    def dL(self):
+        """ Returns the grid size """
+        return self.__dL
+
+    @dL.setter
+    def dL(self, new_dL):
+        """ Resets the time step when dL is set. """
+        self.__dL = new_dL
+        self._set_time_step()
+
+    @property
+    def npml(self):
+        """ Returns the pml grid size list """
+        return self.__npml
+
+    @npml.setter
+    def npml(self, new_npml):
+        """ Defines some attributes when npml is set. """
+        self.__npml = new_npml
+        self._compute_sigmas()
 
     @property
     def eps_r(self):
@@ -55,14 +70,7 @@ class fdtd():
         self._compute_update_parameters()
         self.initialize_fields()
 
-    def run(self, steps):
-        """ Generator that runs the FDTD forward `steps` time steps """
-
-        for _ in range(steps):
-            yield self.fields
-            self.forward()
-
-    def forward(self):
+    def forward(self, Jx=None, Jy=None, Jz=None):
         """ one time step of FDTD """
 
         self.t_index += 1
@@ -117,44 +125,89 @@ class fdtd():
         self.fields['Dy'] = self.Dy
         self.fields['Dz'] = self.Dz
 
-        # compute intensity
-        # I = self._compute_intensity(self.Ex, self.Ey, self.Ez)
-
         # update the E fields
         self.Ex = self.mEx1 * self.Dx 
         self.Ey = self.mEy1 * self.Dy
         self.Ez = self.mEz1 * self.Dz           
 
         # add sources to the electric fields
-        self._inject_sources()
+        self.Ex += 0 if Jx is None else Jx
+        self.Ey += 0 if Jy is None else Jy
+        self.Ez += 0 if Jz is None else Jz
 
         # update field dict
         self.fields['Ex'] = self.Ex
         self.fields['Ey'] = self.Ey
         self.fields['Ez'] = self.Ez
 
-    def _inject_sources(self):
-        """ Injects the current sources into the simulation as stored in self.sources
-                Note: would like to avoid for loops here eventually..
+        return self.fields
+
+
+    def initialize_fields(self):
+        """ Initializes:
+              - the H, D, and E fields for updating
+              - the integration terms needed to deal with PML
+              - the curls of the fields
         """
 
-        for source in self.sources['Jx']:
-            self.Ex = self.Ex + source.J_fn(self.t_index)
-        for source in self.sources['Jy']:
-            self.Ey = self.Ey + source.J_fn(self.t_index)
-        for source in self.sources['Jz']:
-            self.Ez = self.Ez + source.J_fn(self.t_index)            
+        self.t_index = 0
 
-    def add_src(self, newSource):
-        """ adds a Source object to the simulation """
+        # magnetic fields
+        self.Hx = npa.zeros(self.grid_shape)
+        self.Hy = npa.zeros(self.grid_shape)
+        self.Hz = npa.zeros(self.grid_shape)
 
-        # copies the old J(t) -> np.array function and adds the new source's contribution. (hacky, but works)
-        if newSource.component == 'Jx':
-            self.sources['Jx'].append(newSource)
-        elif newSource.component == 'Jy':
-            self.sources['Jy'].append(newSource)
-        elif newSource.component == 'Jz':
-            self.sources['Jz'].append(newSource)
+        # E field curl integrals
+        self.ICEx = npa.zeros(self.grid_shape)
+        self.ICEy = npa.zeros(self.grid_shape)
+        self.ICEz = npa.zeros(self.grid_shape)
+
+        # H field integrals
+        self.IHx = npa.zeros(self.grid_shape)
+        self.IHy = npa.zeros(self.grid_shape)
+        self.IHz = npa.zeros(self.grid_shape)
+
+        # E field curls
+        self.CEx = npa.zeros(self.grid_shape)
+        self.CEy = npa.zeros(self.grid_shape)
+        self.CEz = npa.zeros(self.grid_shape)
+
+        # H field curl integrals
+        self.ICHx = npa.zeros(self.grid_shape)
+        self.ICHy = npa.zeros(self.grid_shape)
+        self.ICHz = npa.zeros(self.grid_shape)
+
+        # D field integrals
+        self.IDx = npa.zeros(self.grid_shape)
+        self.IDy = npa.zeros(self.grid_shape)
+        self.IDz = npa.zeros(self.grid_shape)
+
+        # H field curls
+        self.CHx = npa.zeros(self.grid_shape)
+        self.CHy = npa.zeros(self.grid_shape)
+        self.CHz = npa.zeros(self.grid_shape)
+
+        # electric displacement fields
+        self.Dx = npa.zeros(self.grid_shape)
+        self.Dy = npa.zeros(self.grid_shape)
+        self.Dz = npa.zeros(self.grid_shape)
+
+        # electric fields
+        self.Ex = npa.zeros(self.grid_shape)
+        self.Ey = npa.zeros(self.grid_shape)
+        self.Ez = npa.zeros(self.grid_shape)
+
+        # field dictionary to return layer
+        self.fields = {'Ex': npa.zeros(self.grid_shape),
+                       'Ey': npa.zeros(self.grid_shape),
+                       'Ez': npa.zeros(self.grid_shape), 
+                       'Dx': npa.zeros(self.grid_shape),
+                       'Dy': npa.zeros(self.grid_shape),
+                       'Dz': npa.zeros(self.grid_shape),
+                       'Hx': npa.zeros(self.grid_shape),
+                       'Hy': npa.zeros(self.grid_shape),
+                       'Hz': npa.zeros(self.grid_shape)
+                      }
 
     def _set_time_step(self, stability_factor=0.5):
         """ Set the time step based on the generalized Courant stability condition
@@ -205,29 +258,6 @@ class fdtd():
         Q_zz_avg = (Q_zz.astype('float') + npa.roll(Q_zz, shift=1, axis=2))/2
 
         return Q_xx_avg, Q_yy_avg, Q_zz_avg
-
-    def compute_dmEs(self, region):
-        """ computes the derivative of the mE{x,y,z}1 update coefficients for this FDTD object
-                region: binary numpy array of same shape as self.eps_r 
-                        is 1 where the parameter perturbs the permittivity
-        """
-
-        assert self.grid_shape == region.shape, "region shape must be the same as the grid shape of F, given {} and {} respectively".format(self.grid_shape, region.shape)
-
-        # snap to yee grid
-        dx, dy, dz = self._grid_center_to_xyz(region)
-        dmEx1 = -dx / self.eps_xx / self.eps_xx
-        dmEy1 = -dy / self.eps_yy / self.eps_yy
-        dmEz1 = -dz / self.eps_zz / self.eps_zz
-
-        return dmEx1, dmEy1, dmEz1
-
-    def _compute_intensity(self, Ex, Ey, Ez):
-        """ Returns the electric intensity averaged at the yee cell center.
-        """
-
-        # note, might want to grid xyz to center this one.
-        return npa.square(Ex) + npa.square(Ey) + npa.square(Ez)
 
     def _compute_sigmas(self):
         """ Computes sigma tensors for PML """
@@ -322,70 +352,3 @@ class fdtd():
         self.mEx1 = (1 / self.eps_xx)
         self.mEy1 = (1 / self.eps_yy)
         self.mEz1 = (1 / self.eps_zz)
-
-    def initialize_fields(self):
-        """ Initializes:
-              - the H, D, and E fields for updating
-              - the integration terms needed to deal with PML
-              - the curls of the fields
-        """
-
-        self.t_index = 0
-
-        # magnetic fields
-        self.Hx = npa.zeros(self.grid_shape)
-        self.Hy = npa.zeros(self.grid_shape)
-        self.Hz = npa.zeros(self.grid_shape)
-
-        # E field curl integrals
-        self.ICEx = npa.zeros(self.grid_shape)
-        self.ICEy = npa.zeros(self.grid_shape)
-        self.ICEz = npa.zeros(self.grid_shape)
-
-        # H field integrals
-        self.IHx = npa.zeros(self.grid_shape)
-        self.IHy = npa.zeros(self.grid_shape)
-        self.IHz = npa.zeros(self.grid_shape)
-
-        # E field curls
-        self.CEx = npa.zeros(self.grid_shape)
-        self.CEy = npa.zeros(self.grid_shape)
-        self.CEz = npa.zeros(self.grid_shape)
-
-        # H field curl integrals
-        self.ICHx = npa.zeros(self.grid_shape)
-        self.ICHy = npa.zeros(self.grid_shape)
-        self.ICHz = npa.zeros(self.grid_shape)
-
-        # D field integrals
-        self.IDx = npa.zeros(self.grid_shape)
-        self.IDy = npa.zeros(self.grid_shape)
-        self.IDz = npa.zeros(self.grid_shape)
-
-        # H field curls
-        self.CHx = npa.zeros(self.grid_shape)
-        self.CHy = npa.zeros(self.grid_shape)
-        self.CHz = npa.zeros(self.grid_shape)
-
-        # electric displacement fields
-        self.Dx = npa.zeros(self.grid_shape)
-        self.Dy = npa.zeros(self.grid_shape)
-        self.Dz = npa.zeros(self.grid_shape)
-
-        # electric fields
-        self.Ex = npa.zeros(self.grid_shape)
-        self.Ey = npa.zeros(self.grid_shape)
-        self.Ez = npa.zeros(self.grid_shape)
-
-        # field dictionary to return layer
-        self.fields = {'Ex': npa.zeros(self.grid_shape),
-                       'Ey': npa.zeros(self.grid_shape),
-                       'Ez': npa.zeros(self.grid_shape), 
-                       'Dx': npa.zeros(self.grid_shape),
-                       'Dy': npa.zeros(self.grid_shape),
-                       'Dz': npa.zeros(self.grid_shape),
-                       'Hx': npa.zeros(self.grid_shape),
-                       'Hy': npa.zeros(self.grid_shape),
-                       'Hz': npa.zeros(self.grid_shape),
-                       'I' : npa.zeros(self.grid_shape),
-                      }

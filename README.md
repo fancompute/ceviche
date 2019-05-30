@@ -1,7 +1,7 @@
 # ceviche
 Electromagnetic Simulation Tools + Automatic Differentiation
 
-## What is Ceviche?
+## What is ceviche?
 
 `ceviche` provides two core electromagnetic simulation tools for solving Maxwell's equations:
 
@@ -17,7 +17,7 @@ This is incredibly powerful as it allows you to do gradient-based optimization o
 
 ### A quick example
 
-Lets say we have a domain of where we wish to inject light at position `source` and measure it's intensity at `measure`.
+Lets say we have a domain of where we wish to inject light at position `source` and measure it's intensity at `probe`.
 
 Between these two points, there's a box at location `pos_box` with permittivity `eps`.
 
@@ -70,7 +70,21 @@ For now, you just need to import ceviche from wherever it is located on your loc
 
 ## Package Structure
 
+### Ceviche
+
+The `ceviche` directory contains everything needed.
+
+To get the FDFD and FDTD tools, import directly `from ceviche import fdtd, fdfd_ez, fdfd_hz`
+
+`constants.py` contains some constants `EPSILON_0`, `C_0`, `ETA_0`, `Q_E`, which are automatically available upon import from ceviche.
+
+`utils.py` contains a few useful functions, more to be added later.
+
+### Examples
+
 A few examples are given in `examples`.
+
+### Tests
 
 Tests are located in `tests`.  To run, `cd` into `tests` and
 
@@ -79,3 +93,18 @@ Tests are located in `tests`.  To run, `cd` into `tests` and
  `python specific_test.py` to run a specific one.
 
 Some of these tests involve visual inspection of the field plots rather than error checking on values.
+
+## Citation
+
+If you use this for your work, please cite
+
+    @article{hughes2018adjoint,
+      title={Adjoint method and inverse design for nonlinear nanophotonic devices},
+      author={Hughes, Tyler W and Minkov, Momchil and Williamson, Ian AD and Fan, Shanhui},
+      journal={ACS Photonics},
+      volume={5},
+      number={12},
+      pages={4781--4787},
+      year={2018},
+      publisher={ACS Publications}
+    }

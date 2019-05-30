@@ -3,12 +3,10 @@ import numpy as np
 import matplotlib.pylab as plt
 
 from ceviche import fdtd
-from ceviche.sources import Gaussian
 
 class TestFields_FDTD(unittest.TestCase):
 
     """ Tests the field patterns by inspection """
-
 
     def setUp(self):
 
@@ -25,9 +23,10 @@ class TestFields_FDTD(unittest.TestCase):
         self.steps = 700
         self.t0 = 300
         self.sigma = 20        
-        self.source_amp = 2e2
-        self.source = np.zeros((self.Nx, self.Ny, self.Nz))
-        self.source[self.Nx//2, self.Ny//2, self.Nz//2] = self.source_amp
+        self.source_amp = 10
+        self.source_pos = np.zeros((self.Nx, self.Ny, self.Nz))
+        self.source_pos[self.Nx//2, self.Ny//2, self.Nz//2] = self.source_amp
+        self.gaussian = lambda t: self.source_pos * self.source_amp * np.exp(-(t - self.t0)**2 / 2 / self.sigma**2)
 
         # starting relative permittivity (random for debugging)
         self.eps_r   = np.random.random((self.Nx, self.Ny, self.Nz)) + 1
@@ -40,14 +39,12 @@ class TestFields_FDTD(unittest.TestCase):
 
         F = fdtd(self.eps_r, dL=self.dL, npml=self.pml)
 
-        G1 = Gaussian(mask=self.source, component='Jz', amp=self.source_amp, sigma=self.sigma, t0=self.t0)
-
-        F.add_src(G1)
-
         fig, ax = plt.subplots(figsize=(10, 10))
         im = ax.pcolormesh(np.zeros((self.Nx, self.Ny)), cmap='RdBu')
 
-        for t_index, fields in enumerate(F.run(self.steps)):
+        for t_index in range(self.steps):
+
+            fields = F.forward(Jz=self.gaussian(t_index))
 
             if t_index % self.skip_rate == 0:
 
@@ -61,14 +58,12 @@ class TestFields_FDTD(unittest.TestCase):
 
         F = fdtd(self.eps_r, dL=self.dL, npml=self.pml)
 
-        G1 = Gaussian(mask=self.source, component='Jx', amp=self.source_amp, sigma=self.sigma, t0=self.t0)
-
-        F.add_src(G1)
-
         fig, ax = plt.subplots(figsize=(10, 10))
         im = ax.pcolormesh(np.zeros((self.Nx, self.Ny)), cmap='RdBu')
 
-        for t_index, fields in enumerate(F.run(self.steps)):
+        for t_index in range(self.steps):
+
+            fields = F.forward(Jx=self.gaussian(t_index))
 
             if t_index % self.skip_rate == 0:
 

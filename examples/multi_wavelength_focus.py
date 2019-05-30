@@ -6,6 +6,8 @@ from autograd import grad
 from ceviche import fdfd_hz
 from ceviche.constants import C_0
 
+PLOT = True
+
 # some parameters
 wavelengths = [500e-9, 450e-9]#, 650e-9]
 
@@ -27,7 +29,6 @@ slab_region = np.zeros((Nx, Ny))
 slab_region[:, npml + int(spc / dL):npml + int(spc / dL) + int(H / dL)] = 1
 
 eps_r = np.ones((Nx, Ny))
-# eps_r[:Nx//2, npml + int(spc / dL):npml + int(spc / dL) + int(H / dL)] = eps_max
 
 source = np.zeros((Nx, Ny))
 source[:, npml + int(spc / 2 / dL)] = 1
@@ -49,8 +50,9 @@ fdfd2 = fdfd_hz(omega2, dL, eps_r, source, npml=[0, npml])
 Ex, Ey, Hz = fdfd2.solve()
 P2 = np.sum(np.abs(Hz) * probe2)
 
-# plt.imshow((probe1 + probe2 + source + slab_region).T)
-# plt.show()
+if PLOT:
+    plt.imshow((probe1 + probe2 + source + slab_region).T)
+    plt.show()
 
 def plot_field(fdfd):
     Ex, Ey, Hz = fdfd.solve()

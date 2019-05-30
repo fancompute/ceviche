@@ -14,10 +14,10 @@ from autograd import grad
 PLOT = False
 
 # make parameters
-wavelength = 2e-6           
-omega = 2 * np.pi * C_0 / wavelength        # angular frequency
-beta = .5                                  # speed of electron / speed of light
-dL = wavelength / 100.0
+wavelength = 2e-6                      # free space wavelength
+omega = 2 * np.pi * C_0 / wavelength   # angular frequency
+beta = .5                              # speed of electron / speed of light
+dL = wavelength / 100.0                # grid size (m)
 
 Nx, Ny = 400, int(beta * wavelength / dL)
 

@@ -2,7 +2,7 @@ import unittest
 import numpy as np
 import matplotlib.pylab as plt
 
-from ceviche.fdfd import fdfd_ez, fdfd_hz
+from ceviche import fdfd_ez, fdfd_hz
 from ceviche.constants import *
 
 class TestPlaneWave(unittest.TestCase):
@@ -37,7 +37,7 @@ class TestPlaneWave(unittest.TestCase):
 
     def test_Ez(self):
         print('\ttesting Ez')
-c
+
         F = fdfd_ez(self.omega, self.dL, self.eps_r, self.source, self.npml)
         Hx, Hy, Ez = F.solve()
         Ez_max = np.max(np.abs(Ez))
