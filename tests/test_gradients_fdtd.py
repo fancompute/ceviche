@@ -81,8 +81,13 @@ class TestAG(unittest.TestCase):
                 S += npa.sum(fields['Ex'] + fields['Ey'] + fields['Ez'])
             return S
 
+        import time
+        t = time.time()
         grad_autograd = grad(objective, 0)(self.eps_arr)
+        print(time.time - t)
+        t = time.time()
         grad_numerical = grad_num(objective, self.eps_arr, step_size=DEPS)
+        print(time.time - t)
 
         if VERBOSE:
             print('\tobjective function value: ', objective(self.eps_arr))
