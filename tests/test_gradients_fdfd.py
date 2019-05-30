@@ -23,7 +23,7 @@ ALLOWED_RATIO = 1e-4    # maximum allowed ratio of || grad_num - grad_auto || vs
 VERBOSE = False         # print out full gradients?
 DEPS = 1e-6             # numerical gradient step size
 
-class TestGrads(unittest.TestCase):
+class TestFDFD(unittest.TestCase):
 
     """ Tests the flexible objective function specifier """
 

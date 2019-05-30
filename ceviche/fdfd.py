@@ -2,7 +2,7 @@ import autograd.numpy as np
 import scipy.sparse as sp
 
 from ceviche.primitives import *
-from ceviche.derivatives import compute_derivatives
+from ceviche.derivatives import compute_derivative_matrices
 from ceviche.utils import make_sparse
 
 import copy
@@ -27,7 +27,8 @@ class fdfd():
     def setup_derivatives(self):
 
         # Creates all of the operators needed for later
-        self.Dxf, self.Dxb, self.Dyf, self.Dyb = compute_derivatives(self.omega, self.shape, self.npml, self.dL)
+        matrices = compute_derivative_matrices(self.omega, self.shape, self.npml, self.dL)
+        self.Dxf, self.Dxb, self.Dyf, self.Dyb = matrices
 
         # save to a dictionary for convenience passing to primitives
         self.matrices['Dxf'] = self.Dxf

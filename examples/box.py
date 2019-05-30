@@ -2,8 +2,8 @@ import unittest
 import numpy as np
 import matplotlib.pylab as plt
 
-# import the FDFD from autotrack/
-from ceviche.fdfd import fdfd_hz
+# import the FDFD
+from ceviche import fdfd_hz
 
 # get the automatic differentiation
 import autograd.numpy as npa
@@ -68,7 +68,7 @@ def Eavg(Ex, Ey):
     E_mag = npa.sqrt(npa.square(npa.abs(Ex)) + npa.square(npa.abs(Ey)))
     return npa.mean(E_mag)
 
-# defines the acceleration gradient as a function of the relative permittivity grid
+# defines the intensity on the other side of the box as a function of the relative permittivity grid
 def intensity(eps_arr):
 
     eps_r = eps_arr.reshape((Nx, Ny))

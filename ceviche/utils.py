@@ -2,6 +2,8 @@ import numpy as np
 import scipy.sparse as sp
 import copy
 
+""" Just some utilities for easier testing and debugging"""
+
 def make_sparse(N, random=True, density=1):
     """ Makes a sparse NxN matrix. """
     if not random:

@@ -2,9 +2,9 @@ import unittest
 import numpy as np
 import matplotlib.pylab as plt
 
-from ceviche.fdfd import fdfd_ez, fdfd_hz
+from ceviche import fdfd_ez, fdfd_hz
 
-class TestFields(unittest.TestCase):
+class TestFields_FDFD(unittest.TestCase):
 
     """ Tests the field patterns by inspection """
 

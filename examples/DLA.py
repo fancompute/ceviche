@@ -4,7 +4,7 @@ import matplotlib.pylab as plt
 
 from scipy.optimize import minimize
 
-from ceviche.fdfd import fdfd_hz
+from ceviche import fdfd_hz
 from ceviche.constants import *
 
 import autograd.numpy as npa

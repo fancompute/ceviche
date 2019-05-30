@@ -37,7 +37,7 @@ class TestPlaneWave(unittest.TestCase):
 
     def test_Ez(self):
         print('\ttesting Ez')
-
+c
         F = fdfd_ez(self.omega, self.dL, self.eps_r, self.source, self.npml)
         Hx, Hy, Ez = F.solve()
         Ez_max = np.max(np.abs(Ez))

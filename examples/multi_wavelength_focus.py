@@ -3,7 +3,7 @@ import matplotlib.pylab as plt
 
 from autograd import grad
 
-from ceviche.fdfd import fdfd_hz as fdfd_hz
+from ceviche import fdfd_hz
 from ceviche.constants import C_0
 
 # some parameters

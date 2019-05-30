@@ -1,9 +1,17 @@
 import numpy as np
 import scipy.sparse as sp
 
+import autograd.numpy as npa
+
 from ceviche.constants import *
 
-def compute_derivatives(omega, shape, npml, dL):
+"""
+This file defines the derivative helper functions needed for both the FDFD and FDTD
+"""
+
+""" FOR FDFD """
+
+def compute_derivative_matrices(omega, shape, npml, dL):
 
     # make the S-matrices for PML
     (Sxf, Sxb, Syf, Syb) = S_create(omega, shape, npml, dL)
@@ -133,3 +141,21 @@ def create_sfactor(s, omega, dL, N, N_pml):
             elif i > N - N_pml:
                 sfactor_array[i] = S(dL * (i - (N - N_pml) - 1), dw, omega)
     return sfactor_array
+
+""" FOR FDTD """
+
+def curl_E(axis, Ex, Ey, Ez, dL):
+    if axis == 0:
+        return (npa.roll(Ez, shift=-1, axis=1) - Ez) / dL - (npa.roll(Ey, shift=-1, axis=2) - Ey) / dL
+    elif axis == 1:
+        return (npa.roll(Ex, shift=-1, axis=2) - Ex) / dL - (npa.roll(Ez, shift=-1, axis=0) - Ez) / dL
+    elif axis == 2:
+        return (npa.roll(Ey, shift=-1, axis=0) - Ey) / dL - (npa.roll(Ex, shift=-1, axis=1) - Ex) / dL
+
+def curl_H(axis, Hx, Hy, Hz, dL):
+    if axis == 0:
+        return (Hz - npa.roll(Hz, shift=1, axis=1)) / dL - (Hy - npa.roll(Hy, shift=1, axis=2)) / dL
+    elif axis == 1:
+        return (Hx - npa.roll(Hx, shift=1, axis=2)) / dL - (Hz - npa.roll(Hz, shift=1, axis=0)) / dL
+    elif axis == 2:
+        return (Hy - npa.roll(Hy, shift=1, axis=0)) / dL - (Hx - npa.roll(Hx, shift=1, axis=1)) / dL

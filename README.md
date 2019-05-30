@@ -1,39 +1,62 @@
 # ceviche
 Electromagnetic Simulation Tools + Automatic Differentiation
 
-## User Guide
+## What is Ceviche?
 
+`ceviche` provides two core electromagnetic simulation tools for solving Maxwell's equations:
 
-### FDFD
+- finite-difference frequency-domain (FDFD)
 
-`fdfdpy.py` defines the FDFD stuff.  There is an `fdfd` base class and `fdfd_ez` and `fdfd_hz` subclasses.  This is organizationally a bit easier than using switching statements within a single FDFD like in `angler`.  Instead we just overload the basic `solve` and other operations for the different polarizations and handle the setup and other things in `fdfd`.
+- finite-difference time-domain (FDTD)
 
-This file also contains some functions that make the derivative operators and the PML.
-This is where I'm confused.  I think the current code is kind of ugly and not very intuitive.
-Perhaps we can move this to its own file, or `utils.py` and simplify the interface.
+Both are written in `numpy` / `scipy` and are compatible with the [HIPS autograd package](https://github.com/HIPS/autograd).
 
-### Adjoint Stuff
+What this means is that you can write code to solve your E&M problem, and then use automatic differentiation on your results.
 
-The autograd meat is in `primitives.py`.  Here I define the A matrices in terms of the derivative operators and the permittivity.
-I also define the conversion from Hz to Ex, Ey and same for Ez polarization.  I also define all of the primitives for taking derivatives with respect to epsilon_r.  However, we should add the primitive for the source as well, which should be simple
+This is incredibly powerful as it allows you to do gradient-based optimization or sensitivity analysis without the tedius process of deriving your derivatives analytically.
 
-    E = A^-1 b  
-    dE/db*v = A^{-1} v (or something, maybe transposed A)
+### A quick example
 
-The primitives are complicated and it took a long time to get them working.
-When I try to add the constants in from `constants.py`, things don't match.
-Also, when I try to use realistic units in the FDFD tests, I get really small field magnitudes and other weird behavior.
-Note that I do not define an L0 because its messy in my opinion.  Everything is SI units.  However, we might need to define some normalization of A to make things nicer.
+Lets say we have a domain of where we wish to inject light at position `source` and measure it's intensity at `measure`.
 
-### Tests
+Between these two points, there's a box at location `pos_box` with permittivity `eps`.
 
-`tests/test_grads.py` does the gradient checking on a simple problem.
+We can write a function computing the intensity as a function of `eps` using our FDFD solver
 
-`test/test_fields.py` plots some fields.
+```python
+def intensity(eps):
+    """ computes electric intensity at `probe` for a given box permittivity of `eps`
 
-### Examples
+        source |-----| probe
+            .  | eps |  .
+               |_____|
 
-`examples/DLA.py` does a simple DLA optimization example, and seems to work..
+    `fdfd` is a ceviche FDFD object that is defined earlier for this problem ^
+    """
 
-Let me know if there are any questions?
+    # set the permittivity in the box region to the input argument
+    fdfd.eps_r[box_pos] = eps
+
+    # solve the fields
+    Ex, Ey, Hz = fdfd.solve(source)
+
+    # compute the intensity at `probe`
+    I = np.square(npa.abs(Ex)) + npa.square(npa.abs(Ex))
+    return = np.sum(I * probe)
+```
+
+Then, we can very easily differentiate this function using automatic differentiation
+
+```python
+
+# use autograd to differentiate `intensity` function
+dI_deps_fn = autograd.grad(intensity)
+
+# evaluate it at the current value of `eps`
+dI_deps = dI_deps_fn(eps_current)
+
+# or ... do gradient based optimization
+for _ in range(10):
+    eps_current += step_size * dI_deps_fn(eps_current)
+```
 

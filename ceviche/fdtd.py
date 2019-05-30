@@ -3,10 +3,9 @@ import autograd.numpy as npa
 # import numpy as np
 from copy import copy, deepcopy
 from ceviche.constants import *
-from ceviche.derivs_fdtd import curl_E_numpy as curl_E
-from ceviche.derivs_fdtd import curl_H_numpy as curl_H
+from ceviche.derivatives import curl_E, curl_H
 
-class FDTD():
+class fdtd():
 
     def __init__(self, eps_r, dL, npml):
         """ Makes an FDTD object
@@ -69,9 +68,9 @@ class FDTD():
         self.t_index += 1
 
         # get curls of E
-        CEx = curl_E(0, self.Ex, self.Ey, self.Ez, self.dL, self.dL, self.dL)
-        CEy = curl_E(1, self.Ex, self.Ey, self.Ez, self.dL, self.dL, self.dL)
-        CEz = curl_E(2, self.Ex, self.Ey, self.Ez, self.dL, self.dL, self.dL)
+        CEx = curl_E(0, self.Ex, self.Ey, self.Ez, self.dL)
+        CEy = curl_E(1, self.Ex, self.Ey, self.Ez, self.dL)
+        CEz = curl_E(2, self.Ex, self.Ey, self.Ez, self.dL)
 
         # update the curl E integrals
         self.ICEx = self.ICEx + CEx
@@ -94,9 +93,9 @@ class FDTD():
         self.fields['Hz'] = self.Hz
 
         # get curls of H
-        CHx = curl_H(0, self.Hx, self.Hy, self.Hz, self.dL, self.dL, self.dL)
-        CHy = curl_H(1, self.Hx, self.Hy, self.Hz, self.dL, self.dL, self.dL)
-        CHz = curl_H(2, self.Hx, self.Hy, self.Hz, self.dL, self.dL, self.dL)
+        CHx = curl_H(0, self.Hx, self.Hy, self.Hz, self.dL)
+        CHy = curl_H(1, self.Hx, self.Hy, self.Hz, self.dL)
+        CHz = curl_H(2, self.Hx, self.Hy, self.Hz, self.dL)
 
         # update the curl E integrals
         self.ICHx = self.ICHx + CHx

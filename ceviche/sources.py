@@ -1,9 +1,7 @@
 import numpy as np
 import matplotlib.pylab as plt
 
-# from constants import *
-
-""" Defines sources to add to grid """
+""" Defines sources to add to FDTD """
 
 class Source():
 
