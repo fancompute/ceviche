@@ -13,13 +13,13 @@ from autograd import grad
 PLOT = False
 
 # make parameters
-omega = 2*np.pi*200e12
-L0 = 1e-5
+omega = 2 * np.pi * 200e12  # lambda = 1.5 um
+dL = 4e-8
 eps_max = 2
 npml = 10
 spc = 10
-L = 50
-Nx, Ny = 2*npml + 4*spc + L, 2*npml + 4*spc + L
+L = 5e-6
+Nx, Ny = 2*npml + 4*spc + int(L/dL), 2*npml + 4*spc + int(L/dL)
 eps_r = np.ones((Nx, Ny))
 
 # make source
@@ -28,7 +28,7 @@ source[npml+spc, Ny//2] = 1
 
 # make design region
 box_region = np.zeros((Nx, Ny))
-box_region[npml+2*spc:npml+2*spc+L, npml+2*spc:npml+2*spc+L] = 1
+box_region[npml+2*spc:npml+2*spc+int(L/dL), npml+2*spc:npml+2*spc+int(L/dL)] = 1
 
 # make the accelration probe
 probe = np.zeros((Nx, Ny), dtype=np.complex128)
@@ -40,7 +40,7 @@ if PLOT:
     plt.show()
 
 # vacuum test, get normalization
-F = fdfd_hz(omega, L0, eps_r, source, [npml, npml])
+F = fdfd_hz(omega, dL, eps_r, source, [npml, npml])
 Ex, Ey, Hz = F.solve()
 E_mag = np.sqrt(np.square(np.abs(Ex)) + np.square(np.abs(Ey)))
 H_mag = np.abs(Hz)

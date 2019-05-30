@@ -5,9 +5,9 @@ import matplotlib.pylab as plt
 from ceviche.fdfd import fdfd_ez, fdfd_hz
 from ceviche.constants import *
 
-class TestFields(unittest.TestCase):
+class TestPlaneWave(unittest.TestCase):
 
-    """ Tests the field patterns """
+    """ Tests whether a plane wave has the right wavelength """
 
     def setUp(self):
 
@@ -22,7 +22,6 @@ class TestFields(unittest.TestCase):
 
         self.Nx, self.Ny = 400, 10    # grid size
         self.eps_r = np.ones((self.Nx, self.Ny))
-        # self.eps_r[40:60, 40:60] = 10
         self.source = np.zeros((self.Nx, self.Ny))
         self.source[self.Nx//2, :] = 1e-8
         self.npml = [20, 0]

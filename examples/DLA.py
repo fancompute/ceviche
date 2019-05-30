@@ -2,10 +2,11 @@ import unittest
 import numpy as np
 import matplotlib.pylab as plt
 
-# import the FDFD from autotrack/
-from ceviche.fdfd import fdfd_hz
+from scipy.optimize import minimize
 
-# get the automatic differentiation
+from ceviche.fdfd import fdfd_hz
+from ceviche.constants import *
+
 import autograd.numpy as npa
 from autograd import grad
 
@@ -13,9 +14,13 @@ from autograd import grad
 PLOT = False
 
 # make parameters
-omega = 2*np.pi*1e2
-L0 = 1
-Nx, Ny = 400, 40
+wavelength = 2e-6           
+omega = 2 * np.pi * C_0 / wavelength        # angular frequency
+beta = .5                                  # speed of electron / speed of light
+dL = wavelength / 100.0
+
+Nx, Ny = 400, int(beta * wavelength / dL)
+
 eps_max = 5
 eps_r = np.ones((Nx, Ny))
 source = np.zeros((Nx, Ny))
@@ -42,10 +47,10 @@ if PLOT:
     plt.show()
 
 # vacuum test, get normalization
-F = fdfd_hz(omega, L0, eps_r, source, npml)
+F = fdfd_hz(omega, dL, eps_r, source, npml)
 Ex, Ey, Hz = F.solve()
 E_mag = np.sqrt(np.square(np.abs(Ex)) + np.square(np.abs(Ey)))
-E0 = np.max(E_mag[spc:Nx-spc, :])
+E0 = np.max(E_mag[spc:-spc, :])
 print('E0 = {} V/m'.format(E0))
 
 # plot the vacuum fields
@@ -68,35 +73,34 @@ def Eavg(Ex, Ey):
     return npa.mean(E_mag)
 
 # defines the acceleration gradient as a function of the relative permittivity grid
-def accel_gradient(eps_r):
+def accel_gradient(eps_arr):
 
     # set the permittivity of the FDFD and solve the fields
-    F.eps_r = eps_r
+    F.eps_r = eps_arr.reshape((Nx, Ny))
     Ex, Ey, Hz = F.solve()
 
     # compute the gradient and normalize if you want
-    G = npa.sum(Ey * eta / Ny / E0)
-    return np.abs(G) / Eavg(Ex, Ey)
+    G = npa.sum(Ey * eta / Ny) / Emax(Ex, Ey)
+    return -np.abs(G)
 
 # define the gradient for autograd
 grad_g = grad(accel_gradient)
 
-# optimization loop
-NIter = 40
-step_size = 1e-1
-for i in range(NIter):
-    g = accel_gradient(eps_r)
-    print('on iter {} / {}, acceleration gradient = {}'.format(i, NIter, g))
-    dg_deps = grad_g(eps_r)
-    eps_r = eps_r + step_size * design_region * dg_deps
-    eps_r[eps_r < 1] = 1
-    eps_r[eps_r > eps_max] = eps_max
+# optimization
+NIter = 100
+bounds_eps = [(1, eps_max) if design_region.flatten()[i] == 1 else (1,1) for i in range(eps_r.size)]
+minimize(accel_gradient, eps_r.flatten(), args=(), method='L-BFGS-B', jac=grad_g,
+    bounds=bounds_eps, tol=None, callback=None,
+    options={'disp': True, 'maxcor': 10, 'ftol': 2.220446049250313e-09,
+             'gtol': 1e-05, 'eps': 1e-08, 'maxfun': 15000, 'maxiter': NIter,
+             'iprint': -1, 'maxls': 20})
 
 # plot the final permittivity
 plt.imshow(F.eps_r._value, cmap='nipy_spectral')
 plt.colorbar()
 plt.show()
 
+# plot the accelerating fields
 Ex, Ey, Hz = F.solve()
 plt.imshow(np.real(Ey._value) / E0, cmap='RdBu')
 plt.title('E_y / E0 (<-)')

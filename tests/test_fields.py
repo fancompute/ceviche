@@ -6,14 +6,13 @@ from ceviche.fdfd import fdfd_ez, fdfd_hz
 
 class TestFields(unittest.TestCase):
 
-    """ Tests the field patterns """
+    """ Tests the field patterns by inspection """
 
     def setUp(self):
-        self.omega = 2*np.pi*200e12
-        self.dL = 5e-8                 # 10 nanometers
-        self.Nx, self.Ny = 141, 141    # grid size
+        self.omega = 2 * np.pi * 200e12  # 200 THz / 1.5 um
+        self.dL = 5e-8                   # 50 nanometers
+        self.Nx, self.Ny = 141, 141      # grid size
         self.eps_r = np.ones((self.Nx, self.Ny))
-        # self.eps_r[40:60, 40:60] = 10
         self.source = np.zeros((self.Nx, self.Ny))
         self.source[self.Nx//2, self.Ny//2] = 1
         self.npml = [20, 20]

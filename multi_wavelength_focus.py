@@ -7,13 +7,13 @@ from ceviche.fdfd import fdfd_hz as fdfd_hz
 from ceviche.constants import C_0
 
 # some parameters
-wavelengths = [5e-9, 4.5e-9]#, 650e-9]
+wavelengths = [500e-9, 450e-9]#, 650e-9]
 
 H = 2e-6  # height of slab
 L = 2e-6  # width of slab
 
 spc = 1e-6   # space between source and PML, source and structure
-dL = 0.2e-7
+dL = 20e-9
 
 npml = 20       # number of PML grids
 eps_max = 15   # material index
