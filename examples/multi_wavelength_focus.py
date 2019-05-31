@@ -15,13 +15,13 @@ wavelengths = [450e-9, 550e-9, 650e-9]  # in meters
 Nw = len(wavelengths)                   # number of wavelengths
 
 H = 1e-6           # height of slab
-L = 1e-6           # width of slab
+L = 5e-6           # width of slab
 
 spc = 2e-6         # space between source and PML, source and structure
 dL = 20e-9         # size (meters) of each grid cell in FDFD
 
 npml = 10          # number of PML grids
-eps_max = 12       # material index
+eps_max = 4       # material index
 
 """ set up arrays for this problem (note, need to convert from meters to grid cells using dL) """
 

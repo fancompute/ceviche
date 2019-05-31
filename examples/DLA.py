@@ -33,6 +33,7 @@ gap = 20
 design_region = np.zeros((Nx, Ny))
 design_region[spc:Nx//2-gap//2, :] = 1
 design_region[Nx//2+gap//2:Nx-spc, :] = 1
+eps_r[design_region == 1] = eps_max
 
 # make the accelration probe
 eta = np.zeros((Nx, Ny), dtype=np.complex128)
@@ -63,9 +64,10 @@ if PLOT:
     plt.show()
 
 # maximum electric field magnitude in the domain
-def Emax(Ex, Ey):
+def Emax(Ex, Ey, eps_r):
     E_mag = npa.sqrt(npa.square(npa.abs(Ex)) + npa.square(npa.abs(Ey)))
-    return npa.max(E_mag)
+    material_density = (eps_r - 1) / (eps_max - 1)
+    return npa.max(E_mag * material_density)
 
 # average electric field magnitude in the domain
 def Eavg(Ex, Ey):
@@ -80,7 +82,7 @@ def accel_gradient(eps_arr):
     Ex, Ey, Hz = F.solve()
 
     # compute the gradient and normalize if you want
-    G = npa.sum(Ey * eta / Ny) / Emax(Ex, Ey)
+    G = npa.sum(Ey * eta / Ny) / Emax(Ex, Ey, eps_r)
     return -np.abs(G)
 
 # define the gradient for autograd
