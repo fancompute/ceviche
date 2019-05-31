@@ -17,7 +17,7 @@ This is incredibly powerful as it allows you to do gradient-based optimization o
 
 ### A quick example
 
-Lets say we have a domain of where we wish to inject light at position `source` and measure it's intensity at `probe`.
+Lets say we have a domain of where we wish to inject light at position `source` and measure its intensity at `probe`.
 
 Between these two points, there's a box at location `pos_box` with permittivity `eps`.
 
@@ -41,7 +41,7 @@ def intensity(eps):
     Ex, Ey, Hz = fdfd.solve(source)
 
     # compute the intensity at `probe`
-    I = np.square(npa.abs(Ex)) + npa.square(npa.abs(Ex))
+    I = np.square(np.abs(Ex)) + np.square(np.abs(Ex))
     return = np.sum(I * probe)
 ```
 
@@ -76,7 +76,7 @@ The `ceviche` directory contains everything needed.
 
 To get the FDFD and FDTD tools, import directly `from ceviche import fdtd, fdfd_ez, fdfd_hz`
 
-`constants.py` contains some constants `EPSILON_0`, `C_0`, `ETA_0`, `Q_E`, which are automatically available upon import from ceviche.
+`constants.py` contains some constants `EPSILON_0`, `C_0`, `ETA_0`, `Q_E`, which are needed throughout the package
 
 `utils.py` contains a few useful functions, more to be added later.
 
