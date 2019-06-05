@@ -7,7 +7,7 @@ from autograd import grad
 from ceviche import fdfd_hz
 from ceviche.constants import C_0
 
-PLOT = True
+PLOT = False
 
 """ define parameters """
 
@@ -15,13 +15,13 @@ wavelengths = [450e-9, 550e-9, 650e-9]  # in meters
 Nw = len(wavelengths)                   # number of wavelengths
 
 H = 1e-6           # height of slab
-L = 5e-6           # width of slab
+L = 1e-6           # width of slab
 
-spc = 2e-6         # space between source and PML, source and structure
-dL = 20e-9         # size (meters) of each grid cell in FDFD
+spc = 1e-6         # space between source and PML, source and structure
+dL = 30e-9         # size (meters) of each grid cell in FDFD
 
-npml = 10          # number of PML grids
-eps_max = 4       # material index
+npml = 20          # number of PML grids
+eps_max = 4        # material index
 
 """ set up arrays for this problem (note, need to convert from meters to grid cells using dL) """
 
@@ -81,10 +81,10 @@ def plot_field(fdfd):
     plt.show()
 
 # plots the real part of Hz for the autograd object (just needs to be called instead of the `plot_field` after the optimization)
-def plot_field_ag(fdfd):
+def plot_field_ag(fdfd, norm):
     Ex, Ey, Hz = fdfd.solve()
-    plt.imshow(np.real(Hz._value.T), cmap='RdBu')
-    plt.title('real(Hz)')
+    plt.imshow(np.square(np.abs(Hz._value.T)) / norm, cmap='plasma')
+    plt.title('|Hz|^2 (H_0^2)')
     plt.xlabel('x')
     plt.ylabel('y')    
     plt.colorbar() 
@@ -104,23 +104,31 @@ def objective(eps_arr):
     eps_r = eps_arr.reshape((Nx, Ny))
 
     # running sum of the power at each probe for each wavelength
-    power_total = 0.0
+    power_correct = 0.0
 
     # looop through wavelengths, fdfds, probes
     for i in range(Nw):
-        fdfds[i].eps_r = eps_r           # set the relative permittivity of the FDFD
-        Ex, Ey, Hz = fdfds[i].solve()    # solve the fields
-        power = np.abs(np.square(np.sum(probes[i] * Hz))) / powers[i]   # compute the power at the probe
-        power_total += power             # add to sum
+        fdfds[i].eps_r = eps_r                 # set the relative permittivity of the FDFD
+        Ex_i, Ey_i, Hz_i = fdfds[i].solve()    # solve the fields 
+        power_ii = 0.0
+        power_cross = 0.0
+        for j in range(Nw):
+            power_ij = np.abs(np.square(np.sum(probes[j] * Hz_i))) / powers[i]   # compute the power at the probe
+            if i == j:            
+                power_ii += power_ij                       # add to sum
+            else:
+                power_cross += power_ij                   # add to sum
+        power_correct += power_ii / (power_ii + power_cross)
 
-    return - power_total / Nw            # return negative (for maximizing) and normalize by number of wavelengths (starting objective = 1)
+        # power_total += powers_ii / powers_ij
+    return -np.log(power_correct / Nw)            # return negative (for maximizing) and normalize by number of wavelengths (starting objective = 1)
 
 # define the gradient for autograd
 grad_J = grad(objective)
 
 """  optimization loop """
 
-NIter = 10000    # max number of iterations
+NIter = 500    # max number of iterations
 
 # set the material bounds to (1, eps_max) in design region, (1,1) outside
 bounds = [(1, eps_max) if design_region.flatten()[i] == 1 else (1,1) for i in range(eps_r.size)]  
@@ -131,9 +139,9 @@ minimize(objective, eps_r, args=(), method='L-BFGS-B', jac=grad_J,
     options={'disp': True, 'maxcor': 10, 'ftol': 2.220446049250313e-09, 'gtol': 1e-05, 'eps': 1e-08, 'maxfun': 15000, 'maxiter': NIter, 'iprint': -1, 'maxls': 20})
 
 # plot the fields of the final FDFDs
-if PLOT:
-    for i in range(Nw):        
-        plot_field_ag(fdfds[i])
+
+for i in range(Nw):        
+    plot_field_ag(fdfds[i], powers[i])
 
 # plot the final permittivity
 plt.imshow(fdfds[0].eps_r._value.T, cmap='Greys')
@@ -142,3 +150,31 @@ plt.xlabel('x')
 plt.ylabel('y')
 plt.colorbar()
 plt.show()
+
+for i in range(Nw):
+    print('i = {}'.format(i))
+    Ex, Ey, Hz = fdfds[i].solve()    # solve the fields    
+    for j in range(Nw):
+        print('  j = {}'.format(j))
+        power = np.abs(np.square(np.sum(probes[j] * Hz))) / powers[i]   # compute the power at the probe
+        print('    power = {}'.format(power))
+
+
+import scipy.io as sio
+
+data = {}
+
+Ex_0, Ey_0, Hz_0 = fdfds[0].solve()
+data['Ex_0'] = Ex_0._value
+data['Ey_0'] = Ey_0._value
+data['Hz_0'] = Hz_0._value
+Ex_1, Ey_1, Hz_1 = fdfds[1].solve()
+data['Ex_1'] = Ex_1._value
+data['Ey_1'] = Ey_1._value
+data['Hz_1'] = Hz_1._value
+Ex_2, Ey_2, Hz_2 = fdfds[2].solve()
+data['Ex_2'] = Ex_2._value
+data['Ey_2'] = Ey_2._value
+data['Hz_2'] = Hz_2._value
+data['eps_r'] = fdfds[0].eps_r._value
+sio.savemat('./data.mat', data)
