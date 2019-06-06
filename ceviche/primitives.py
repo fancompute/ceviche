@@ -14,175 +14,175 @@ from ceviche.constants import *
 
 """========================= SYSTEM MATRIX CREATION ========================"""
 
-def make_A_Hz(matrices, eps_arr):
+def make_A_Hz(info_dict, eps_arr):
     """ constructs the system matrix for `Hz` polarization """
 
     diag = 1 / EPSILON_0 * sp.spdiags(1/eps_arr, [0], eps_arr.size, eps_arr.size)
-    A = matrices['Dxf'].dot(diag).dot(matrices['Dxb']) \
-      + matrices['Dyf'].dot(diag).dot(matrices['Dyb']) \
-      + matrices['omega']**2 * MU_0 * sp.eye(eps_arr.size)
+    A = info_dict['Dxf'].dot(diag).dot(info_dict['Dxb']) \
+      + info_dict['Dyf'].dot(diag).dot(info_dict['Dyb']) \
+      + info_dict['omega']**2 * MU_0 * sp.eye(eps_arr.size)
     return A
 
-def make_A_Ez(matrices, eps_arr):
+def make_A_Ez(info_dict, eps_arr):
     """ constructs the system matrix for `Ez` polarization """
 
     diag = EPSILON_0 * sp.spdiags(eps_arr, [0], eps_arr.size, eps_arr.size)
-    A = 1 / MU_0 * matrices['Dxf'].dot(matrices['Dxb']) \
-      + 1 / MU_0 * matrices['Dyf'].dot(matrices['Dyb']) \
-      + matrices['omega']**2 * diag
+    A = 1 / MU_0 * info_dict['Dxf'].dot(info_dict['Dxb']) \
+      + 1 / MU_0 * info_dict['Dyf'].dot(info_dict['Dyb']) \
+      + info_dict['omega']**2 * diag
     return A
 
 """====================== FIELD CONVERSION PRIMITIVIES ====================="""
 
 @primitive
-def Ez_to_Hx(Ez, matrices):
+def Ez_to_Hx(Ez, info_dict):
     """ Returns magnetic field `Hx` from electric field `Ez` """
-    Hx = - matrices['Dyb'].dot(Ez) / MU_0
+    Hx = - info_dict['Dyb'].dot(Ez) / MU_0
     return Hx
 
-def vjp_maker_Ez_to_Hx(Ez, Hx, matrices):
+def vjp_maker_Ez_to_Hx(Ez, Hx, info_dict):
     """ Gives vjp for dHx/dEz """
     def vjp(v):
-        return -(matrices['Dyb'].T).dot(v) / MU_0
+        return -(info_dict['Dyb'].T).dot(v) / MU_0
     return vjp
 
 @primitive
-def Ez_to_Hy(Ez, matrices):
+def Ez_to_Hy(Ez, info_dict):
     """ Returns magnetic field `Hy` from electric field `Ez` """
-    Hy =  matrices['Dxb'].dot(Ez) / MU_0
+    Hy =  info_dict['Dxb'].dot(Ez) / MU_0
     return Hy
 
-def vjp_maker_Ez_to_Hy(Hy, Ez, matrices):
+def vjp_maker_Ez_to_Hy(Hy, Ez, info_dict):
     """ Gives vjp for dHy/dEz """
     def vjp(v):
-        return (matrices['Dxb'].T).dot(v) / MU_0
+        return (info_dict['Dxb'].T).dot(v) / MU_0
     return vjp
 
-def E_to_H(Ez, matrices):
+def E_to_H(Ez, info_dict):
     """ More convenient function to return both Hx and Hy from Ez """
-    Hx = Ez_to_Hx(Ez, matrices)
-    Hy = Ez_to_Hy(Ez, matrices)
+    Hx = Ez_to_Hx(Ez, info_dict)
+    Hy = Ez_to_Hy(Ez, info_dict)
     return Hx, Hy
 
 @primitive
-def Hz_to_Ex(Hz, matrices, eps_arr, adjoint=False):
+def Hz_to_Ex(Hz, info_dict, eps_arr, adjoint=False):
     """ Returns electric field `Ex` from magnetic field `Hz` """
     if adjoint:
-        Ex = (matrices['Dyf'].T).dot(Hz) / eps_arr / EPSILON_0
+        Ex = (info_dict['Dyf'].T).dot(Hz) / eps_arr / EPSILON_0
     else:
-        Ex = -matrices['Dyb'].dot(Hz) / eps_arr / EPSILON_0
+        Ex = -info_dict['Dyb'].dot(Hz) / eps_arr / EPSILON_0
     return Ex
 
-def vjp_maker_Hz_to_Ex_Hz(Ex, Hz, matrices, eps_arr, adjoint=False):
+def vjp_maker_Hz_to_Ex_Hz(Ex, Hz, info_dict, eps_arr, adjoint=False):
     """ Gives vjp for dEx/dHz """
     def vjp(v):
-        return -(matrices['Dyb'].T).dot(v / eps_arr / EPSILON_0)
+        return -(info_dict['Dyb'].T).dot(v / eps_arr / EPSILON_0)
     return vjp
 
-def vjp_maker_Hz_to_Ex_eps_arr(Ex, Hz, matrices, eps_arr, adjoint=False):
+def vjp_maker_Hz_to_Ex_eps_arr(Ex, Hz, info_dict, eps_arr, adjoint=False):
     """ Gives vjp for dEx/deps_arr """
     def vjp(v):
         return np.real(-v * Ex / eps_arr)
     return vjp
 
 @primitive
-def Hz_to_Ey(Hz, matrices, eps_arr, adjoint=False):
+def Hz_to_Ey(Hz, info_dict, eps_arr, adjoint=False):
     """ Returns electric field `Ey` from magnetic field `Hz` """
     if adjoint:
-        Ey = -(matrices['Dxf'].T).dot(Hz) / eps_arr / EPSILON_0
+        Ey = -(info_dict['Dxf'].T).dot(Hz) / eps_arr / EPSILON_0
     else:
-        Ey = matrices['Dxb'].dot(Hz) / eps_arr / EPSILON_0
+        Ey = info_dict['Dxb'].dot(Hz) / eps_arr / EPSILON_0
     return Ey
 
-def vjp_maker_Hz_to_Ey_Hz(Ey, Hz, matrices, eps_arr, adjoint=False):
+def vjp_maker_Hz_to_Ey_Hz(Ey, Hz, info_dict, eps_arr, adjoint=False):
     """ Gives vjp for dEy/dHz """
     def vjp(v):
-        return (matrices['Dxb'].T).dot(v / eps_arr / EPSILON_0)
+        return (info_dict['Dxb'].T).dot(v / eps_arr / EPSILON_0)
     return vjp
 
-def vjp_maker_Hz_to_Ey_eps_arr(Ey, Hz, matrices, eps_arr, adjoint=False):
+def vjp_maker_Hz_to_Ey_eps_arr(Ey, Hz, info_dict, eps_arr, adjoint=False):
     """ Gives vjp for dEy/deps_arr """
     def vjp(v):
         return np.real(-v * Ey / eps_arr)
     return vjp
 
-def H_to_E(Hz, matrices, eps_arr, adjoint=False):
+def H_to_E(Hz, info_dict, eps_arr, adjoint=False):
     """ More convenient function to return both Ex and Ey from Hz """
-    Ex = Hz_to_Ex(Hz, matrices, eps_arr, adjoint=adjoint)
-    Ey = Hz_to_Ey(Hz, matrices, eps_arr, adjoint=adjoint)
+    Ex = Hz_to_Ex(Hz, info_dict, eps_arr, adjoint=adjoint)
+    Ey = Hz_to_Ey(Hz, info_dict, eps_arr, adjoint=adjoint)
     return Ex, Ey
 
 """========================= FIELD SOLVE PRIMITIVES ========================"""
 
 @primitive
-def solve_Ez(matrices, eps_arr, source):
-    """ solve `Ez = A^-1 b` where A is constructed from the FDFD `matrices`
+def solve_Ez(info_dict, eps_arr, source):
+    """ solve `Ez = A^-1 b` where A is constructed from the FDFD `info_dict`
         and 'eps_arr' is a (1D) array of the relative permittivity
     """
-    A = make_A_Ez(matrices, eps_arr)
-    b = 1j * matrices['omega'] * source
+    A = make_A_Ez(info_dict, eps_arr)
+    b = 1j * info_dict['omega'] * source
     Ez = spl.spsolve(A, b)
     return Ez
 
 # define the gradient of solve_Ez w.r.t. eps_arr (in Hz)
-def vjp_maker_solve_Ez(Ez, matrices, eps_arr, source):
+def vjp_maker_solve_Ez(Ez, info_dict, eps_arr, source):
     """ Returns a function of the error signal (v) that computes the vector-jacobian product.
           takes in the output of solve_Ez (Hz) and solve_Ez's other arguments. 
     """
     
     # construct the system matrix again
-    A = make_A_Ez(matrices, eps_arr)
+    A = make_A_Ez(info_dict, eps_arr)
 
     # vector-jacobian product function to return
     def vjp(v):
 
-        # solve the adjoint problem and get those electric fields (note D matrices are different and transposed)
+        # solve the adjoint problem and get those electric fields (note D info_dict are different and transposed)
         Ez_aj = spl.spsolve(A.T, -v)
 
         # because we care about the diagonal elements, just element-wise multiply E and E_adj
-        return EPSILON_0 * matrices['omega']**2 * np.real(Ez_aj * Ez)
+        return EPSILON_0 * info_dict['omega']**2 * np.real(Ez_aj * Ez)
 
     # return this function for autograd to link-later
     return vjp
 
-def vjp_maker_solve_Ez_source(Ez, matrices, eps_arr, source):
+def vjp_maker_solve_Ez_source(Ez, info_dict, eps_arr, source):
     """ Gives vjp for solve_Ez with respect to source """    
 
-    A = make_A_Ez(matrices, eps_arr)
+    A = make_A_Ez(info_dict, eps_arr)
 
     def vjp(v):
-        return 1j * matrices['omega'] * spl.spsolve(A.T, v)
+        return 1j * info_dict['omega'] * spl.spsolve(A.T, v)
 
     return vjp
 
 @primitive
-def solve_Hz(matrices, eps_arr, source):
-    """ solve `Hz = A^-1 b` where A is constructed from the FDFD `matrices`
+def solve_Hz(info_dict, eps_arr, source):
+    """ solve `Hz = A^-1 b` where A is constructed from the FDFD `info_dict`
         and 'eps_arr' is a (1D) array of the relative permittivity
     """
-    A = make_A_Hz(matrices, eps_arr)
-    b = 1j * matrices['omega'] * source    
+    A = make_A_Hz(info_dict, eps_arr)
+    b = 1j * info_dict['omega'] * source    
     Hz = spl.spsolve(A, b)
     return Hz
 
 # define the gradient of solve_Hz w.r.t. eps_arr (in Hz)
-def vjp_maker_solve_Hz(Hz, matrices, eps_arr, source):
+def vjp_maker_solve_Hz(Hz, info_dict, eps_arr, source):
     """ Returns a function of the error signal (v) that computes the vector-jacobian product.
           takes in the output of solve_Hz (Hz) and solve_Hz's other arguments. 
     """
 
     # get the forward electric fields
-    Ex, Ey = H_to_E(Hz, matrices, eps_arr, adjoint=False)
+    Ex, Ey = H_to_E(Hz, info_dict, eps_arr, adjoint=False)
 
     # construct the system matrix again
-    A = make_A_Hz(matrices, eps_arr)
+    A = make_A_Hz(info_dict, eps_arr)
 
     # vector-jacobian product function to return
     def vjp(v):
 
-        # solve the adjoint problem and get those electric fields (note D matrices are different and transposed)
+        # solve the adjoint problem and get those electric fields (note D info_dict are different and transposed)
         Hz_aj = spl.spsolve(A.T, -v)
-        Ex_aj, Ey_aj = H_to_E(Hz_aj, matrices, eps_arr, adjoint=True)
+        Ex_aj, Ey_aj = H_to_E(Hz_aj, info_dict, eps_arr, adjoint=True)
 
         # because we care about the diagonal elements, just element-wise multiply E and E_adj
         return EPSILON_0 * np.real(Ex_aj * Ex + Ey_aj * Ey)
@@ -190,13 +190,13 @@ def vjp_maker_solve_Hz(Hz, matrices, eps_arr, source):
     # return this function for autograd to link-later
     return vjp
 
-def vjp_maker_solve_Hz_source(Hz, matrices, eps_arr, b):
+def vjp_maker_solve_Hz_source(Hz, info_dict, eps_arr, b):
     """ Gives vjp for solve_Hz with respect to source """    
 
-    A = make_A_Hz(matrices, eps_arr)
+    A = make_A_Hz(info_dict, eps_arr)
 
     def vjp(v):
-        return 1j * matrices['omega'] * spl.spsolve(A.T, v)
+        return 1j * info_dict['omega'] * spl.spsolve(A.T, v)
 
     return vjp
 

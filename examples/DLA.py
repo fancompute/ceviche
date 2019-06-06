@@ -17,11 +17,11 @@ PLOT = False
 wavelength = 2e-6                      # free space wavelength
 omega = 2 * np.pi * C_0 / wavelength   # angular frequency
 beta = .5                              # speed of electron / speed of light
-dL = wavelength / 100.0                # grid size (m)
+dL = wavelength / 50.0                # grid size (m)
 
 Nx, Ny = 400, int(beta * wavelength / dL)
 
-eps_max = 5
+eps_max = 2
 eps_r = np.ones((Nx, Ny))
 source = np.zeros((Nx, Ny))
 source[30, :] = 10
@@ -48,8 +48,8 @@ if PLOT:
     plt.show()
 
 # vacuum test, get normalization
-F = fdfd_hz(omega, dL, eps_r, source, npml)
-Ex, Ey, Hz = F.solve()
+F = fdfd_hz(omega, dL, eps_r, npml)
+Ex, Ey, Hz = F.solve(source)
 E_mag = np.sqrt(np.square(np.abs(Ex)) + np.square(np.abs(Ey)))
 E0 = np.max(E_mag[spc:-spc, :])
 print('E0 = {} V/m'.format(E0))
@@ -79,7 +79,7 @@ def accel_gradient(eps_arr):
 
     # set the permittivity of the FDFD and solve the fields
     F.eps_r = eps_arr.reshape((Nx, Ny))
-    Ex, Ey, Hz = F.solve()
+    Ex, Ey, Hz = F.solve(source)
 
     # compute the gradient and normalize if you want
     G = npa.sum(Ey * eta / Ny) / Emax(Ex, Ey, eps_r)
@@ -89,7 +89,7 @@ def accel_gradient(eps_arr):
 grad_g = grad(accel_gradient)
 
 # optimization
-NIter = 100
+NIter = 10
 bounds_eps = [(1, eps_max) if design_region.flatten()[i] == 1 else (1,1) for i in range(eps_r.size)]
 minimize(accel_gradient, eps_r.flatten(), args=(), method='L-BFGS-B', jac=grad_g,
     bounds=bounds_eps, tol=None, callback=None,
@@ -98,12 +98,16 @@ minimize(accel_gradient, eps_r.flatten(), args=(), method='L-BFGS-B', jac=grad_g
              'iprint': -1, 'maxls': 20})
 
 # plot the final permittivity
-plt.imshow(F.eps_r._value, cmap='nipy_spectral')
+N_per = 10
+eps_big = F.eps_r._value.copy()
+for i in range(N_per):
+    eps_big = np.concatenate([eps_big, eps_big])
+plt.imshow(eps_big, cmap='nipy_spectral')
 plt.colorbar()
 plt.show()
 
 # plot the accelerating fields
-Ex, Ey, Hz = F.solve()
+Ex, Ey, Hz = F.solve(source)
 plt.imshow(np.real(Ey._value) / E0, cmap='RdBu')
 plt.title('E_y / E0 (<-)')
 plt.xlabel('y')

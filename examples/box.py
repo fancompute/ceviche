@@ -38,8 +38,8 @@ if PLOT:
     plt.show()
 
 # vacuum test, get normalization
-F = fdfd_hz(omega, dL, eps_r, source, [npml, npml])
-Ex, Ey, Hz = F.solve()
+F = fdfd_hz(omega, dL, eps_r, [npml, npml])
+Ex, Ey, Hz = F.solve(source)
 E_mag = np.sqrt(np.square(np.abs(Ex)) + np.square(np.abs(Ey)))
 H_mag = np.abs(Hz)
 I_E0 = np.abs(np.square(np.sum(E_mag * probe)))
@@ -62,7 +62,7 @@ def intensity(eps_arr):
     eps_r = eps_arr.reshape((Nx, Ny))
     # set the permittivity of the FDFD and solve the fields
     F.eps_r = eps_r
-    Ex, Ey, Hz = F.solve()
+    Ex, Ey, Hz = F.solve(source)
 
     # compute the gradient and normalize if you want
     I = npa.sum(npa.square(npa.abs(Hz * probe)))

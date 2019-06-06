@@ -11,14 +11,14 @@ PLOT = False
 
 """ define parameters """
 
-wavelengths = [450e-9, 550e-9, 650e-9]  # in meters
+wavelengths = [490e-9, 500e-9, 510e-9]  # in meters
 Nw = len(wavelengths)                   # number of wavelengths
 
-H = 1e-6           # height of slab
-L = 1e-6           # width of slab
+H = .5e-6           # height of slab
+L = .5e-6           # width of slab
 
-spc = 1e-6         # space between source and PML, source and structure
-dL = 30e-9         # size (meters) of each grid cell in FDFD
+spc = 2e-6         # space between source and PML, source and structure
+dL = 50e-9         # size (meters) of each grid cell in FDFD
 
 npml = 20          # number of PML grids
 eps_max = 4        # material index
@@ -56,9 +56,9 @@ fdfds = []
 powers = []
 for i, lam in enumerate(wavelengths):
     omega_i = 2 * np.pi * C_0 / lam      # the angular frequency
-    fdfd_i = fdfd_hz(omega_i, dL, eps_r, source, npml=[0, npml])   # make an FDFD simulation
+    fdfd_i = fdfd_hz(omega_i, dL, eps_r, npml=[0, npml])   # make an FDFD simulation
     fdfds.append(fdfd_i)                                           # add it to the list
-    Ex, Ey, Hz = fdfd_i.solve()                                    # solve the fields
+    Ex, Ey, Hz = fdfd_i.solve(source)                                    # solve the fields
     powers.append(np.sum(np.square(np.abs(Hz) * probes[i])))       # compute the power at its probe, add to list
 
 # plot the domain (design region + probes + source)
@@ -72,7 +72,7 @@ if PLOT:
 
 # plots the real part of Hz
 def plot_field(fdfd):
-    Ex, Ey, Hz = fdfd.solve()
+    Ex, Ey, Hz = fdfd.solve(source)
     plt.imshow(np.real(Hz.T), cmap='RdBu')
     plt.title('real(Hz)')
     plt.xlabel('x')
@@ -82,7 +82,7 @@ def plot_field(fdfd):
 
 # plots the real part of Hz for the autograd object (just needs to be called instead of the `plot_field` after the optimization)
 def plot_field_ag(fdfd, norm):
-    Ex, Ey, Hz = fdfd.solve()
+    Ex, Ey, Hz = fdfd.solve(source)
     plt.imshow(np.square(np.abs(Hz._value.T)) / norm, cmap='plasma')
     plt.title('|Hz|^2 (H_0^2)')
     plt.xlabel('x')
@@ -103,32 +103,31 @@ def objective(eps_arr):
     # reshape flattened array into the right grid shape
     eps_r = eps_arr.reshape((Nx, Ny))
 
-    # running sum of the power at each probe for each wavelength
-    power_correct = 0.0
+    obj_total = 0.0
 
     # looop through wavelengths, fdfds, probes
     for i in range(Nw):
         fdfds[i].eps_r = eps_r                 # set the relative permittivity of the FDFD
-        Ex_i, Ey_i, Hz_i = fdfds[i].solve()    # solve the fields 
+        Ex_i, Ey_i, Hz_i = fdfds[i].solve(source)    # solve the fields 
         power_ii = 0.0
         power_cross = 0.0
         for j in range(Nw):
             power_ij = np.abs(np.square(np.sum(probes[j] * Hz_i))) / powers[i]   # compute the power at the probe
-            if i == j:            
+            if i == j:
                 power_ii += power_ij                       # add to sum
             else:
                 power_cross += power_ij                   # add to sum
-        power_correct += power_ii / (power_ii + power_cross)
+        obj_total += power_ii / (power_ii + power_cross)
 
         # power_total += powers_ii / powers_ij
-    return -np.log(power_correct / Nw)            # return negative (for maximizing) and normalize by number of wavelengths (starting objective = 1)
+    return -np.log(obj_total / Nw)            # return negative (for maximizing) and normalize by number of wavelengths (starting objective = 1)
 
 # define the gradient for autograd
 grad_J = grad(objective)
 
 """  optimization loop """
 
-NIter = 500    # max number of iterations
+NIter = 100    # max number of iterations
 
 # set the material bounds to (1, eps_max) in design region, (1,1) outside
 bounds = [(1, eps_max) if design_region.flatten()[i] == 1 else (1,1) for i in range(eps_r.size)]  
@@ -153,7 +152,7 @@ plt.show()
 
 for i in range(Nw):
     print('i = {}'.format(i))
-    Ex, Ey, Hz = fdfds[i].solve()    # solve the fields    
+    Ex, Ey, Hz = fdfds[i].solve(source)    # solve the fields    
     for j in range(Nw):
         print('  j = {}'.format(j))
         power = np.abs(np.square(np.sum(probes[j] * Hz))) / powers[i]   # compute the power at the probe
@@ -164,15 +163,15 @@ import scipy.io as sio
 
 data = {}
 
-Ex_0, Ey_0, Hz_0 = fdfds[0].solve()
+Ex_0, Ey_0, Hz_0 = fdfds[0].solve(source)
 data['Ex_0'] = Ex_0._value
 data['Ey_0'] = Ey_0._value
 data['Hz_0'] = Hz_0._value
-Ex_1, Ey_1, Hz_1 = fdfds[1].solve()
+Ex_1, Ey_1, Hz_1 = fdfds[1].solve(source)
 data['Ex_1'] = Ex_1._value
 data['Ey_1'] = Ey_1._value
 data['Hz_1'] = Hz_1._value
-Ex_2, Ey_2, Hz_2 = fdfds[2].solve()
+Ex_2, Ey_2, Hz_2 = fdfds[2].solve(source)
 data['Ex_2'] = Ex_2._value
 data['Ey_2'] = Ey_2._value
 data['Hz_2'] = Hz_2._value

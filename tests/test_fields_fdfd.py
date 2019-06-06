@@ -20,8 +20,8 @@ class TestFields_FDFD(unittest.TestCase):
     def test_Hz(self):
         print('\ttesting Hz')
 
-        F = fdfd_hz(self.omega, self.dL, self.eps_r, self.source, self.npml)
-        Ex, Ey, Hz = F.solve()
+        F = fdfd_hz(self.omega, self.dL, self.eps_r, self.npml)
+        Ex, Ey, Hz = F.solve(self.source)
         Hz_max = np.max(np.abs(Hz))        
         plt.imshow(np.real(Hz), cmap='RdBu', vmin=-Hz_max/5, vmax=Hz_max/5)
         plt.show()
@@ -29,8 +29,8 @@ class TestFields_FDFD(unittest.TestCase):
     def test_Ez(self):
         print('\ttesting Ez')
 
-        F = fdfd_ez(self.omega, self.dL, self.eps_r, self.source, self.npml)
-        Hx, Hy, Ez = F.solve()
+        F = fdfd_ez(self.omega, self.dL, self.eps_r, self.npml)
+        Hx, Hy, Ez = F.solve(self.source)
         Ez_max = np.max(np.abs(Ez))
         plt.imshow(np.real(Ez), cmap='RdBu', vmin=-Ez_max/5, vmax=Ez_max/5)
         plt.show()

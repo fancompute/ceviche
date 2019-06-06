@@ -1,5 +1,5 @@
 .DS_Store
-.mat
+*.mat
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

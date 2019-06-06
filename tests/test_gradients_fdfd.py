@@ -71,7 +71,7 @@ class TestFDFD(unittest.TestCase):
 
         print('\ttesting Hz in FDFD')
 
-        f = fdfd_hz(self.omega, self.dL, self.eps_r, self.source_hz, self.pml)
+        f = fdfd_hz(self.omega, self.dL, self.eps_r, self.pml)
 
         def J_fdfd(eps_arr):
 
@@ -81,9 +81,7 @@ class TestFDFD(unittest.TestCase):
             f.eps_r = eps_r
 
             # set the source amplitude to the permittivity at that point
-            f.source = eps_r * self.source_hz
-
-            Ex, Ey, Hz = f.solve()
+            Ex, Ey, Hz = f.solve(eps_r * self.source_hz)
 
             return npa.sum(npa.square(npa.abs(Hz))) \
                  + npa.sum(npa.square(npa.abs(Ex))) \
@@ -103,7 +101,7 @@ class TestFDFD(unittest.TestCase):
 
         print('\ttesting Ez in FDFD')
 
-        f = fdfd_ez(self.omega, self.dL, self.eps_r, self.source_ez, self.pml)
+        f = fdfd_ez(self.omega, self.dL, self.eps_r, self.pml)
 
         def J_fdfd(eps_arr):
 
@@ -113,9 +111,7 @@ class TestFDFD(unittest.TestCase):
             f.eps_r = eps_r
 
             # set the source amplitude to the permittivity at that point
-            f.source = eps_r * self.source_ez
-
-            Hx, Hy, Ez = f.solve()
+            Hx, Hy, Ez = f.solve(eps_r * self.source_ez)
 
             return npa.sum(npa.square(npa.abs(Ez))) \
                  + npa.sum(npa.square(npa.abs(Hx))) \
