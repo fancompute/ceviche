@@ -78,7 +78,7 @@ class fdfd_hz(fdfd):
 
     def __init__(self, omega, L0, eps_r, npml):
         super().__init__(omega, L0, eps_r, npml)
-        # self.A = make_A_Hz(self.info_dict, self.eps_arr)
+        self.A = make_A_Hz(self.info_dict, self.eps_arr)
 
     def solve(self, source):
         """ Solves the electromagnetic fields of the system """
@@ -98,7 +98,7 @@ class fdfd_ez(fdfd):
 
     def __init__(self, omega, L0, eps_r, npml):
         super().__init__(omega, L0, eps_r, npml)
-        # self.A = make_A_Ez(self.info_dict, self.eps_arr)
+        self.A = make_A_Ez(self.info_dict, self.eps_arr)
 
     def solve(self, source):
         """ Solves the electromagnetic fields of the system """
