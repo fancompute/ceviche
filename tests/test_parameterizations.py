@@ -1,0 +1,112 @@
+import unittest
+
+import numpy as np
+import autograd.numpy as npa
+import scipy.sparse as sp
+import scipy.sparse.linalg as spl
+import copy
+
+from autograd.extend import primitive, defvjp
+from autograd import grad
+
+from ceviche.utils import grad_num
+from ceviche.primitives import *
+from ceviche.fdfd import fdfd_hz, fdfd_ez
+
+"""
+This file tests the autograd gradients of an FDFD and makes sure that they
+equal the numerical derivatives
+"""
+
+# test parameters
+ALLOWED_RATIO = 1e-4    # maximum allowed ratio of || grad_num - grad_auto || vs. || grad_num ||
+VERBOSE = False         # print out full gradients?
+DEPS = 1e-6             # numerical gradient step size
+
+class TestFDFD(unittest.TestCase):
+
+    """ Tests the flexible objective function specifier """
+
+    def setUp(self):
+
+        # basic simulation parameters
+        self.Nx = 30
+        self.Ny = 30
+        self.omega = 2*np.pi*200e12
+        self.dL = 1e-6
+        self.pml = [5, 5]
+
+        self.source_mask = np.ones((self.Nx, self.Ny))
+        self.source_mask[5, 5] = 1
+
+        # sources (chosen to have objectives around 1)
+        self.source_amp = 1e-8
+
+        self.source = np.zeros((self.Nx, self.Ny))
+        self.source[self.Nx//2, self.Ny//2] = self.source_amp
+
+        # background relative permittivity
+        self.eps_r   = np.zeros((self.Nx, self.Ny))
+        self.eps_arr = self.eps_r.flatten()
+
+    def check_gradient_error(self, grad_num, grad_auto):
+        """ Checks the test case:
+            compares the norm of the gradient to the norm of the difference
+            Throws error if this is greater than ALLOWED RATIO
+        """
+        norm_grad = np.linalg.norm(grad_num)
+        print('\t\tnorm of gradient:   ', norm_grad)
+        norm_diff = np.linalg.norm(grad_num - grad_auto)
+        print('\t\tnorm of difference: ', norm_diff)
+        norm_ratio = norm_diff / norm_grad        
+        print('\t\tratio of norms:     ', norm_ratio)
+        self.assertLessEqual(norm_ratio, ALLOWED_RATIO)
+        print('')
+
+    def test_continuous(self):
+
+        print('\ttesting continuous, masked parameterization in FDFD')
+        from ceviche.parameterizations import param_continuous
+
+        # define where to perturb gradient
+        design_region = np.zeros((self.Nx, self.Ny))
+        design_region[self.Nx//4:self.Nx*3//4, self.Ny//4:self.Ny*3//4] = 1
+
+        # initialize the parameters
+        num_params = int(np.sum(design_region))
+        init_params = np.random.random((num_params,))
+
+        # set the starting epsilon using the parameterization
+        eps_init = param_continuous(init_params, design_region)
+
+        # initialize FDFD with this permittivity
+        f = fdfd_hz(self.omega, self.dL, eps_init, self.pml)
+
+        def objective(params):
+
+            # get the permittivity for this set of parameters
+            eps_new = param_continuous(params, design_region)
+
+            # set the permittivity
+            f.eps_r = eps_new
+
+            # set the source amplitude to the permittivity at that point
+            Ex, Ey, Hz = f.solve(eps_r * self.source_hz)
+
+            return npa.sum(npa.square(npa.abs(Hz))) \
+                 + npa.sum(npa.square(npa.abs(Ex))) \
+                 + npa.sum(npa.square(npa.abs(Ey)))
+
+        grad_autograd = grad(objective)(eps_init)
+        grad_numerical = grad_num(objective, eps_init, step_size=DEPS)
+
+        if VERBOSE:
+            print('\tobjective function value: ', objective(eps_init))
+            print('\tgrad (auto):  \n\t\t', grad_autograd)
+            print('\tgrad (num):   \n\t\t\n', grad_numerical)
+
+        self.check_gradient_error(grad_numerical, grad_autograd)
+
+
+if __name__ == '__main__':
+    unittest.main()
