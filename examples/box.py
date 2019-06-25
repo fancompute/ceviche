@@ -83,7 +83,7 @@ plt.colorbar()
 plt.show()
 
 # plot the fields
-Ex, Ey, Hz = F.solve()
+Ex, Ey, Hz = F.solve(source)
 plt.imshow(np.real(Hz._value).T, cmap='RdBu')
 plt.title('real(H_z)')
 plt.xlabel('y')
