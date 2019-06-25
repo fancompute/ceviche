@@ -12,13 +12,43 @@ def make_sparse(N, random=True, density=1):
     return D
 
 def grad_num(fn, arg, step_size=1e-7):
-    """ numerically differentiate `fn` w.r.t. its argument `arg` """
+    """ numerically differentiate `fn` w.r.t. its argument `arg` 
+    `arg` can be a numpy array of arbitrary shape
+    `step_size` can be a number or an array of the same shape as `arg` """
+
     N = arg.size
+    shape = arg.shape
     gradient = np.zeros((N,))
     f_old = fn(arg)
+
+    if type(step_size) == float:
+        step = step_size*np.ones((N))
+    else:
+        step = step_size.ravel()
+
     for i in range(N):
-        arg_new = copy.copy(arg)
-        arg_new[i] += step_size
-        f_new_i = fn(arg_new)
+        arg_new = copy.copy(arg.ravel())
+        arg_new[i] += step[i]
+        f_new_i = fn(arg_new.reshape(shape))
         gradient[i] = (f_new_i - f_old) / step_size
-    return gradient
+
+    return gradient.reshape(shape)
+
+def circ2eps(x, y, r, eps_h, eps_b, dL):
+    """ Define eps_r through circle parameters """
+    shape = eps_b.shape   # shape of domain (in num. grids)
+    Nx, Ny = (shape[0], shape[1])
+
+    # x and y coordinate arrays
+    x_coord = np.linspace(-Nx/2*dL, Nx/2*dL, Nx)
+    y_coord = np.linspace(-Ny/2*dL, Ny/2*dL, Ny)
+
+    # x and y mesh
+    xs, ys = np.meshgrid(x_coord, y_coord, indexing='ij')
+
+    eps_r = copy.copy(eps_b)
+    for ih in range(x.shape[0]):
+        mask = (xs - x[ih])**2 + (ys - y[ih])**2 < r[ih]**2
+        eps_r[mask] = eps_h[ih]
+
+    return eps_r

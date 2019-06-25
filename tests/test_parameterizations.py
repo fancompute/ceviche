@@ -76,7 +76,7 @@ class TestFDFD(unittest.TestCase):
         eps_max = 5
 
         # initialize the parameters
-        init_params = np.random.random((self.Nx * self.Ny,))
+        init_params = np.random.random((self.Nx, self.Ny))
 
         # set the starting epsilon using the parameterization
         eps_init = param.get_eps(init_params, self.eps_r, design_region, eps_max)
@@ -109,6 +109,59 @@ class TestFDFD(unittest.TestCase):
 
         self.check_gradient_error(grad_numerical, grad_autograd)
 
+    def template_circles(self, param):
+        """ Template for testing circles-based parameterization"""
+
+        print('\ttesting {} parameterization'.format(param))
+
+        # here design_region is where the background eps_r = eps_max
+        design_region = np.zeros((self.Nx, self.Ny))
+        design_region[self.Nx//4:self.Nx*3//4, self.Ny//4:self.Ny*3//4] = 1
+        eps_max = 5
+        eps_background = copy.copy(self.eps_r)
+        eps_background[design_region == 1] = eps_max
+
+        # initialize two holes in the design region, each with permittivity 1
+        xh = np.array([-self.dL*4, self.dL*4])
+        yh = np.array([0, self.dL*4])
+        rh = np.array([self.dL*3, self.dL*4])
+        eh = np.array([1, 1])
+        init_params = np.array([xh, yh, rh, eh])
+
+        # set the starting epsilon using the parameterization
+        eps_init = param.get_eps(init_params, eps_background, self.dL)
+
+        # initialize FDFD with this permittivity
+        f = fdfd_hz(self.omega, self.dL, eps_init, self.pml)
+
+        def objective(params):
+
+            # get the permittivity for this set of parameters
+            eps_new = param.get_eps(params, eps_background, self.dL)
+
+            # set the permittivity
+            f.eps_r = eps_new
+
+            # set the source amplitude to the permittivity at that point
+            Ex, Ey, Hz = f.solve(eps_new * self.source)
+
+            # return npa.sum(npa.square(npa.abs(Hz))) \
+            #      + npa.sum(npa.square(npa.abs(Ex))) \
+            #      + npa.sum(npa.square(npa.abs(Ey)))
+
+            # The actual simulation will differ from the numerical derivative
+            # so for now we just check an objective function defined from eps_new
+            return npa.sum(eps_new[self.Nx//2, :]) + npa.sum(eps_new[:, self.Ny//2])
+
+        grad_autograd = grad(objective)(init_params)
+        grad_numerical = grad_num(objective, init_params, step_size=float(self.dL))
+
+        if VERBOSE:
+            print('\tobjective function value: ', objective(init_params))
+            print('\tgrad (auto):  \n\t\t', grad_autograd)
+            print('\tgrad (num):   \n\t\t\n', grad_numerical)
+
+        self.check_gradient_error(grad_numerical, grad_autograd)
 
     def test_continuous(self):
         """ Test all continuous parmaterization functions """
@@ -119,7 +172,16 @@ class TestFDFD(unittest.TestCase):
         for param in test_params:
             self.template_continuous(param)
 
+    def test_circles(self):
+        """ Test the circle shape parmaterization.
+        It's hard to conceive right now of a single function that tests multiple 
+        shape parametrizations as they might require different parameters. """
 
+        from ceviche.parameterizations import Circle_Shapes
+
+        test_params = [Circle_Shapes]
+        for param in test_params:
+            self.template_circles(param)
 
 if __name__ == '__main__':
     unittest.main()

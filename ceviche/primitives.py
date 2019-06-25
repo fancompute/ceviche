@@ -4,6 +4,7 @@ import scipy.sparse.linalg as spl
 
 from autograd.extend import primitive, defvjp
 from ceviche.constants import *
+from ceviche.utils import circ2eps
 
 """ This file is the meat and bones of the FDFD.
     It defines the basic operations needed for FDFD and also their derivatives
@@ -204,3 +205,68 @@ def vjp_maker_solve_Hz_source(Hz, info_dict, eps_arr, b):
     return vjp
 
 defvjp(solve_Hz, None, vjp_maker_solve_Hz, vjp_maker_solve_Hz_source)
+
+
+"""============================ HOLE PARAMETRIZATION ==========================="""
+
+@primitive
+def circ2eps_ag(x, y, r, eps_h, eps_background, dL):
+    """ Define an autograd compatible version of ceviche.utils.circ2eps 
+    using numerically-computed derivative """
+    return circ2eps(x, y, r, eps_h, eps_background, dL)
+
+def vjp_maker_circ2eps_x(eps_r, x, y, r, eps_h, eps_background, dL):
+
+    def vjp(v):
+
+        vjp_num = np.zeros(x.shape)
+        for ih in range(x.shape[0]):
+            dxi = x + dL*(np.arange(x.shape[0]) == ih)
+            deps_dxi = (circ2eps(dxi, y, r, eps_h, eps_background, dL) - eps_r)/dL
+            vjp_num[ih] = np.sum(v * deps_dxi)
+
+        return vjp_num
+
+    return vjp
+
+def vjp_maker_circ2eps_y(eps_r, x, y, r, eps_h, eps_background, dL):
+
+    def vjp(v):
+
+        vjp_num = np.zeros(x.shape)
+        for ih in range(x.shape[0]):
+            dyi = y + dL*(np.arange(x.shape[0]) == ih)
+            deps_dyi = (circ2eps(x, dyi, r, eps_h, eps_background, dL) - eps_r)/dL
+            vjp_num[ih] = np.sum(v * deps_dyi)
+
+        return vjp_num
+        
+    return vjp
+
+def vjp_maker_circ2eps_r(eps_r, x, y, r, eps_h, eps_background, dL):
+
+    def vjp(v):
+
+        vjp_num = np.zeros(x.shape)
+        for ih in range(x.shape[0]):
+            dri = r + dL*(np.arange(x.shape[0]) == ih)
+            deps_dri = (circ2eps(x, y, dri, eps_h, eps_background, dL) - eps_r)/dL
+            vjp_num[ih] = np.sum(v * deps_dri)
+
+        return vjp_num
+        
+    return vjp
+
+def vjp_maker_circ2eps_eps_h(eps_r, x, y, r, eps_h, eps_background, dL):
+
+    def vjp(v):
+        deps = 1e-6
+        deps_h = eps_h + deps
+        depsr_depsh = (circ2eps(x, y, r, deps_h, eps_background, dL) - eps_r)/deps
+
+        return np.sum(v * depsr_depsh)
+        
+    return vjp
+
+defvjp(circ2eps_ag, vjp_maker_circ2eps_x, vjp_maker_circ2eps_y, vjp_maker_circ2eps_r, 
+            vjp_maker_circ2eps_eps_h, None, None)
