@@ -63,21 +63,23 @@ class TestFDFD(unittest.TestCase):
         self.assertLessEqual(norm_ratio, ALLOWED_RATIO)
         print('')
 
-    def template_continuous(self, param_fn):
-        """ Template for testing a continuous parameterization function `param_fn`"""
+    def template_continuous(self, param):
+        """ Template for testing a continuous parameterization `param`"""
 
-        print('\ttesting {} parameterization'.format(param_fn))
-        from ceviche.parameterizations import param_continuous
+        print('\ttesting {} parameterization'.format(param))
 
         # define where to perturb gradient
         design_region = np.zeros((self.Nx, self.Ny))
         design_region[self.Nx//4:self.Nx*3//4, self.Ny//4:self.Ny*3//4] = 1
 
+        # other parameters
+        eps_max = 5
+
         # initialize the parameters
         init_params = np.random.random((self.Nx * self.Ny,))
 
         # set the starting epsilon using the parameterization
-        eps_init = param_continuous(init_params, design_region)
+        eps_init = param.get_eps(init_params, self.eps_r, design_region, eps_max)
 
         # initialize FDFD with this permittivity
         f = fdfd_hz(self.omega, self.dL, eps_init, self.pml)
@@ -85,7 +87,7 @@ class TestFDFD(unittest.TestCase):
         def objective(params):
 
             # get the permittivity for this set of parameters
-            eps_new = param_continuous(params, design_region)
+            eps_new = param.get_eps(params, eps_init, design_region, eps_max)
 
             # set the permittivity
             f.eps_r = eps_new
@@ -111,11 +113,11 @@ class TestFDFD(unittest.TestCase):
     def test_continuous(self):
         """ Test all continuous parmaterization functions """
 
-        from ceviche.parameterizations import param_continuous
+        from ceviche.parameterizations import Param_Topology
 
-        test_fns = [param_continuous]
-        for param_fn in test_fns:
-            self.template_continuous(param_fn)
+        test_params = [Param_Topology]
+        for param in test_params:
+            self.template_continuous(param)
 
 
 
