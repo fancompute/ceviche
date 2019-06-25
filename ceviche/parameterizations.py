@@ -16,12 +16,15 @@ class Param_Topology(Param_Base):
     def __init__(self):
         super().__init__(self)
 
+    @staticmethod
+    def _density2eps(mat_density, eps_max):
+        return 1 + (eps_max - 1) * mat_density
+
     @classmethod
     def get_eps(cls, params, eps_background, design_region, eps_max):
 
         mat_density = params.reshape(eps_background.shape)
-
-        eps_inner = 1 + (eps_max - 1) * (design_region == 1) * mat_density
+        eps_inner = cls._density2eps(mat_density, eps_max) * (design_region == 1)
         eps_outer = eps_background * (design_region == 0)
 
         return eps_inner + eps_outer

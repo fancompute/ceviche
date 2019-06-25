@@ -46,7 +46,7 @@ class TestFDFD(unittest.TestCase):
         self.source[self.Nx//2, self.Ny//2] = self.source_amp
 
         # background relative permittivity
-        self.eps_r   = np.zeros((self.Nx, self.Ny))
+        self.eps_r   = np.ones((self.Nx, self.Ny))
         self.eps_arr = self.eps_r.flatten()
 
     def check_gradient_error(self, grad_num, grad_auto):
