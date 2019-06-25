@@ -63,9 +63,10 @@ class TestFDFD(unittest.TestCase):
         self.assertLessEqual(norm_ratio, ALLOWED_RATIO)
         print('')
 
-    def test_continuous(self):
+    def template_continuous(self, param_fn):
+        """ Template for testing a continuous parameterization function `param_fn`"""
 
-        print('\ttesting continuous, masked parameterization in FDFD')
+        print('\ttesting {} parameterization'.format(param_fn))
         from ceviche.parameterizations import param_continuous
 
         # define where to perturb gradient
@@ -73,8 +74,7 @@ class TestFDFD(unittest.TestCase):
         design_region[self.Nx//4:self.Nx*3//4, self.Ny//4:self.Ny*3//4] = 1
 
         # initialize the parameters
-        num_params = int(np.sum(design_region))
-        init_params = np.random.random((num_params,))
+        init_params = np.random.random((self.Nx * self.Ny,))
 
         # set the starting epsilon using the parameterization
         eps_init = param_continuous(init_params, design_region)
@@ -91,21 +91,32 @@ class TestFDFD(unittest.TestCase):
             f.eps_r = eps_new
 
             # set the source amplitude to the permittivity at that point
-            Ex, Ey, Hz = f.solve(eps_r * self.source_hz)
+            Ex, Ey, Hz = f.solve(eps_new * self.source)
 
             return npa.sum(npa.square(npa.abs(Hz))) \
                  + npa.sum(npa.square(npa.abs(Ex))) \
                  + npa.sum(npa.square(npa.abs(Ey)))
 
-        grad_autograd = grad(objective)(eps_init)
-        grad_numerical = grad_num(objective, eps_init, step_size=DEPS)
+        grad_autograd = grad(objective)(init_params)
+        grad_numerical = grad_num(objective, init_params, step_size=DEPS)
 
         if VERBOSE:
-            print('\tobjective function value: ', objective(eps_init))
+            print('\tobjective function value: ', objective(init_params))
             print('\tgrad (auto):  \n\t\t', grad_autograd)
             print('\tgrad (num):   \n\t\t\n', grad_numerical)
 
         self.check_gradient_error(grad_numerical, grad_autograd)
+
+
+    def test_continuous(self):
+        """ Test all continuous parmaterization functions """
+
+        from ceviche.parameterizations import param_continuous
+
+        test_fns = [param_continuous]
+        for param_fn in test_fns:
+            self.template_continuous(param_fn)
+
 
 
 if __name__ == '__main__':
