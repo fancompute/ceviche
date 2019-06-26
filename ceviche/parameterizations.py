@@ -1,5 +1,8 @@
 import autograd.numpy as np
-from ceviche.primitives import circ2eps_ag
+from autograd.extend import primitive, defvjp
+
+from ceviche.utils import circ2eps
+from ceviche.primitives import vjp_maker_num
 
 class Param_Base(object):
 
@@ -61,9 +64,12 @@ class Circle_Shapes(Param_Shape):
         args.append(eps_background)
         args.append(dL)
 
-        eps_r = circ2eps_ag(*args)
+        circ2eps_ag = primitive(circ2eps)
+        (dx, dy, dr, deps) = vjp_maker_num(circ2eps, list(range(4)), [dL, dL, dL, 1e-6])
 
-        return eps_r
+        defvjp(circ2eps_ag, dx, dy, dr, deps, None, None) 
+
+        return circ2eps_ag(*args)
 
 """ Level Set Optimization """
 

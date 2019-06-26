@@ -13,6 +13,8 @@ from ceviche.utils import grad_num
 from ceviche.primitives import *
 from ceviche.fdfd import fdfd_hz, fdfd_ez
 
+import matplotlib.pylab as plt
+
 """
 This file tests the autograd gradients of an FDFD and makes sure that they
 equal the numerical derivatives
@@ -130,6 +132,10 @@ class TestFDFD(unittest.TestCase):
 
         # set the starting epsilon using the parameterization
         eps_init = param.get_eps(init_params, eps_background, self.dL)
+        # # plot the initial permittivity for debugging
+        # plt.imshow(eps_init, cmap='gray')
+        # plt.colorbar()
+        # plt.show()
 
         # initialize FDFD with this permittivity
         f = fdfd_hz(self.omega, self.dL, eps_init, self.pml)
