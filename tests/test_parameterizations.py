@@ -20,7 +20,7 @@ equal the numerical derivatives
 
 # test parameters
 ALLOWED_RATIO = 1e-4    # maximum allowed ratio of || grad_num - grad_auto || vs. || grad_num ||
-VERBOSE = False         # print out full gradients?
+VERBOSE = True         # print out full gradients?
 DEPS = 1e-6             # numerical gradient step size
 
 class TestFDFD(unittest.TestCase):
@@ -163,14 +163,14 @@ class TestFDFD(unittest.TestCase):
 
         self.check_gradient_error(grad_numerical, grad_autograd)
 
-    def test_continuous(self):
-        """ Test all continuous parmaterization functions """
+    # def test_continuous(self):
+    #     """ Test all continuous parmaterization functions """
 
-        from ceviche.parameterizations import Param_Topology
+    #     from ceviche.parameterizations import Param_Topology
 
-        test_params = [Param_Topology]
-        for param in test_params:
-            self.template_continuous(param)
+    #     test_params = [Param_Topology]
+    #     for param in test_params:
+    #         self.template_continuous(param)
 
     def test_circles(self):
         """ Test the circle shape parmaterization.

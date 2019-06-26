@@ -34,7 +34,7 @@ def grad_num(fn, arg, step_size=1e-7):
 
     return gradient.reshape(shape)
 
-def circ2eps(x, y, r, eps_h, eps_b, dL):
+def circ2eps(x, y, r, eps_c, eps_b, dL):
     """ Define eps_r through circle parameters """
     shape = eps_b.shape   # shape of domain (in num. grids)
     Nx, Ny = (shape[0], shape[1])
@@ -49,6 +49,6 @@ def circ2eps(x, y, r, eps_h, eps_b, dL):
     eps_r = copy.copy(eps_b)
     for ih in range(x.shape[0]):
         mask = (xs - x[ih])**2 + (ys - y[ih])**2 < r[ih]**2
-        eps_r[mask] = eps_h[ih]
+        eps_r[mask] = eps_c[ih]
 
     return eps_r

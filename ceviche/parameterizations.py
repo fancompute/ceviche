@@ -50,15 +50,18 @@ class Circle_Shapes(Param_Shape):
     @classmethod
     def get_eps(cls, params, eps_background, dL):
         '''
-        Initizlize circles at position (x, y) of radius r and permittivity eps 
+        Initizlize circles at position (x, y) of radius r and permittivity eps_c
         each defined in the rows of the [4 x Nholes] array 'params'
         '''
-        x = params[0, :]
-        y = params[1, :]
-        r = params[2, :]
-        eps_h = params[3, :]
+        args = []
+        args.append(params[0, :]) # x
+        args.append(params[1, :]) # y
+        args.append(params[2, :]) # r
+        args.append(params[3, :]) # eps_c
+        args.append(eps_background)
+        args.append(dL)
 
-        eps_r = circ2eps_ag(x, y, r, eps_h, eps_background, dL)
+        eps_r = circ2eps_ag(*args)
 
         return eps_r
 
