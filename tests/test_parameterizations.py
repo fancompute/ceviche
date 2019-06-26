@@ -185,7 +185,7 @@ class TestFDFD(unittest.TestCase):
 
         from ceviche.parameterizations import Circle_Shapes
 
-        test_params = [Circle_Shapes]
+        test_params = [Circle_Shapes(arg_indices=range(4), step_sizes=[self.dL, self.dL, self.dL, 1e-6])]
         for param in test_params:
             self.template_circles(param)
 

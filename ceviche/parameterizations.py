@@ -18,17 +18,16 @@ class Param_Base(object):
 class Param_Topology(Param_Base):
 
     def __init__(self):
-        super().__init__(self)
+        super().__init__()
 
     @staticmethod
     def _density2eps(mat_density, eps_max):
         return 1 + (eps_max - 1) * mat_density
 
-    @classmethod
-    def get_eps(cls, params, eps_background, design_region, eps_max):
+    def get_eps(self, params, eps_background, design_region, eps_max):
 
         mat_density = params
-        eps_inner = cls._density2eps(mat_density, eps_max) * (design_region == 1)
+        eps_inner = self._density2eps(mat_density, eps_max) * (design_region == 1)
         eps_outer = eps_background * (design_region == 0)
 
         return eps_inner + eps_outer
@@ -37,41 +36,45 @@ class Param_Topology(Param_Base):
 
 class Param_Shape(Param_Base):
 
-    def __init__(self):
-        super().__init__(self)
+    def __init__(self, arg_indices=None, step_sizes=None):
+        super().__init__()
+        self.arg_indices = arg_indices
+        self.step_sizes = step_sizes
+        self.link_numerical_vjp()
 
-    @classmethod
-    def get_eps(cls, *args):
+    def get_eps(self, *args):
         raise NotImplementedError("Need to implement a function for computing permittivity from parameters")
 
+    def link_numerical_vjp(self):
+        vjp_args = vjp_maker_num(self.get_eps, self.arg_indices, self.step_sizes)
+        defvjp(self.get_eps, *vjp_args, None, None)
 
 class Circle_Shapes(Param_Shape):
 
-    def __init__(self):
-        super().__init__(self)
+    def __init__(self, arg_indices=None, step_sizes=None):
+        super().__init__(arg_indices=arg_indices, step_sizes=step_sizes)
 
     @staticmethod
     def hole(x, y, x0, y0, r):
         """ returns True if position x,y is within a hole at center x0,y0 with radius r """
         return (x - x0)**2 + (y - y0)**2 < r**2
 
-    @classmethod
     @primitive
-    def get_eps(cls, xs, ys, rs, eps_holes, eps_background, dL):
+    def get_eps(self, xs, ys, rs, eps_holes, eps_background, dL):
 
         # get coordinates of x and y grid cells
         x_coords, y_coords = grid_coords(eps_background, dL)
         eps_r = eps_background.copy()
 
         for x, y, r, eps_c in zip(xs, ys, rs, eps_holes):
-            within_hole = cls.hole(x_coords, y_coords, x, y, r)
+            within_hole = self.hole(x_coords, y_coords, x, y, r)
             eps_r[within_hole] = eps_c
 
         return eps_r
 
-# note, not sure where the best place to do this is, might need to not use classmethods and just initialize parameterization objects instead and do it in __init__.. need to insert dL here
-(dx, dy, dr, deps) = vjp_maker_num(Circle_Shapes.get_eps, list(range(4)), [1e-6, 1e-6, 1e-6, 1e-6])
-defvjp(Circle_Shapes.get_eps, dx, dy, dr, deps, None, None)
+# # note, not sure where the best place to do this is, might need to not use classmethods and just initialize parameterization objects instead and do it in __init__.. need to insert dL here
+# (dx, dy, dr, deps) = vjp_maker_num(Circle_Shapes.get_eps, list(range(4)), [1e-6, 1e-6, 1e-6, 1e-6])
+# defvjp(Circle_Shapes.get_eps, dx, dy, dr, deps, None, None)
 
 """ Old code below 
 class Circle_Shapes(Param_Shape):
@@ -108,8 +111,7 @@ class Param_LevelSet(Param_Base):
     def __init__(self):
         super().__init__(self)
 
-    @classmethod
-    def get_eps(cls, params, eps_background, design_region, eps_max):
+    def get_eps(self, params, eps_background, design_region, eps_max):
         raise NotImplementedError("Need to implement a function for computing permittivity from parameters")
 
 
@@ -124,5 +126,5 @@ if __name__ == '__main__':
     design_region[5:,:] = 1
     eps_max = 5
 
-    eps = Param_Topology.get_eps(params, eps_background, design_region, eps_max)
+    eps = Param_Topology().get_eps(params, eps_background, design_region, eps_max)
     
