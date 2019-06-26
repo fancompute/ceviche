@@ -34,10 +34,10 @@ def grad_num(fn, arg, step_size=1e-7):
 
     return gradient.reshape(shape)
 
-def circ2eps(x, y, r, eps_c, eps_b, dL):
-    """ Define eps_r through circle parameters """
-    shape = eps_b.shape   # shape of domain (in num. grids)
-    Nx, Ny = (shape[0], shape[1])
+def grid_coords(array, dL):
+    """ Takes an array and returns the coordinates of the x and y points """
+
+    shape = Nx, Ny = array.shape   # shape of domain (in num. grids)
 
     # x and y coordinate arrays
     x_coord = np.linspace(-Nx/2*dL, Nx/2*dL, Nx)
@@ -46,9 +46,4 @@ def circ2eps(x, y, r, eps_c, eps_b, dL):
     # x and y mesh
     xs, ys = np.meshgrid(x_coord, y_coord, indexing='ij')
 
-    eps_r = copy.copy(eps_b)
-    for ih in range(x.shape[0]):
-        mask = (xs - x[ih])**2 + (ys - y[ih])**2 < r[ih]**2
-        eps_r[mask] = eps_c[ih]
-
-    return eps_r
+    return xs, ys

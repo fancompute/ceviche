@@ -131,11 +131,11 @@ class TestFDFD(unittest.TestCase):
         init_params = np.array([xh, yh, rh, eh])
 
         # set the starting epsilon using the parameterization
-        eps_init = param.get_eps(init_params, eps_background, self.dL)
+        eps_init = param.get_eps(xh, yh, rh, eh, eps_background, self.dL)
         # # plot the initial permittivity for debugging
-        # plt.imshow(eps_init, cmap='gray')
-        # plt.colorbar()
-        # plt.show()
+        plt.imshow(eps_init, cmap='gray')
+        plt.colorbar()
+        plt.show()
 
         # initialize FDFD with this permittivity
         f = fdfd_hz(self.omega, self.dL, eps_init, self.pml)
@@ -143,7 +143,7 @@ class TestFDFD(unittest.TestCase):
         def objective(params):
 
             # get the permittivity for this set of parameters
-            eps_new = param.get_eps(params, eps_background, self.dL)
+            eps_new = param.get_eps(xh, yh, rh, eh, eps_background, self.dL)
 
             # set the permittivity
             f.eps_r = eps_new

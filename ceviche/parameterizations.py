@@ -1,7 +1,7 @@
 import autograd.numpy as np
 from autograd.extend import primitive, defvjp
 
-from ceviche.utils import circ2eps
+from ceviche.utils import grid_coords
 from ceviche.primitives import vjp_maker_num
 
 class Param_Base(object):
@@ -50,6 +50,35 @@ class Circle_Shapes(Param_Shape):
     def __init__(self):
         super().__init__(self)
 
+    @staticmethod
+    def hole(x, y, x0, y0, r):
+        """ returns True if position x,y is within a hole at center x0,y0 with radius r """
+        return (x - x0)**2 + (y - y0)**2 < r**2
+
+    @classmethod
+    @primitive
+    def get_eps(cls, xs, ys, rs, eps_holes, eps_background, dL):
+
+        # get coordinates of x and y grid cells
+        x_coords, y_coords = grid_coords(eps_background, dL)
+        eps_r = eps_background.copy()
+
+        for x, y, r, eps_c in zip(xs, ys, rs, eps_holes):
+            within_hole = cls.hole(x_coords, y_coords, x, y, r)
+            eps_r[within_hole] = eps_c
+
+        return eps_r
+
+# note, not sure where the best place to do this is, might need to not use classmethods and just initialize parameterization objects instead and do it in __init__.. need to insert dL here
+(dx, dy, dr, deps) = vjp_maker_num(Circle_Shapes.get_eps, list(range(4)), [1e-6, 1e-6, 1e-6, 1e-6])
+defvjp(Circle_Shapes.get_eps, dx, dy, dr, deps, None, None)
+
+""" Old code below 
+class Circle_Shapes(Param_Shape):
+
+    def __init__(self):
+        super().__init__(self)
+
     @classmethod
     def get_eps(cls, params, eps_background, dL):
         '''
@@ -70,6 +99,7 @@ class Circle_Shapes(Param_Shape):
         defvjp(circ2eps_ag, dx, dy, dr, deps, None, None) 
 
         return circ2eps_ag(*args)
+"""
 
 """ Level Set Optimization """
 
