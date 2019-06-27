@@ -133,17 +133,19 @@ class TestFDFD(unittest.TestCase):
         # set the starting epsilon using the parameterization
         eps_init = param.get_eps(xh, yh, rh, eh, eps_background, self.dL)
         # # plot the initial permittivity for debugging
-        plt.imshow(eps_init, cmap='gray')
-        plt.colorbar()
-        plt.show()
+        # plt.imshow(eps_init, cmap='gray')
+        # plt.colorbar()
+        # plt.show()
 
         # initialize FDFD with this permittivity
         f = fdfd_hz(self.omega, self.dL, eps_init, self.pml)
 
         def objective(params):
 
+            # xh = params[0,:]
+
             # get the permittivity for this set of parameters
-            eps_new = param.get_eps(xh, yh, rh, eh, eps_background, self.dL)
+            eps_new = param.get_eps(*params, eps_background, self.dL)
 
             # set the permittivity
             f.eps_r = eps_new
@@ -169,14 +171,14 @@ class TestFDFD(unittest.TestCase):
 
         self.check_gradient_error(grad_numerical, grad_autograd)
 
-    # def test_continuous(self):
-    #     """ Test all continuous parmaterization functions """
+    def test_continuous(self):
+        """ Test all continuous parmaterization functions """
 
-    #     from ceviche.parameterizations import Param_Topology
+        from ceviche.parameterizations import Param_Topology
 
-    #     test_params = [Param_Topology]
-    #     for param in test_params:
-    #         self.template_continuous(param)
+        test_params = [Param_Topology()]
+        for param in test_params:
+            self.template_continuous(param)
 
     def test_circles(self):
         """ Test the circle shape parmaterization.

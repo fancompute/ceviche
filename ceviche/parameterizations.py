@@ -38,16 +38,15 @@ class Param_Shape(Param_Base):
 
     def __init__(self, arg_indices=None, step_sizes=None):
         super().__init__()
-        self.arg_indices = arg_indices
-        self.step_sizes = step_sizes
-        self.link_numerical_vjp()
+        self.link_numerical_vjp(arg_indices, step_sizes)
 
     def get_eps(self, *args):
         raise NotImplementedError("Need to implement a function for computing permittivity from parameters")
 
-    def link_numerical_vjp(self):
-        vjp_args = vjp_maker_num(self.get_eps, self.arg_indices, self.step_sizes)
-        defvjp(self.get_eps, *vjp_args, None, None)
+    @classmethod
+    def link_numerical_vjp(cls, arg_indices, step_sizes):
+        vjp_args = vjp_maker_num(cls.get_eps, arg_indices, step_sizes)
+        defvjp(cls.get_eps, *vjp_args, None, None)
 
 class Circle_Shapes(Param_Shape):
 
