@@ -38,6 +38,7 @@ class Param_Shape(Param_Base):
 
     def __init__(self, arg_indices=None, step_sizes=None):
         super().__init__()
+        # when you make a new shape parameterization, construct the numerical vjp
         self.link_numerical_vjp(arg_indices, step_sizes)
 
     def get_eps(self, *args):
@@ -45,12 +46,17 @@ class Param_Shape(Param_Base):
 
     @classmethod
     def link_numerical_vjp(cls, arg_indices, step_sizes):
+        """ Computes and links the vjps
+            note: needed to make this @classmethod rather than @staticmethod,
+                  otherwise, the linking didnt 'stick'
+        """
         vjp_args = vjp_maker_num(cls.get_eps, arg_indices, step_sizes)
         defvjp(cls.get_eps, *vjp_args, None, None)
 
 class Circle_Shapes(Param_Shape):
 
     def __init__(self, arg_indices=None, step_sizes=None):
+        """ every time you init, it links using the super() class's init method"""
         super().__init__(arg_indices=arg_indices, step_sizes=step_sizes)
 
     @staticmethod

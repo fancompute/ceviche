@@ -171,7 +171,7 @@ class TestFDFD(unittest.TestCase):
 
         self.check_gradient_error(grad_numerical, grad_autograd)
 
-    def test_continuous(self):
+    def t1est_continuous(self):
         """ Test all continuous parmaterization functions """
 
         from ceviche.parameterizations import Param_Topology
