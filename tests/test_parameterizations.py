@@ -32,10 +32,10 @@ class TestFDFD(unittest.TestCase):
     def setUp(self):
 
         # basic simulation parameters
-        self.Nx = 30
-        self.Ny = 30
+        self.Nx = 300
+        self.Ny = 300
         self.omega = 2*np.pi*200e12
-        self.dL = 1e-6
+        self.dL = 1e-7
         self.pml = [5, 5]
 
         self.source_mask = np.ones((self.Nx, self.Ny))
@@ -124,18 +124,18 @@ class TestFDFD(unittest.TestCase):
         eps_background[design_region == 1] = eps_max
 
         # initialize two holes in the design region, each with permittivity 1
-        xh = np.array([-self.dL*4, self.dL*4])
-        yh = np.array([0, self.dL*4])
-        rh = np.array([self.dL*3, self.dL*4])
+        xh = np.array([-self.dL*40, self.dL*40])
+        yh = np.array([0, self.dL*40])
+        rh = np.array([self.dL*30, self.dL*40])
         eh = np.array([1, 1])
         init_params = np.array([xh, yh, rh, eh])
 
         # set the starting epsilon using the parameterization
         eps_init = param.get_eps(init_params, eps_background, self.dL)
-        # # plot the initial permittivity for debugging
-        # plt.imshow(eps_init, cmap='gray')
-        # plt.colorbar()
-        # plt.show()
+        # plot the initial permittivity for debugging
+        plt.imshow(eps_init, cmap='gray')
+        plt.colorbar()
+        plt.show()
 
         # initialize FDFD with this permittivity
         f = fdfd_hz(self.omega, self.dL, eps_init, self.pml)
@@ -151,13 +151,13 @@ class TestFDFD(unittest.TestCase):
             # set the source amplitude to the permittivity at that point
             Ex, Ey, Hz = f.solve(eps_new * self.source)
 
-            # return npa.sum(npa.square(npa.abs(Hz))) \
-            #      + npa.sum(npa.square(npa.abs(Ex))) \
-            #      + npa.sum(npa.square(npa.abs(Ey)))
+            return npa.sum(npa.square(npa.abs(Hz))) \
+                 + npa.sum(npa.square(npa.abs(Ex))) \
+                 + npa.sum(npa.square(npa.abs(Ey)))
 
             # The actual simulation will differ from the numerical derivative
             # so for now we just check an objective function defined from eps_new
-            return npa.sum(eps_new[self.Nx//2, :]) + npa.sum(eps_new[:, self.Ny//2])
+            # return npa.sum(eps_new[self.Nx//2, :]) + npa.sum(eps_new[:, self.Ny//2])
 
         grad_autograd = grad(objective)(init_params)
         grad_numerical = grad_num(objective, init_params, step_size=float(self.dL))
