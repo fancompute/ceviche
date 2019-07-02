@@ -92,9 +92,13 @@ def get_spectrum(series, dt):
     steps = len(series)
     times = np.arange(steps) * dt
 
+    # reshape to be able to multiply by hamming window
+    series = series.reshape((steps, -1))
+
     # multiply with hamming window to get rid of numerical errors
     hamming_window = np.hamming(steps).reshape((steps, 1))
     signal_f = np.fft.fft(hamming_window * series)
+
     freqs = np.fft.fftfreq(steps, d=dt)
     return freqs, signal_f
 
