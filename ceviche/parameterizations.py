@@ -45,7 +45,7 @@ class Param_Shape(Param_Base):
         raise NotImplementedError("Need to implement a function for computing permittivity from parameters")
 
     @staticmethod
-    def sigmoid(x, strength=.02):
+    def sigmoid(x, strength=.2):
         # used to anti-alias the circle, higher strength means sharper boundary
         return np.exp(x * strength) / (1 + np.exp(x * strength))
 
