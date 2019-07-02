@@ -1,7 +1,7 @@
 import autograd.numpy as np
 from autograd.extend import primitive, defvjp
 
-from ceviche.utils import circ2eps
+from ceviche.utils import circ2eps, grid_coords
 from ceviche.primitives import vjp_maker_num
 
 class Param_Base(object):
@@ -38,38 +38,44 @@ class Param_Topology(Param_Base):
 class Param_Shape(Param_Base):
 
     def __init__(self):
-        super().__init__(self)
+        super().__init__()
 
-    @classmethod
-    def get_eps(cls, *args):
+    @staticmethod
+    def get_eps(*args):
         raise NotImplementedError("Need to implement a function for computing permittivity from parameters")
+
+    @staticmethod
+    def sigmoid(x, strength=.02):
+        # used to anti-alias the circle, higher strength means sharper boundary
+        return np.exp(x * strength) / (1 + np.exp(x * strength))
 
 
 class Circle_Shapes(Param_Shape):
 
-    def __init__(self):
-        super().__init__(self)
+    def __init__(self, eps_background, dL):
+        self.eps_background = eps_background
+        self.dL = dL
+        self.xs, self.ys = grid_coords(self.eps_background, self.dL)
+        super().__init__()
 
-    @classmethod
-    def get_eps(cls, params, eps_background, dL):
-        '''
-        Initizlize circles at position (x, y) of radius r and permittivity eps_c
-        each defined in the rows of the [4 x Nholes] array 'params'
-        '''
-        args = []
-        args.append(params[0, :]) # x
-        args.append(params[1, :]) # y
-        args.append(params[2, :]) # r
-        args.append(params[3, :]) # eps_c
-        args.append(eps_background)
-        args.append(dL)
+    def circle(self, xs, ys, x, y, r):
+        # defines an anti aliased circle    
+        dist_from_edge = (xs - x)**2 + (ys - y)**2 - r**2
+        return self.sigmoid(-dist_from_edge / self.dL**2)
 
-        circ2eps_ag = primitive(circ2eps)
-        (dx, dy, dr, deps) = vjp_maker_num(circ2eps, list(range(4)), [dL, dL, dL, 1e-6])
+    def write_circle(self, x, y, r, value):
+        # creates an array that, when added to the background epsilon, adds a circle with (x,y,r,value)
+        circle_mask = self.circle(self.xs, self.ys, x, y, r)
+        new_array = (value - self.eps_background) * circle_mask
+        return new_array
 
-        defvjp(circ2eps_ag, dx, dy, dr, deps, None, None) 
-
-        return circ2eps_ag(*args)
+    def get_eps(self, xs, ys, rs, values):
+        # returns the permittivity array for a bunch of holes at positions (xs, ys) with radii rs and epsilon values (val)
+        eps_r = self.eps_background.copy()
+        for x, y, r, value in zip(xs, ys, rs, values):
+            circle_eps = self.write_circle(x, y, r, value) 
+            eps_r += circle_eps
+        return eps_r
 
 """ Level Set Optimization """
 

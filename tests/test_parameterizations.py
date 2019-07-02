@@ -23,7 +23,7 @@ equal the numerical derivatives
 # test parameters
 ALLOWED_RATIO = 1e-4    # maximum allowed ratio of || grad_num - grad_auto || vs. || grad_num ||
 VERBOSE = True         # print out full gradients?
-DEPS = 1e-6             # numerical gradient step size
+DEPS = 1e-18             # numerical gradient step size
 
 class TestFDFD(unittest.TestCase):
 
@@ -116,22 +116,21 @@ class TestFDFD(unittest.TestCase):
 
         print('\ttesting {} parameterization'.format(param))
 
-        # here design_region is where the background eps_r = eps_max
-        design_region = np.zeros((self.Nx, self.Ny))
-        design_region[self.Nx//4:self.Nx*3//4, self.Ny//4:self.Ny*3//4] = 1
-        eps_max = 5
-        eps_background = copy.copy(self.eps_r)
-        eps_background[design_region == 1] = eps_max
-
         # initialize two holes in the design region, each with permittivity 1
-        xh = np.array([-self.dL*40, self.dL*40])
-        yh = np.array([0, self.dL*40])
-        rh = np.array([self.dL*30, self.dL*40])
-        eh = np.array([1, 1])
+        xh = np.array([-self.dL*20, self.dL*30])
+        yh = np.array([0, self.dL*10])
+        rh = np.array([self.dL*10, self.dL*10])
+        eh = np.array([2.0, 3.0])
+
+        # xh = np.array([-self.dL*40])
+        # yh = np.array([0])
+        # rh = np.array([self.dL*30])
+        # eh = np.array([1])
         init_params = np.array([xh, yh, rh, eh])
 
         # set the starting epsilon using the parameterization
-        eps_init = param.get_eps(init_params, eps_background, self.dL)
+        eps_init = param.get_eps(xh, yh, rh, eh)
+
         # plot the initial permittivity for debugging
         plt.imshow(eps_init, cmap='gray')
         plt.colorbar()
@@ -142,22 +141,33 @@ class TestFDFD(unittest.TestCase):
 
         def objective(params):
 
+            xs = params[0,:]
+            ys = params[1,:]
+            rs = params[2,:]
+            es = params[3,:]
+
+            # xs = params[0]
+            # ys = params[1]
+            # rs = params[2]
+            # es = params[3]
+
             # get the permittivity for this set of parameters
-            eps_new = param.get_eps(params, eps_background, self.dL)
+            eps_new = param.get_eps(xs, ys, rs, es)
 
             # set the permittivity
             f.eps_r = eps_new
 
             # set the source amplitude to the permittivity at that point
-            Ex, Ey, Hz = f.solve(eps_new * self.source)
+            # Ex, Ey, Hz = f.solve(eps_new * self.source)
 
-            return npa.sum(npa.square(npa.abs(Hz))) \
-                 + npa.sum(npa.square(npa.abs(Ex))) \
-                 + npa.sum(npa.square(npa.abs(Ey)))
+            # return npa.sum(npa.square(npa.abs(Hz))) \
+            #      + npa.sum(npa.square(npa.abs(Ex))) \
+            #      + npa.sum(npa.square(npa.abs(Ey)))
 
             # The actual simulation will differ from the numerical derivative
             # so for now we just check an objective function defined from eps_new
-            # return npa.sum(eps_new[self.Nx//2, :]) + npa.sum(eps_new[:, self.Ny//2])
+            return npa.sum(eps_new[self.Nx//2, :]) + npa.sum(eps_new[:, self.Ny//2])
+            # return npa.sum(eps_new)
 
         grad_autograd = grad(objective)(init_params)
         grad_numerical = grad_num(objective, init_params, step_size=float(self.dL))
@@ -183,9 +193,16 @@ class TestFDFD(unittest.TestCase):
         It's hard to conceive right now of a single function that tests multiple 
         shape parametrizations as they might require different parameters. """
 
+        # here design_region is where the background eps_r = eps_max
+        design_region = np.zeros((self.Nx, self.Ny))
+        design_region[self.Nx//4:self.Nx*3//4, self.Ny//4:self.Ny*3//4] = 1
+        eps_max = 1.0
+        eps_background = copy.copy(self.eps_r)
+        eps_background[design_region == 1] = eps_max
+
         from ceviche.parameterizations import Circle_Shapes
 
-        test_params = [Circle_Shapes]
+        test_params = [Circle_Shapes(eps_background, self.dL)]
         for param in test_params:
             self.template_circles(param)
 

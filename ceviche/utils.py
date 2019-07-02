@@ -52,3 +52,18 @@ def circ2eps(x, y, r, eps_c, eps_b, dL):
         eps_r[mask] = eps_c[ih]
 
     return eps_r
+
+
+def grid_coords(array, dL):
+    # Takes an array and returns the coordinates of the x and y points
+
+    shape = Nx, Ny = array.shape   # shape of domain (in num. grids)
+
+    # x and y coordinate arrays
+    x_coord = np.linspace(-Nx/2*dL, Nx/2*dL, Nx)
+    y_coord = np.linspace(-Ny/2*dL, Ny/2*dL, Ny)
+
+    # x and y mesh
+    xs, ys = np.meshgrid(x_coord, y_coord, indexing='ij')
+
+    return xs, ys
