@@ -30,7 +30,7 @@ def grad_num(fn, arg, step_size=1e-7):
         arg_new = copy.copy(arg.ravel())
         arg_new[i] += step[i]
         f_new_i = fn(arg_new.reshape(shape))
-        gradient[i] = (f_new_i - f_old) / step_size
+        gradient[i] = (f_new_i - f_old) / step[i]
 
     return gradient.reshape(shape)
 

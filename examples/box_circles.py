@@ -30,9 +30,9 @@ xh = dL*np.linspace(-30, 30, 4)
 yh = dL*np.linspace(-30, 30, 4)
 
 (xhm, yhm) = np.meshgrid(xh, yh)
-rhm = dL*5*np.ones((xhm.size))
-ehm = np.ones((xhm.size))
-params = np.array([xhm.ravel(), yhm.ravel(), rhm, ehm])
+Nh = xhm.size
+rhm = dL*5*np.ones((Nh))
+params = np.array([xhm.ravel(), yhm.ravel(), rhm])
 
 # make source
 source = np.zeros((Nx, Ny))
@@ -44,9 +44,11 @@ box_region[npml+2*spc:npml+2*spc+int(L/dL), npml+2*spc:npml+2*spc+int(L/dL)] = 1
 eps_background = np.ones((Nx, Ny))
 eps_background[box_region == 1] = eps_max
 
+circ_param = Circle_Shapes(eps_background, dL)
+
 # plot the initial permittivity for debugging
 if PLOT:
-    eps_init = Circle_Shapes.get_eps(params, eps_background, dL)
+    eps_init = circ_param.get_eps(params[0, :], params[1, :], params[2, :], np.ones((Nh)))
     plt.imshow(eps_init, cmap='gray')
     plt.colorbar()
     plt.show()
@@ -82,8 +84,9 @@ if PLOT:
 # defines the intensity on the other side of the box as a function of the relative permittivity grid
 def intensity(params):
 
-    eps_r = Circle_Shapes.get_eps(params.reshape((4, params.size//4)), eps_background, dL)
-    # set the permittivity of the FDFD and solve the fields
+    eps_r = circ_param.get_eps(params[0:Nh], params[Nh:2*Nh], params[2*Nh:3*Nh], np.ones((Nh)))
+    
+    # set the permittivity of the FDFD and solve the fields    
     F.eps_r = eps_r
     Ex, Ey, Hz = F.solve(source)
 
@@ -94,19 +97,19 @@ def intensity(params):
 # define the gradient for autograd
 grad_I = grad(intensity)
 
-# from ceviche.optimizers import adam_minimize
-# # bounds = [(1, eps_max) if box_region.flatten()[i] == 1 else (1,1) for i in range(eps_r.size)]
-# of_list = adam_minimize(intensity, params, jac=grad_I, step_size=dL/4, Nsteps=100,
-#     bounds=None, options={'disp': True})
-# plt.plot(-np.array(of_list))
-# plt.show()
-
-from scipy.optimize import minimize
+from ceviche.optimizers import adam_minimize
 # bounds = [(1, eps_max) if box_region.flatten()[i] == 1 else (1,1) for i in range(eps_r.size)]
-minimize(intensity, params.ravel(), args=(), method='L-BFGS-B', jac=grad_I,
-    bounds=None, tol=None, callback=None,
-    options={'disp': True, 'maxcor': 10, 'ftol': 2.220446049250313e-09, 'gtol': 1e-05, 
-    'eps': 1e-08, 'maxfun': 15000, 'maxiter': 20, 'iprint': -1, 'maxls': 18})
+of_list = adam_minimize(intensity, params, jac=grad_I, step_size=dL/4, Nsteps=100,
+    bounds=None, options={'disp': True})
+plt.plot(-np.array(of_list))
+plt.show()
+
+# from scipy.optimize import minimize
+# # bounds = [(1, eps_max) if box_region.flatten()[i] == 1 else (1,1) for i in range(eps_r.size)]
+# minimize(intensity, params.ravel(), args=(), method='L-BFGS-B', jac=grad_I,
+#     bounds=None, tol=None, callback=None,
+#     options={'disp': True, 'maxcor': 10, 'ftol': 2.220446049250313e-09, 'gtol': 1e-05, 
+#     'eps': 1e-08, 'maxfun': 15000, 'maxiter': 10, 'iprint': -1, 'maxls': 18})
 
 
 # plot the final permittivity

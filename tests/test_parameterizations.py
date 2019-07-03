@@ -32,8 +32,8 @@ class TestFDFD(unittest.TestCase):
     def setUp(self):
 
         # basic simulation parameters
-        self.Nx = 300
-        self.Ny = 300
+        self.Nx = 100
+        self.Ny = 100
         self.omega = 2*np.pi*200e12
         self.dL = 1e-7
         self.pml = [5, 5]
@@ -117,7 +117,7 @@ class TestFDFD(unittest.TestCase):
         print('\ttesting {} parameterization'.format(param))
 
         # initialize two holes in the design region, each with permittivity 1
-        xh = np.array([-self.dL*20, self.dL*30])
+        xh = np.array([-self.dL*20, self.dL*10])
         yh = np.array([0, self.dL*10])
         rh = np.array([self.dL*10, self.dL*10])
         eh = np.array([2.0, 3.0])
@@ -131,10 +131,10 @@ class TestFDFD(unittest.TestCase):
         # set the starting epsilon using the parameterization
         eps_init = param.get_eps(xh, yh, rh, eh)
 
-        # plot the initial permittivity for debugging
-        plt.imshow(eps_init, cmap='gray')
-        plt.colorbar()
-        plt.show()
+        # # plot the initial permittivity for debugging
+        # plt.imshow(eps_init, cmap='gray')
+        # plt.colorbar()
+        # plt.show()
 
         # initialize FDFD with this permittivity
         f = fdfd_hz(self.omega, self.dL, eps_init, self.pml)
@@ -158,19 +158,16 @@ class TestFDFD(unittest.TestCase):
             f.eps_r = eps_new
 
             # set the source amplitude to the permittivity at that point
-            # Ex, Ey, Hz = f.solve(eps_new * self.source)
+            Ex, Ey, Hz = f.solve(eps_new * self.source)
 
-            # return npa.sum(npa.square(npa.abs(Hz))) \
-            #      + npa.sum(npa.square(npa.abs(Ex))) \
-            #      + npa.sum(npa.square(npa.abs(Ey)))
-
-            # The actual simulation will differ from the numerical derivative
-            # so for now we just check an objective function defined from eps_new
-            return npa.sum(eps_new[self.Nx//2, :]) + npa.sum(eps_new[:, self.Ny//2])
-            # return npa.sum(eps_new)
+            return npa.sum(npa.square(npa.abs(Hz))) \
+                 + npa.sum(npa.square(npa.abs(Ex))) \
+                 + npa.sum(npa.square(npa.abs(Ey)))
 
         grad_autograd = grad(objective)(init_params)
-        grad_numerical = grad_num(objective, init_params, step_size=float(self.dL))
+        Nh = xh.size
+        step_size = np.hstack((np.ones((3*Nh))*self.dL*1e-5, np.ones((Nh))*1e-5))
+        grad_numerical = grad_num(objective, init_params, step_size=step_size)
 
         if VERBOSE:
             print('\tobjective function value: ', objective(init_params))
