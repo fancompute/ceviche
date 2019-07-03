@@ -30,6 +30,7 @@ xh = dL*np.linspace(-30, 30, 4)
 yh = dL*np.linspace(-30, 30, 4)
 
 (xhm, yhm) = np.meshgrid(xh, yh)
+
 Nh = xhm.size
 rhm = dL*5*np.ones((Nh))
 params = np.array([xhm.ravel(), yhm.ravel(), rhm])
@@ -99,7 +100,7 @@ grad_I = grad(intensity)
 
 from ceviche.optimizers import adam_minimize
 # bounds = [(1, eps_max) if box_region.flatten()[i] == 1 else (1,1) for i in range(eps_r.size)]
-of_list = adam_minimize(intensity, params, jac=grad_I, step_size=dL/4, Nsteps=100,
+of_list = adam_minimize(intensity, params.ravel(), jac=grad_I, step_size=dL/4, Nsteps=100,
     bounds=None, options={'disp': True})
 plt.plot(-np.array(of_list))
 plt.show()

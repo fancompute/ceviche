@@ -63,18 +63,12 @@ class Circle_Shapes(Param_Shape):
         dist_from_edge = (xs - x)**2 + (ys - y)**2 - r**2
         return self.sigmoid(-dist_from_edge / self.dL**2)
 
-    def write_circle(self, x, y, r, value):
-        # creates an array that, when added to the background epsilon, adds a circle with (x,y,r,value)
-        circle_mask = self.circle(self.xs, self.ys, x, y, r)
-        new_array = (value - self.eps_background) * circle_mask
-        return new_array
-
     def get_eps(self, xs, ys, rs, values):
         # returns the permittivity array for a bunch of holes at positions (xs, ys) with radii rs and epsilon values (val)
         eps_r = self.eps_background.copy()
         for x, y, r, value in zip(xs, ys, rs, values):
-            circle_eps = self.write_circle(x, y, r, value) 
-            eps_r += circle_eps
+            circle = self.circle(self.xs, self.ys, x, y, r) 
+            eps_r = circle*value + (1-circle)*eps_r
         return eps_r
 
 """ Level Set Optimization """

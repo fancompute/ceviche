@@ -117,9 +117,9 @@ class TestFDFD(unittest.TestCase):
         print('\ttesting {} parameterization'.format(param))
 
         # initialize two holes in the design region, each with permittivity 1
-        xh = np.array([-self.dL*20, self.dL*10])
+        xh = np.array([-self.dL*10, self.dL*10])
         yh = np.array([0, self.dL*10])
-        rh = np.array([self.dL*10, self.dL*10])
+        rh = np.array([self.dL*20, self.dL*10])
         eh = np.array([2.0, 3.0])
 
         # xh = np.array([-self.dL*40])
@@ -131,10 +131,10 @@ class TestFDFD(unittest.TestCase):
         # set the starting epsilon using the parameterization
         eps_init = param.get_eps(xh, yh, rh, eh)
 
-        # # plot the initial permittivity for debugging
-        # plt.imshow(eps_init, cmap='gray')
-        # plt.colorbar()
-        # plt.show()
+        # plot the initial permittivity for debugging
+        plt.imshow(eps_init, cmap='gray')
+        plt.colorbar()
+        plt.show()
 
         # initialize FDFD with this permittivity
         f = fdfd_hz(self.omega, self.dL, eps_init, self.pml)
