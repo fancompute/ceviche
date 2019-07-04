@@ -3,7 +3,6 @@ from autograd.extend import primitive, defvjp
 import numpy
 
 from ceviche.utils import circ2eps, grid_coords
-from ceviche.primitives import vjp_maker_num
 
 class Param_Base(object):
 

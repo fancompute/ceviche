@@ -21,13 +21,13 @@ L = 3e-6
 Nx, Ny = 2*npml + 4*spc + int(L/dL), 2*npml + 4*spc + int(L/dL)
 eps_r = np.ones((Nx, Ny))
 
-# # 9 holes
-# xh = dL*np.array([-20, 0, 20])
-# yh = dL*np.array([-20, 0, 20])
+# 9 holes
+xh = dL*np.array([-20, 0, 20])
+yh = dL*np.array([-20, 0, 20])
 
-# 16 holes
-xh = dL*np.linspace(-30, 30, 4)
-yh = dL*np.linspace(-30, 30, 4)
+# # 16 holes
+# xh = dL*np.linspace(-30, 30, 4)
+# yh = dL*np.linspace(-30, 30, 4)
 
 (xhm, yhm) = np.meshgrid(xh, yh)
 
@@ -93,7 +93,7 @@ def intensity(params):
 
     # compute the gradient and normalize if you want
     I = npa.sum(npa.square(npa.abs(Hz * probe)))
-    return -I / I_H0 / 1e6
+    return -I / I_H0
 
 # define the gradient for autograd
 grad_I = grad(intensity)
@@ -110,7 +110,7 @@ from scipy.optimize import minimize
 minimize(intensity, params.ravel(), args=(), method='L-BFGS-B', jac=grad_I,
     bounds=None, tol=None, callback=None,
     options={'disp': True, 'maxcor': 10, 'ftol': 2.220446049250313e-09, 'gtol': 1e-05, 
-    'eps': 1e-08, 'maxfun': 15000, 'maxiter': 10, 'iprint': -1, 'maxls': 18})
+    'eps': 1e-08, 'maxfun': 15000, 'maxiter': 20, 'iprint': -1, 'maxls': 18})
 
 
 # plot the final permittivity
