@@ -67,3 +67,40 @@ def grid_coords(array, dL):
     xs, ys = np.meshgrid(x_coord, y_coord, indexing='ij')
 
     return xs, ys
+
+
+def vjp_maker_num(fn, arg_inds, steps):
+    """ Makes a vjp_maker for the numerical derivative of a function `fn`
+    w.r.t. argument at position `arg_ind` using step sizes `steps` """
+
+    def vjp_single_arg(ia):
+        arg_ind = arg_inds[ia]
+        step = steps[ia]
+
+        def vjp_maker(fn_out, *args):
+            shape = args[arg_ind].shape
+            num_p = args[arg_ind].size
+            step = steps[ia]
+
+            def vjp(v):
+
+                vjp_num = np.zeros(num_p)
+                for ip in range(num_p):
+                    args_new = list(args)
+                    args_rav = args[arg_ind].flatten()
+                    args_rav[ip] += step
+                    args_new[arg_ind] = args_rav.reshape(shape)
+                    dfn_darg = (fn(*args_new) - fn_out)/step
+                    vjp_num[ip] = np.sum(v * dfn_darg)
+
+                return vjp_num
+
+            return vjp
+
+        return vjp_maker
+
+    vjp_makers = []
+    for ia in range(len(arg_inds)):
+        vjp_makers.append(vjp_single_arg(ia=ia))
+
+    return tuple(vjp_makers)

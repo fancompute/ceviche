@@ -1,5 +1,6 @@
 import autograd.numpy as np
 from autograd.extend import primitive, defvjp
+import numpy
 
 from ceviche.utils import circ2eps, grid_coords
 from ceviche.primitives import vjp_maker_num
@@ -47,8 +48,10 @@ class Param_Shape(Param_Base):
     @staticmethod
     def sigmoid(x, strength=.1):
         # used to anti-alias the circle, higher strength means sharper boundary
-        return np.exp(x * strength) / (1 + np.exp(x * strength))
-
+        x1 = x * (x >= 0)
+        x2 = x * (x < 0)
+        return 1 / (1 + np.exp(-x1 * strength)) + \
+            np.exp(x2 * strength) / (1 + np.exp(x2 * strength)) - 1/2
 
 class Circle_Shapes(Param_Shape):
 
@@ -60,8 +63,8 @@ class Circle_Shapes(Param_Shape):
 
     def circle(self, xs, ys, x, y, r):
         # defines an anti aliased circle    
-        dist_from_edge = (xs - x)**2 + (ys - y)**2 - r**2
-        return self.sigmoid(-dist_from_edge / self.dL**2)
+        dist_from_edge = np.power((xs - x), 2) + np.power((ys - y), 2) - np.power(r, 2)
+        return self.sigmoid(-dist_from_edge / np.power(self.dL, 2))
 
     def get_eps(self, xs, ys, rs, values):
         # returns the permittivity array for a bunch of holes at positions (xs, ys) with radii rs and epsilon values (val)

@@ -93,24 +93,24 @@ def intensity(params):
 
     # compute the gradient and normalize if you want
     I = npa.sum(npa.square(npa.abs(Hz * probe)))
-    return -I / I_H0
+    return -I / I_H0 / 1e6
 
 # define the gradient for autograd
 grad_I = grad(intensity)
 
-from ceviche.optimizers import adam_minimize
-# bounds = [(1, eps_max) if box_region.flatten()[i] == 1 else (1,1) for i in range(eps_r.size)]
-of_list = adam_minimize(intensity, params.ravel(), jac=grad_I, step_size=dL/4, Nsteps=100,
-    bounds=None, options={'disp': True})
-plt.plot(-np.array(of_list))
-plt.show()
-
-# from scipy.optimize import minimize
+# from ceviche.optimizers import adam_minimize
 # # bounds = [(1, eps_max) if box_region.flatten()[i] == 1 else (1,1) for i in range(eps_r.size)]
-# minimize(intensity, params.ravel(), args=(), method='L-BFGS-B', jac=grad_I,
-#     bounds=None, tol=None, callback=None,
-#     options={'disp': True, 'maxcor': 10, 'ftol': 2.220446049250313e-09, 'gtol': 1e-05, 
-#     'eps': 1e-08, 'maxfun': 15000, 'maxiter': 10, 'iprint': -1, 'maxls': 18})
+# of_list = adam_minimize(intensity, params.ravel(), jac=grad_I, step_size=dL/4, Nsteps=100,
+#     bounds=None, options={'disp': True})
+# plt.plot(-np.array(of_list))
+# plt.show()
+
+from scipy.optimize import minimize
+# bounds = [(1, eps_max) if box_region.flatten()[i] == 1 else (1,1) for i in range(eps_r.size)]
+minimize(intensity, params.ravel(), args=(), method='L-BFGS-B', jac=grad_I,
+    bounds=None, tol=None, callback=None,
+    options={'disp': True, 'maxcor': 10, 'ftol': 2.220446049250313e-09, 'gtol': 1e-05, 
+    'eps': 1e-08, 'maxfun': 15000, 'maxiter': 10, 'iprint': -1, 'maxls': 18})
 
 
 # plot the final permittivity
