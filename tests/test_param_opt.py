@@ -1,5 +1,4 @@
-import numpy as np
-import autograd.numpy as npa
+import autograd.numpy as np
 import scipy.sparse as sp
 import scipy.sparse.linalg as spl
 import copy
@@ -15,9 +14,37 @@ from ceviche.fdfd import fdfd_hz, fdfd_ez
     Plots the final results 
 """
 
-def main():
+def get_normalization(F, source, probe):
 
-    # make parameters
+    Ex, Ey, Hz = F.solve(source)
+
+    E_mag = np.square(np.abs(Ex)) + np.square(np.abs(Ey))
+    H_mag = np.abs(Hz)
+
+    I_E0 = np.abs(np.sum(E_mag * probe))
+    I_H0 = np.abs(np.square(np.sum(H_mag * probe)))
+
+    return I_E0, I_H0
+
+
+# defines the intensity on the other side of the box as a function of the relative permittivity grid
+def intensity(eps_arr):
+
+    eps_r = eps_arr.reshape((Nx, Ny))
+    # set the permittivity of the FDFD and solve the fields
+    F.eps_r = eps_r
+    Ex, Ey, Hz = F.solve(source)
+
+    # compute the gradient and normalize if you want
+    I = np.sum(np.square(np.abs(Hz * probe)))
+    I_E0, I_H0 = get_normalization(F, source, probe)
+
+    return -I / I_H0
+
+
+if __name__ == '__main__':
+
+        # make parameters
     omega = 2 * np.pi * 200e12
     dL = 4e-8
     eps_max = 2
@@ -40,43 +67,11 @@ def main():
 
     F = fdfd_hz(omega, dL, eps_r, [npml, npml])
 
-def get_normalization(F, source, probe):
+    # define the gradient for autograd
+    grad_I = grad(intensity)
 
-    Ex, Ey, Hz = F.solve(source)
-
-    E_mag = np.sqrt(np.square(np.abs(Ex)) + np.square(np.abs(Ey)))
-    H_mag = np.abs(Hz)
-
-    I_E0 = np.abs(np.square(np.sum(E_mag * probe)))
-    I_H0 = np.abs(np.square(np.sum(H_mag * probe)))
-
-    return I_E0, I_H0
-
-
-
-# defines the intensity on the other side of the box as a function of the relative permittivity grid
-def intensity(eps_arr):
-
-    eps_r = eps_arr.reshape((Nx, Ny))
-    # set the permittivity of the FDFD and solve the fields
-    F.eps_r = eps_r
-    Ex, Ey, Hz = F.solve(source)
-
-    # compute the gradient and normalize if you want
-    I = npa.sum(npa.square(npa.abs(Hz * probe)))
-    return -I / I_H0
-
-# define the gradient for autograd
-grad_I = grad(intensity)
-
-from scipy.optimize import minimize
-bounds = [(1, eps_max) if box_region.flatten()[i] == 1 else (1,1) for i in range(eps_r.size)]
-minimize(intensity, eps_r, args=(), method='L-BFGS-B', jac=grad_I,
-    bounds=bounds, tol=None, callback=None,
-    options={'disp': True, 'maxcor': 10, 'ftol': 2.220446049250313e-09, 'gtol': 1e-05, 'eps': 1e-08, 'maxfun': 15000, 'maxiter': 150, 'iprint': -1, 'maxls': 20})
-
-
-
-
-if __name__ == '__main__':
-    main()
+    from scipy.optimize import minimize
+    bounds = [(1, eps_max) if box_region.flatten()[i] == 1 else (1,1) for i in range(eps_r.size)]
+    minimize(intensity, eps_r, args=(), method='L-BFGS-B', jac=grad_I,
+        bounds=bounds, tol=None, callback=None,
+        options={'disp': True, 'maxcor': 10, 'ftol': 2.220446049250313e-09, 'gtol': 1e-05, 'eps': 1e-08, 'maxfun': 15000, 'maxiter': 150, 'iprint': -1, 'maxls': 20})

@@ -4,6 +4,7 @@ import scipy.sparse.linalg as spl
 
 from autograd.extend import primitive, defvjp
 from ceviche.constants import *
+from ceviche.utils import circ2eps
 
 """ This file is the meat and bones of the FDFD.
     It defines the basic operations needed for FDFD and also their derivatives
