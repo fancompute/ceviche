@@ -120,6 +120,11 @@ class fdtd():
         self.Dy = self.mDy1 * self.Dy + self.mDy2 * CHy + self.mDy3 * self.ICHy + self.mDy4 * self.IDy
         self.Dz = self.mDz1 * self.Dz + self.mDz2 * CHz + self.mDz3 * self.ICHz + self.mDz4 * self.IDz
 
+        # add sources to the electric fields
+        self.Dx += 0 if Jx is None else Jx
+        self.Dy += 0 if Jy is None else Jy
+        self.Dz += 0 if Jz is None else Jz
+
         # update field dict
         self.fields['Dx'] = self.Dx
         self.fields['Dy'] = self.Dy
@@ -129,11 +134,6 @@ class fdtd():
         self.Ex = self.mEx1 * self.Dx 
         self.Ey = self.mEy1 * self.Dy
         self.Ez = self.mEz1 * self.Dz           
-
-        # add sources to the electric fields
-        self.Ex += 0 if Jx is None else Jx
-        self.Ey += 0 if Jy is None else Jy
-        self.Ez += 0 if Jz is None else Jz
 
         # update field dict
         self.fields['Ex'] = self.Ex
