@@ -1,6 +1,8 @@
 import unittest
 import numpy as np
 import matplotlib.pylab as plt
+import sys
+sys.path.append('../ceviche')
 
 from ceviche import fdtd
 

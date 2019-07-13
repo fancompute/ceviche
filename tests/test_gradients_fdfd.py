@@ -9,9 +9,13 @@ import copy
 from autograd.extend import primitive, defvjp
 from autograd import grad
 
+import sys
+sys.path.append('../ceviche')
+
 from ceviche.utils import grad_num
 from ceviche.primitives import *
 from ceviche.fdfd import fdfd_hz, fdfd_ez
+from ceviche.jacobians import jacobian
 
 """
 This file tests the autograd gradients of an FDFD and makes sure that they
@@ -67,7 +71,7 @@ class TestFDFD(unittest.TestCase):
         self.assertLessEqual(norm_ratio, ALLOWED_RATIO)
         print('')
 
-    def test_Hz(self):
+    def t1est_Hz(self):
 
         print('\ttesting Hz in FDFD')
 
@@ -87,15 +91,17 @@ class TestFDFD(unittest.TestCase):
                  + npa.sum(npa.square(npa.abs(Ex))) \
                  + npa.sum(npa.square(npa.abs(Ey)))
 
-        grad_autograd = grad(J_fdfd)(self.eps_arr)
+        grad_autograd_rev = jacobian(J_fdfd, mode='reverse')(self.eps_arr).flatten()
+        grad_autograd_for = jacobian(J_fdfd, mode='forward')(self.eps_arr).flatten()
         grad_numerical = grad_num(J_fdfd, self.eps_arr, step_size=DEPS)
 
         if VERBOSE:
             print('\tobjective function value: ', J_fdfd(self.eps_arr))
-            print('\tgrad (auto):  \n\t\t', grad_autograd)
+            print('\tgrad (auto):  \n\t\t', grad_autograd_rev)
             print('\tgrad (num):   \n\t\t\n', grad_numerical)
 
-        self.check_gradient_error(grad_numerical, grad_autograd)
+        self.check_gradient_error(grad_numerical, grad_autograd_rev)
+        self.check_gradient_error(grad_autograd_for, grad_autograd_rev)
 
     def test_Ez(self):
 
@@ -117,15 +123,17 @@ class TestFDFD(unittest.TestCase):
                  + npa.sum(npa.square(npa.abs(Hx))) \
                  + npa.sum(npa.square(npa.abs(Hy)))
 
-        grad_autograd = grad(J_fdfd)(self.eps_arr)
+        grad_autograd_rev = jacobian(J_fdfd, mode='reverse')(self.eps_arr).flatten()
+        grad_autograd_for = jacobian(J_fdfd, mode='forward')(self.eps_arr).flatten()
         grad_numerical = grad_num(J_fdfd, self.eps_arr, step_size=DEPS)
 
         if VERBOSE:
             print('\tobjective function value: ', J_fdfd(self.eps_arr2))
-            print('\tgrad (auto):  \n\t\t', grad_autograd)
+            print('\tgrad (auto):  \n\t\t', grad_autograd_rev)
             print('\tgrad (num):   \n\t\t', grad_numerical)
 
-        self.check_gradient_error(grad_numerical, grad_autograd)
+        self.check_gradient_error(grad_numerical, grad_autograd_rev)
+        self.check_gradient_error(grad_autograd_for, grad_autograd_rev)
 
 
 if __name__ == '__main__':
