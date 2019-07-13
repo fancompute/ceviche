@@ -71,7 +71,7 @@ class TestFDFD(unittest.TestCase):
         self.assertLessEqual(norm_ratio, ALLOWED_RATIO)
         print('')
 
-    def t1est_Hz(self):
+    def test_Hz(self):
 
         print('\ttesting Hz in FDFD')
 
@@ -92,7 +92,7 @@ class TestFDFD(unittest.TestCase):
                  + npa.sum(npa.square(npa.abs(Ey)))
 
         grad_autograd_rev = jacobian(J_fdfd, mode='reverse')(self.eps_arr).flatten()
-        grad_autograd_for = jacobian(J_fdfd, mode='forward')(self.eps_arr).flatten()
+        # grad_autograd_for = jacobian(J_fdfd, mode='forward')(self.eps_arr).flatten()
         grad_numerical = grad_num(J_fdfd, self.eps_arr, step_size=DEPS)
 
         if VERBOSE:
@@ -101,7 +101,7 @@ class TestFDFD(unittest.TestCase):
             print('\tgrad (num):   \n\t\t\n', grad_numerical)
 
         self.check_gradient_error(grad_numerical, grad_autograd_rev)
-        self.check_gradient_error(grad_autograd_for, grad_autograd_rev)
+        # self.check_gradient_error(grad_autograd_for, grad_autograd_rev)
 
     def test_Ez(self):
 
@@ -124,7 +124,7 @@ class TestFDFD(unittest.TestCase):
                  + npa.sum(npa.square(npa.abs(Hy)))
 
         grad_autograd_rev = jacobian(J_fdfd, mode='reverse')(self.eps_arr).flatten()
-        grad_autograd_for = jacobian(J_fdfd, mode='forward')(self.eps_arr).flatten()
+        # grad_autograd_for = jacobian(J_fdfd, mode='forward')(self.eps_arr).flatten()
         grad_numerical = grad_num(J_fdfd, self.eps_arr, step_size=DEPS)
 
         if VERBOSE:
@@ -133,7 +133,7 @@ class TestFDFD(unittest.TestCase):
             print('\tgrad (num):   \n\t\t', grad_numerical)
 
         self.check_gradient_error(grad_numerical, grad_autograd_rev)
-        self.check_gradient_error(grad_autograd_for, grad_autograd_rev)
+        # self.check_gradient_error(grad_autograd_for, grad_autograd_rev)
 
 
 if __name__ == '__main__':

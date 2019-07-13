@@ -87,7 +87,7 @@ class TestFDTD(unittest.TestCase):
         self.check_gradient_error(grad_numerical, grad_autograd_rev)
         self.check_gradient_error(grad_numerical, grad_autograd_for)
 
-    def t1est_grad_H(self):
+    def test_grad_H(self):
 
         print('\ttesting H fields in FDTD')
 
