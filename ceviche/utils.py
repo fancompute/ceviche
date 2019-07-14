@@ -2,6 +2,7 @@ import numpy as np
 import scipy.sparse as sp
 import copy
 import matplotlib.pylab as plt
+import autograd
 
 """ Just some utilities for easier testing and debugging"""
 
@@ -12,29 +13,41 @@ def make_sparse(N, random=True, density=1):
     D = sp.random(N, N, density=density) + 1j * sp.random(N, N, density=density)
     return D
 
+def float_2_array(x):
+    if not isinstance(x, np.ndarray):
+        return np.array([x])
+    else:
+        return x
 
 def grad_num(fn, arg, step_size=1e-7):
-    """ numerically differentiate `fn` w.r.t. its argument `arg` 
+    """ DEPRICATED: use version in jacobians.py instead
+    numerically differentiate `fn` w.r.t. its argument `arg` 
     `arg` can be a numpy array of arbitrary shape
     `step_size` can be a number or an array of the same shape as `arg` """
 
-    N = arg.size
-    shape = arg.shape
-    gradient = np.zeros((N,))
-    f_old = fn(arg)
+    in_array = float_2_array(arg).flatten()
+    out_array = float_2_array(fn(arg)).flatten()
 
-    if type(step_size) == float:
-        step = step_size*np.ones((N))
+    m = in_array.size
+    n = out_array.size
+    shape = (m, n)
+    jacobian = np.zeros(shape)
+
+    for i in range(m):
+        input_i = in_array.copy()
+        input_i[i] += step_size
+        arg_i = input_i.reshape(in_array.shape)
+        output_i = fn(arg_i).flatten()
+        grad_i = (output_i - out_array) / step_size
+        jacobian[i, :] = get_value(grad_i)
+
+    return jacobian
+
+def get_value(x):
+    if type(x) == autograd.numpy.numpy_boxes.ArrayBox:
+        return x._value
     else:
-        step = step_size.ravel()
-
-    for i in range(N):
-        arg_new = copy.copy(arg.ravel())
-        arg_new[i] += step[i]
-        f_new_i = fn(arg_new.reshape(shape))
-        gradient[i] = (f_new_i - f_old) / step[i]
-
-    return gradient.reshape(shape)
+        return x
 
 def circ2eps(x, y, r, eps_c, eps_b, dL):
     """ Define eps_r through circle parameters """

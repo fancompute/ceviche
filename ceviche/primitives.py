@@ -2,9 +2,8 @@ import numpy as np
 import scipy.sparse as sp
 import scipy.sparse.linalg as spl
 
-from autograd.extend import primitive, defvjp
+from autograd.extend import primitive, defvjp, defjvp
 from ceviche.constants import *
-from ceviche.utils import circ2eps
 
 """ This file is the meat and bones of the FDFD.
     It defines the basic operations needed for FDFD and also their derivatives
@@ -27,7 +26,14 @@ def vjp_maker_spdot(b, A, x):
         return spdot(A.T, v)
     return vjp
 
+# def jvp_maker_spdot(b, A, x):
+#     """ Gives jvp for b = spdot(A, x) """
+#     def jvp(v):
+#         return spdot(A, v)
+#     return jvp
+
 defvjp(spdot, None, vjp_maker_spdot)
+# defjvp(spdot, None, jvp_maker_spdot)
 
 
 @primitive
@@ -48,7 +54,20 @@ def vjp_maker_spsolve_b(x, A, b):
         return spsolve(A.T, v)
     return vjp
 
+# def jvp_maker_spsolve_A(x, A, b):
+#     """ Gives vjp for x = spsolve(A, b) """
+#     def jvp(v):
+#         return spsolve(A, x * -v)
+#     return vjp
+
+# def jvp_maker_spsolve_b(x, A, b):
+#     """ Gives vjp for x = spsolve(A, b) """
+#     def jvp(v):
+#         return spsolve(A, v)
+#     return vjp
+
 defvjp(spsolve, vjp_maker_spsolve_A, vjp_maker_spsolve_b)
+# defjvp(spsolve, jvp_maker_spsolve_A, jvp_maker_spsolve_b)
 
 
 """========================= SYSTEM MATRIX CREATION ========================"""
@@ -73,7 +92,6 @@ def make_A_Ez(info_dict, eps_arr):
 
 """====================== FIELD CONVERSION PRIMITIVIES ====================="""
 
-# @primitive
 def Ez_to_Hx(Ez, info_dict):
     """ Returns magnetic field `Hx` from electric field `Ez` """
     Hx = - spdot(info_dict['Dyb'], Ez) / MU_0
@@ -155,9 +173,40 @@ def vjp_maker_solve_Ez_source(Ez, info_dict, eps_arr, source):
 
     return vjp
 
+# # define the gradient of solve_Ez w.r.t. eps_arr (in Hz)
+# def jvp_maker_solve_Ez(Ez, test, info_dict, eps_arr, source):
+#     """ Returns a function of the error signal (v) that computes the vector-jacobian product.
+#           takes in the output of solve_Ez (Hz) and solve_Ez's other arguments. 
+#     """
+    
+#     # construct the system matrix again
+#     A = make_A_Ez(info_dict, eps_arr)
+
+#     # jacobian-vector product function to return
+#     def jvp(v):
+
+#         u = Ez * -v
+
+#         # solve the adjoint problem and get those electric fields (note D info_dict are different and transposed)
+#         Ez_for = spl.spsolve(A, u)
+
+#         # because we care about the diagonal elements, just element-wise multiply E and E_adj
+#         return EPSILON_0 * info_dict['omega']**2 * np.real(Ez_for)
+
+#     # return this function for autograd to link-later
+#     return jvp
+
+# def jvp_maker_solve_Ez_source(Ez, test, info_dict, eps_arr, source):
+#     """ Gives vjp for solve_Ez with respect to source """    
+
+#     def jvp(v):
+#         return 1j * info_dict['omega'] * Ez * v
+
+#     return jvp
+
 
 defvjp(solve_Ez, None, vjp_maker_solve_Ez, vjp_maker_solve_Ez_source)
-
+#defjvp(solve_Ez, None, jvp_maker_solve_Ez, jvp_maker_solve_Ez_source)
 
 @primitive
 def solve_Hz(info_dict, eps_arr, source):

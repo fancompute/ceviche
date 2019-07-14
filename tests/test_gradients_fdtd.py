@@ -17,7 +17,7 @@ from ceviche.jacobians import jacobian
 
 # gradient error tolerance
 ALLOWED_RATIO = 1e-4    # maximum allowed ratio of || grad_num - grad_auto || vs. || grad_num ||
-DEPS = 1e-4             # numerical gradient step size
+DEPS = 1e-6             # numerical gradient step size
 VERBOSE = False
 
 class TestFDTD(unittest.TestCase):
@@ -61,9 +61,9 @@ class TestFDTD(unittest.TestCase):
         self.assertLessEqual(norm_ratio, ALLOWED_RATIO)
         print('')
 
-    def test_grad_E(self):
+    def test_grad_rev_E(self):
 
-        print('\ttesting E fields in FDTD')
+        print('\ttesting E fields in FDTD (reverse mode)')
 
         F = fdtd(self.eps_r, dL=self.dL, npml=self.pml)
 
@@ -75,21 +75,47 @@ class TestFDTD(unittest.TestCase):
                 S += npa.sum(fields['Ex'] + fields['Ey'] + fields['Ez'])
             return S
 
-        grad_autograd_rev = jacobian(objective, mode='reverse')(self.eps_arr).flatten()
-        grad_autograd_for = jacobian(objective, mode='forward')(self.eps_arr).flatten()
-        grad_numerical = grad_num(objective, self.eps_arr, step_size=DEPS)
+        jac_autograd_rev = jacobian(objective, mode='reverse')(self.eps_arr)
+        jac_numerical = jacobian(objective, mode='numerical', step_size=DEPS)(self.eps_arr)
 
         if VERBOSE:
             print('\tobjective function value: ', objective(self.eps_arr))
-            print('\tgrad (auto):  \n\t\t', grad_autograd_rev)
-            print('\tgrad (num):   \n\t\t', grad_numerical)
+            print('\tjacobian (auto):  \n\t\t', jac_autograd_rev)
+            print('\tjacobian (num):   \n\t\t', jac_numerical)
 
-        self.check_gradient_error(grad_numerical, grad_autograd_rev)
-        self.check_gradient_error(grad_numerical, grad_autograd_for)
+        self.check_gradient_error(jac_numerical, jac_autograd_rev)
 
-    def test_grad_H(self):
 
-        print('\ttesting H fields in FDTD')
+    def test_grad_for_E(self):
+
+        print('\ttesting E fields in FDTD (forward mode)')
+
+        F = fdtd(self.eps_r, dL=self.dL, npml=self.pml)
+
+        def objective(c):
+
+            F = fdtd(c * self.eps_r, dL=self.dL, npml=self.pml)
+
+            S = 0.0
+            for t_index in range(self.steps):
+                fields = F.forward(Jx=self.gaussian(t_index))
+                S += fields['Ex'] + fields['Ey'] + fields['Ez']
+            return S
+
+        c0 = 2.0
+        jac_autograd_for = jacobian(objective, mode='forward')(c0)
+        jac_numerical = jacobian(objective, mode='numerical', step_size=DEPS)(c0)
+
+        if VERBOSE:
+            print('\tobjective function value: ', objective(self.eps_arr))
+            print('\tjacobian (auto):  \n\t\t', jac_autograd_for)
+            print('\tjacobian (num):   \n\t\t', jac_numerical)
+
+        self.check_gradient_error(jac_numerical, jac_autograd_for)
+
+    def test_grad_rev_H(self):
+
+        print('\ttesting H fields in FDTD (reverse mode)')
 
         F = fdtd(self.eps_r, dL=self.dL, npml=self.pml)
 
@@ -101,15 +127,40 @@ class TestFDTD(unittest.TestCase):
                 S += npa.sum(fields['Hx'] + fields['Hy'] + fields['Hz'])
             return S
 
-        grad_autograd = jacobian(objective)(self.eps_arr)
-        grad_numerical = grad_num(objective, self.eps_arr, step_size=DEPS)
+        jac_autograd_rev = jacobian(objective)(self.eps_arr)
+        jac_numerical = jacobian(objective, mode='numerical', step_size=DEPS)(self.eps_arr)
 
         if VERBOSE:
             print('\tobjective function value: ', objective(self.eps_arr))
-            print('\tgrad (auto):  \n\t\t', grad_autograd)
-            print('\tgrad (num):   \n\t\t', grad_numerical)
+            print('\tjacobian (auto):  \n\t\t', jac_autograd_rev)
+            print('\tjacobian (num):   \n\t\t', jac_numerical)
 
-        self.check_gradient_error(grad_numerical, grad_autograd)
+        self.check_gradient_error(jac_numerical, jac_autograd_rev)
+
+    def test_grad_for_H(self):
+
+        print('\ttesting H fields in FDTD (forward mode)')    
+
+        def objective(c):
+
+            F = fdtd(c * self.eps_r, dL=self.dL, npml=self.pml)
+
+            S = 0.0
+            for t_index in range(self.steps):
+                fields = F.forward(Jx=self.gaussian(t_index))
+                S += fields['Hx'] + fields['Hy'] + fields['Hz']
+            return S
+
+        c0 = 2.0
+        jac_autograd_for = jacobian(objective, mode='forward')(c0)
+        jac_numerical = jacobian(objective, mode='numerical', step_size=DEPS)(c0)
+
+        if VERBOSE:
+            print('\tobjective function value: ', objective(c0))
+            print('\tjacobian (auto):  \n\t\t', jac_autograd_for)
+            print('\tjacobian (num):   \n\t\t', jac_numerical)
+
+        self.check_gradient_error(jac_numerical, jac_autograd_for)
 
 
 if __name__ == "__main__":
