@@ -4,21 +4,20 @@ from autograd.core import make_vjp, make_jvp
 from autograd.wrap_util import unary_to_nary
 from autograd.extend import vspace
 
-from ceviche.utils import get_value, float_2_array
+from .utils import get_value, float_2_array
 
 
 def _get_shape(x):
-    if isinstance(x, float):
+    """ Gets the shape of x, even if it is not an array """
+    if isinstance(x, float) or isinstance(x, int):
         return (1,)
+    elif isinstance(x, tuple) or isinstance(x, list):
+        return (len(x),)
     else:
-        return vspace(x).shape    
+        return vspace(x).shape
 
 def jac_shape(x, ans):
-    shape_in = _get_shape(x)
-    shape_out = _get_shape(ans)
-    return shape_in + shape_out
-
-def jac_shape(x, ans):
+    """ computes the shape of the jacobian where function has input x and output ans """
     m = float_2_array(x).size
     n = float_2_array(ans).size
     return (m, n)
@@ -28,7 +27,8 @@ def jacobian_reverse(fun, x):
     """ Compute jacobian of fun with respect to x using reverse mode differentiation"""
     vjp, ans = make_vjp(fun, x)
     grads = map(vjp, vspace(ans).standard_basis())
-    return np.reshape(np.stack(grads), jac_shape(x, ans))
+    m, n = jac_shape(x, ans)
+    return np.reshape(np.stack(grads), (n, m))
 
 @unary_to_nary
 def jacobian_forward(fun, x):
@@ -36,20 +36,18 @@ def jacobian_forward(fun, x):
     jvp = make_jvp(fun, x)
     ans = fun(x)
     grads = map(lambda b: jvp(b)[1], vspace(x).standard_basis())
-    return np.reshape(np.stack(grads), jac_shape(x, ans))
+    m, n = jac_shape(x, ans)
+    return np.reshape(np.stack(grads), (m, n)).T
 
 @unary_to_nary
 def jacobian_numerical(fn, x, step_size=1e-7):
-    """ numerically differentiate `fn` w.r.t. its argument `x` 
-    `x` can be a numpy array of arbitrary shape
-    `step_size` can be a number or an array of the same shape as `x` """
-
+    """ numerically differentiate `fn` w.r.t. its argument `x` """
     in_array = float_2_array(x).flatten()
     out_array = float_2_array(fn(x)).flatten()
 
     m = in_array.size
     n = out_array.size
-    shape = (m, n)
+    shape = (n, m)
     jacobian = np.zeros(shape)
 
     for i in range(m):
@@ -58,13 +56,14 @@ def jacobian_numerical(fn, x, step_size=1e-7):
         arg_i = input_i.reshape(in_array.shape)
         output_i = fn(arg_i).flatten()
         grad_i = (output_i - out_array) / step_size
-        jacobian[i, :] = get_value(grad_i)
+        jacobian[:, i] = get_value(grad_i)
 
     return jacobian
 
 
 def jacobian(fun, argnum=0, mode='reverse', step_size=1e-6):
     """ Computes jacobian of `fun` with respect to argument number `argnum` using automatic differentiation """
+
     if mode == 'reverse':
         return jacobian_reverse(fun, argnum)
     elif mode == 'forward':
@@ -77,18 +76,23 @@ def jacobian(fun, argnum=0, mode='reverse', step_size=1e-6):
 
 if __name__ == '__main__':
 
-    N = 2
-    A = np.random.random((N,))
+    N = 3
+    M = 2
+    A = np.random.random((N,M))
+    B = np.random.random((N,M))
     print('A = \n', A)
 
     def fn(x, b):
-        return np.sum(A.T @ x - A.T @ b)
+        return A @ x + B @ b
 
-    x0 = np.random.random((N,))
-    b0 = np.random.random((N,))    
+    x0 = np.random.random((M,))
+    b0 = np.random.random((M,))    
     print('Jac_rev = \n', jacobian(fn, argnum=0, mode='reverse')(x0, b0))
     print('Jac_for = \n', jacobian(fn, argnum=0, mode='forward')(x0, b0))
+    print('Jac_num = \n', jacobian(fn, argnum=0, mode='numerical')(x0, b0))
 
-    print('A^T = \n', A.T)
+    print('B = \n', B)
     print('Jac_rev = \n', jacobian(fn, argnum=1, mode='reverse')(x0, b0))
     print('Jac_for = \n', jacobian(fn, argnum=1, mode='forward')(x0, b0))
+    print('Jac_num = \n', jacobian(fn, argnum=1, mode='numerical')(x0, b0))
+
