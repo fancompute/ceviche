@@ -4,7 +4,7 @@ from autograd.core import make_vjp, make_jvp
 from autograd.wrap_util import unary_to_nary
 from autograd.extend import vspace
 
-from .utils import get_value, float_2_array
+from .utils import get_value, get_value_arr, float_2_array
 
 
 def _get_shape(x):
@@ -16,19 +16,22 @@ def _get_shape(x):
     else:
         return vspace(x).shape
 
-def jac_shape(x, ans):
+
+def _jac_shape(x, ans):
     """ computes the shape of the jacobian where function has input x and output ans """
     m = float_2_array(x).size
     n = float_2_array(ans).size
     return (m, n)
+
 
 @unary_to_nary
 def jacobian_reverse(fun, x):
     """ Compute jacobian of fun with respect to x using reverse mode differentiation"""
     vjp, ans = make_vjp(fun, x)
     grads = map(vjp, vspace(ans).standard_basis())
-    m, n = jac_shape(x, ans)
+    m, n = _jac_shape(x, ans)
     return np.reshape(np.stack(grads), (n, m))
+
 
 @unary_to_nary
 def jacobian_forward(fun, x):
@@ -36,8 +39,9 @@ def jacobian_forward(fun, x):
     jvp = make_jvp(fun, x)
     ans = fun(x)
     grads = map(lambda b: jvp(b)[1], vspace(x).standard_basis())
-    m, n = jac_shape(x, ans)
+    m, n = _jac_shape(x, ans)
     return np.reshape(np.stack(grads), (m, n)).T
+
 
 @unary_to_nary
 def jacobian_numerical(fn, x, step_size=1e-7):
@@ -56,7 +60,7 @@ def jacobian_numerical(fn, x, step_size=1e-7):
         arg_i = input_i.reshape(in_array.shape)
         output_i = fn(arg_i).flatten()
         grad_i = (output_i - out_array) / step_size
-        jacobian[:, i] = get_value(grad_i)
+        jacobian[:, i] = get_value_arr(get_value(grad_i))  # need to convert both the grad_i array and its contents to actual data.
 
     return jacobian
 

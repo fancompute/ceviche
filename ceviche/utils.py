@@ -49,6 +49,8 @@ def get_value(x):
     else:
         return x
 
+get_value_arr = np.vectorize(get_value)
+
 def circ2eps(x, y, r, eps_c, eps_b, dL):
     """ Define eps_r through circle parameters """
     shape = eps_b.shape   # shape of domain (in num. grids)

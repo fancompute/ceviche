@@ -19,7 +19,7 @@ def my_fft(x):
         FFT(x) is like a DFT matrix (D) dot with x
     """
     return np.fft.fft(x)
-# my_fft = primitive(np.fft.fft)
+
 
 def fft_grad(g, ans, x):
     """ 
@@ -32,7 +32,9 @@ def fft_grad(g, ans, x):
     """
     return np.fft.fft(g)
 
+
 defjvp(my_fft, fft_grad)
+
 
 ###
 
@@ -49,7 +51,7 @@ pml = [npml, npml, 0]
 
 # source parameters
 sigma = 10e-15
-total_time = 0.5e-12
+total_time = 0.1e-12
 t0 = sigma * 10
 
 source_amp = 1
@@ -87,6 +89,7 @@ def objective(eps_space):
 eps_space = 1.0
 spectral_power = objective(eps_space)
 jac_power = jacobian(objective, mode='forward')(eps_space)
+jac_power_num = jacobian(objective, mode='numerical')(eps_space)
 
 n_disp = 140
 
@@ -96,8 +99,10 @@ delta_f = 1 / steps / dt
 freq_x = np.arange(n_disp) * delta_f
 ax1.plot(freq_x, spectral_power[:n_disp], 'k-')
 ax2.plot(freq_x, jac_power[:n_disp,0], 'g-', label='FMD')
+ax2.plot(freq_x, jac_power_num[:n_disp,0], 'bo', label='numerical')
 ax1.set_ylabel('spectral power', color='k')
 ax2.set_ylabel('dP/depsilon', color='g')
 ax2.spines['right'].set_color('g')
+ax2.legend()
 ax2.tick_params(axis='y', colors='g')
 plt.show()
