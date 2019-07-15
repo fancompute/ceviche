@@ -3,7 +3,7 @@ import scipy.sparse as sp
 import copy
 import matplotlib.pylab as plt
 import autograd
-
+from autograd.extend import primitive, defjvp
 """ Just some utilities for easier testing and debugging"""
 
 def make_sparse(N, random=True, density=1):
@@ -140,23 +140,26 @@ def aniplot(F, source, steps, component='Ez', num_panels=10):
     # fdtd time loop
     for t_index in range(steps):
         fields = F.forward(Jz=source(t_index))
-    
+
         # if it's one of the num_panels panels
         if t_index % (steps // num_panels) == 0:
-            print('working on axis {}/{} for time step {}'.format(ax_index, num_panels, t_index))
 
-            # grab the axis
-            ax = ax_list[ax_index]
+            if ax_index < num_panels:   # extra safety..sometimes tries to access num_panels-th elemet of ax_list, leading to error
 
-            # plot the fields
-            im_t = ax.pcolormesh(np.zeros((Nx, Ny)), cmap='RdBu')
-            max_E = np.abs(fields[component]).max()
-            im_t.set_array(fields[component][:, :, 0].ravel().T)
-            im_t.set_clim([-max_E / 2.0, max_E / 2.0])
-            ax.set_title('time = {} seconds'.format(F.dt*t_index))
+                print('working on axis {}/{} for time step {}'.format(ax_index, num_panels, t_index))
 
-            # update the axis
-            ax_index += 1
+                # grab the axis
+                ax = ax_list[ax_index]
+
+                # plot the fields
+                im_t = ax.pcolormesh(np.zeros((Nx, Ny)), cmap='RdBu')
+                max_E = np.abs(fields[component]).max()
+                im_t.set_array(fields[component][:, :, 0].ravel().T)
+                im_t.set_clim([-max_E / 2.0, max_E / 2.0])
+                ax.set_title('time = {} seconds'.format(F.dt*t_index))
+
+                # update the axis
+                ax_index += 1
 
 
 def measure_fields(F, source, steps, probes, component='Ez'):
@@ -177,11 +180,42 @@ def measure_fields(F, source, steps, probes, component='Ez'):
             measured[t_index, probe_index] = field_probe
     return measured
 
+def imarr(arr):
+    """ puts array 'arr' into form ready to plot """
+    arr_plot = arr.copy()
+    if len(arr.shape) == 3:
+        arr_plot = arr_plot[:,:,0]
+    return np.flipud(arr_plot.T)
+
 """ FFT Utilities """
 
 from numpy.fft import fft, fftfreq
 from librosa.core import stft
 from librosa.display import specshow
+
+
+@primitive
+def my_fft(x):    
+    """ 
+    Wrapper for numpy's FFT, so I can add a primitive to it
+        FFT(x) is like a DFT matrix (D) dot with x
+    """
+    return np.fft.fft(x)
+
+
+def fft_grad(g, ans, x):
+    """ 
+    Define the jacobian-vector product of my_fft(x)
+        The gradient of FFT times g is the vjp
+        ans = fft(x) = D @ x
+        jvp(fft(x))(g) = d{fft}/d{x} @ g
+                       = D @ g
+        Therefore, it looks like the FFT of g
+    """
+    return np.fft.fft(g)
+
+defjvp(my_fft, fft_grad)
+
 
 def get_spectrum(series, dt):
     """ Get FFT of series """
