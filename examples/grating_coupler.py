@@ -10,7 +10,7 @@ from ceviche.utils import imarr, aniplot, my_fft
 from ceviche.fdfd import fdfd_ez as fdfd
 from ceviche.fdtd import fdtd
 
-from angler.
+# from angler.
 
 """ DEFINE PARAMETERS """
 
