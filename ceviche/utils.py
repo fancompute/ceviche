@@ -160,6 +160,7 @@ def aniplot(F, source, steps, component='Ez', num_panels=10):
 
                 # update the axis
                 ax_index += 1
+    plt.show()
 
 
 def measure_fields(F, source, steps, probes, component='Ez'):

@@ -37,8 +37,10 @@ def jacobian_reverse(fun, x):
 def jacobian_forward(fun, x):
     """ Compute jacobian of fun with respect to x using forward mode differentiation"""
     jvp = make_jvp(fun, x)
-    ans = fun(x)
-    grads = map(lambda b: jvp(b)[1], vspace(x).standard_basis())
+    # ans = fun(x)
+    val_grad = map(lambda b: jvp(b), vspace(x).standard_basis())
+    vals, grads = zip(*val_grad)
+    ans = np.zeros((list(vals)[0].size,))  # fake answer so that dont have to compute it twice
     m, n = _jac_shape(x, ans)
     return np.reshape(np.stack(grads), (m, n)).T
 

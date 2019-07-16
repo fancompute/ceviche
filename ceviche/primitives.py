@@ -26,14 +26,12 @@ def vjp_maker_spdot(b, A, x):
         return spdot(A.T, v)
     return vjp
 
-# def jvp_maker_spdot(b, A, x):
-#     """ Gives jvp for b = spdot(A, x) """
-#     def jvp(v):
-#         return spdot(A, v)
-#     return jvp
+def jvp_maker_spdot(g, b, A, x):
+    """ Gives jvp for b = spdot(A, x) """
+    return spdot(A, g)
 
 defvjp(spdot, None, vjp_maker_spdot)
-# defjvp(spdot, None, jvp_maker_spdot)
+defjvp(spdot, None, jvp_maker_spdot)
 
 
 @primitive
@@ -54,20 +52,16 @@ def vjp_maker_spsolve_b(x, A, b):
         return spsolve(A.T, v)
     return vjp
 
-# def jvp_maker_spsolve_A(x, A, b):
-#     """ Gives vjp for x = spsolve(A, b) """
-#     def jvp(v):
-#         return spsolve(A, x * -v)
-#     return vjp
+def jvp_maker_spsolve_A(g, x, A, b):
+    """ Gives vjp for x = spsolve(A, b) """
+    return spsolve(A, x * -g)
 
-# def jvp_maker_spsolve_b(x, A, b):
-#     """ Gives vjp for x = spsolve(A, b) """
-#     def jvp(v):
-#         return spsolve(A, v)
-#     return vjp
+def jvp_maker_spsolve_b(g, x, A, b):
+    """ Gives vjp for x = spsolve(A, b) """
+    return spsolve(A, g)
 
 defvjp(spsolve, vjp_maker_spsolve_A, vjp_maker_spsolve_b)
-# defjvp(spsolve, jvp_maker_spsolve_A, jvp_maker_spsolve_b)
+defjvp(spsolve, jvp_maker_spsolve_A, jvp_maker_spsolve_b)
 
 
 """========================= SYSTEM MATRIX CREATION ========================"""
@@ -142,7 +136,7 @@ def solve_Ez(info_dict, eps_arr, source):
     Ez = spl.spsolve(A, b)
     return Ez
 
-# define the gradient of solve_Ez w.r.t. eps_arr (in Hz)
+# define the gradient of solve_Ez w.r.t. eps_arr (in Ez)
 def vjp_maker_solve_Ez(Ez, info_dict, eps_arr, source):
     """ Returns a function of the error signal (v) that computes the vector-jacobian product.
           takes in the output of solve_Ez (Hz) and solve_Ez's other arguments. 
@@ -173,40 +167,30 @@ def vjp_maker_solve_Ez_source(Ez, info_dict, eps_arr, source):
 
     return vjp
 
-# # define the gradient of solve_Ez w.r.t. eps_arr (in Hz)
-# def jvp_maker_solve_Ez(Ez, test, info_dict, eps_arr, source):
-#     """ Returns a function of the error signal (v) that computes the vector-jacobian product.
-#           takes in the output of solve_Ez (Hz) and solve_Ez's other arguments. 
-#     """
+# define the gradient of solve_Ez w.r.t. eps_arr (in Ez)
+def jvp_maker_solve_Ez(g, Ez, info_dict, eps_arr, source):
+    """ Returns a function of the error signal (v) that computes the vector-jacobian product.
+          takes in the output of solve_Ez (Hz) and solve_Ez's other arguments. 
+    """
     
-#     # construct the system matrix again
-#     A = make_A_Ez(info_dict, eps_arr)
+    # construct the system matrix again and the RHS of the gradient expersion
+    A = make_A_Ez(info_dict, eps_arr)
+    u = Ez * -g
 
-#     # jacobian-vector product function to return
-#     def jvp(v):
+    # solve the adjoint problem and get those electric fields (note D info_dict are different and transposed)
+    Ez_for = spl.spsolve(A, u)
 
-#         u = Ez * -v
+    # because we care about the diagonal elements, just element-wise multiply E and E_adj
+    return EPSILON_0 * info_dict['omega']**2 * np.real(Ez_for)
 
-#         # solve the adjoint problem and get those electric fields (note D info_dict are different and transposed)
-#         Ez_for = spl.spsolve(A, u)
 
-#         # because we care about the diagonal elements, just element-wise multiply E and E_adj
-#         return EPSILON_0 * info_dict['omega']**2 * np.real(Ez_for)
-
-#     # return this function for autograd to link-later
-#     return jvp
-
-# def jvp_maker_solve_Ez_source(Ez, test, info_dict, eps_arr, source):
-#     """ Gives vjp for solve_Ez with respect to source """    
-
-#     def jvp(v):
-#         return 1j * info_dict['omega'] * Ez * v
-
-#     return jvp
-
+def jvp_maker_solve_Ez_source(g, Ez, info_dict, eps_arr, source):
+    """ Gives vjp for solve_Ez with respect to source """    
+    return 1j * info_dict['omega'] * Ez * g
 
 defvjp(solve_Ez, None, vjp_maker_solve_Ez, vjp_maker_solve_Ez_source)
-#defjvp(solve_Ez, None, jvp_maker_solve_Ez, jvp_maker_solve_Ez_source)
+defjvp(solve_Ez, None, jvp_maker_solve_Ez, jvp_maker_solve_Ez_source)
+
 
 @primitive
 def solve_Hz(info_dict, eps_arr, source):
@@ -254,3 +238,4 @@ def vjp_maker_solve_Hz_source(Hz, info_dict, eps_arr, b):
     return vjp
 
 defvjp(solve_Hz, None, vjp_maker_solve_Hz, vjp_maker_solve_Hz_source)
+# jvp not implemented yet!
