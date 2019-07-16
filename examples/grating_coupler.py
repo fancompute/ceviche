@@ -19,7 +19,7 @@ from angler import Simulation
 
 """ PARSE ARGUMENTS """
 
-# to run with plots, run `python examples/grating_coupler.py --plot
+# to run with plots, run `python examples/grating_coupler.py --plot`
 parser = argparse.ArgumentParser(description='Process those args!')
 parser.add_argument('--plot', dest='plot_all', default=False, action='store_true', help='plot everything')
 args = parser.parse_args()
@@ -30,7 +30,7 @@ if plot_all:
 """ DEFINE PARAMETERS """
 
 npml = 10                          # number of grid points in PML
-dl = 10e-8                          # size (m) of each grid cell
+dl = 5e-8                          # size (m) of each grid cell
 ff = 0.5                           # grating teeth fill factor
 lambda0 = 1550e-9
 omega0 = 2 * np.pi * C_0 / lambda0
@@ -42,11 +42,11 @@ neff_hole = 2.534                  # effective index of slab with 'hole' thickne
 theta_deg = 20                     # angle of incidence of line source
 theta = theta_deg / 360 * 2 * np.pi
 
-spc = 1.0e-6                       # spacing  (m) between PML and {top source, bottom substrate, left grating teeth, right modal source} (m)
+spc = 1.5e-6                       # spacing  (m) between PML and {top source, bottom substrate, left grating teeth, right modal source} (m)
 h0 = 220e-9                        # thickness (m) of grating where teeth are
 h1 = 150e-9                        # thickness (m) of grating where there is a hole
-subs = 1e-6                        # thickness (m) of top and bottom substrate
-num_teeth = 6                     # number of grating teeth
+subs = 1.5e-6                        # thickness (m) of top and bottom substrate
+num_teeth = 11                     # number of grating teeth
 
 sigma = 40e-15                     # pulse duration (s)
 total_time = 1.9e-12               # total simulation time (s)
@@ -125,7 +125,7 @@ if plot_all:
     print('-> solving FDFD for discrete permittivity')
     F = fdfd(omega0, dl, eps_r, NPML)
     Hx, Hy, Ez = F.solve(source)
-    plt.imshow(np.abs(imarr(Ez)))
+    plt.imshow(np.abs(imarr(Ez)), cmap='magma')
     plt.title('|Ez| for discrete permitivity')
     plt.xlabel('x'); plt.ylabel('y')
     plt.colorbar()
@@ -163,7 +163,7 @@ if plot_all:
     print('-> solving FDFD for continuous epsilon')
     F = fdfd(omega0, dl, eps_total, NPML)
     Hx, Hy, Ez = F.solve(source)
-    plt.imshow(np.abs(imarr(Ez)))
+    plt.imshow(np.abs(imarr(Ez)), cmap='magma')
     plt.title('|Ez| for continuous permitivity')
     plt.xlabel('x'); plt.ylabel('y')
     plt.colorbar()
@@ -188,7 +188,7 @@ wg_mode_p = np.sum(np.square(np.abs(wg_mode)))
 
 # plot the wavegiude mode source array
 if plot_all:
-    plt.imshow(np.real(imarr(wg_mode)))
+    plt.imshow(np.real(imarr(wg_mode)), cmap='magma')
     plt.title('modal source array')
     plt.xlabel('x'); plt.ylabel('y')
     plt.show()
@@ -374,28 +374,30 @@ plt.show()
 
 """ ALL THE PLOTS """
 
+font = {'size': 20, 
+        'weight' : 'normal'}
+
+plt.rc('font', **font)
+
 # where to store these plots
 fname_base = './examples/figs/tmp/'
-print('-> saving plots to {}'.format(os.getcwd() + fname_base))
+print('-> saving plots to {}'.format(os.getcwd() + fname_base[1:]))
 
 # setup
 print('   - setup')
-plt.tight_layout()
 plt.imshow(np.real(imarr(eps_r + 3 * np.abs(source[:,:,0]))))
-plt.colorbar()
-plt.title('discrete epsilon w/ source')
 plt.xlabel('x'); plt.ylabel('y')
+plt.tight_layout()
 plt.savefig(fname_base + 'setup.pdf', dpi=400)
 plt.clf()
 
 # source
 print('   - source')
-plt.tight_layout()
 plt.plot(times * F_t.dt / 1e-15, gaussian(times))
-plt.title('source')
 plt.xlabel('time (femtoseconds)')
 plt.ylabel('amplitude')
 plt.xlim((0, 500))
+plt.tight_layout()
 plt.savefig(fname_base + 'pulse.pdf', dpi=400)
 plt.clf()
 
@@ -468,3 +470,35 @@ plt.xlim(left=left_f_n, right=right_f_n)
 plt.ylim(bottom=-.71, top=.71)
 plt.savefig(fname_base + 'd_efficiencies.pdf', dpi=400)
 plt.clf()
+
+# save all of the parameters for reference
+params = {
+    'npml':npml,
+    'dl':dl,
+    'ff':ff,
+    'lambda0':lambda0,
+    'omega0':omega0,
+    'k0':k0,
+    'neff_teeth':neff_teeth,
+    'neff_hole':neff_hole,
+    'theta_deg':theta_deg,
+    'theta':theta,
+    'spc':spc,
+    'h0':h0,
+    'h1':h1,
+    'subs':subs,
+    'num_teeth':num_teeth,
+    'sigma':sigma,
+    'total_time':total_time,
+    't0':t0,
+    'sub_index':sub_index,
+    'grating_index':grating_index,
+    'sub_eps':sub_eps,
+    'grating_eps':grating_eps,
+    'coupling_efficiency':coupling_efficiency
+}
+
+import json
+
+with open(fname_base + 'params.json', 'w') as fp:
+    json.dump(params, fp)
