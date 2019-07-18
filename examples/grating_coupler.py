@@ -30,7 +30,7 @@ if plot_all:
 """ DEFINE PARAMETERS """
 
 npml = 10                          # number of grid points in PML
-dl = 5e-8                          # size (m) of each grid cell
+dl = 2e-8                          # size (m) of each grid cell
 ff = 0.5                           # grating teeth fill factor
 lambda0 = 1550e-9
 omega0 = 2 * np.pi * C_0 / lambda0
@@ -46,7 +46,7 @@ spc = 1.5e-6                       # spacing  (m) between PML and {top source, b
 h0 = 220e-9                        # thickness (m) of grating where teeth are
 h1 = 150e-9                        # thickness (m) of grating where there is a hole
 subs = 1.5e-6                        # thickness (m) of top and bottom substrate
-num_teeth = 11                     # number of grating teeth
+num_teeth = 7                     # number of grating teeth
 
 sigma = 40e-15                     # pulse duration (s)
 total_time = 1.9e-12               # total simulation time (s)
@@ -325,51 +325,51 @@ do_num_jac = False   # whether to compute numerical jacobian as well
 if do_num_jac:
     jac_num = jacobian(spectral_power, mode='numerical')(ff)
 
-# plot derivatives along with spectral power
-right_color = '#c23b22'
-fig, ax1 = plt.subplots()
 delta_f = 1 / steps / dt              # frequency spacing in the FFT output
 freq_x = np.arange(n_disp) * delta_f  # frequency range
-ax1.plot(freq_x / 1e12, spect_in[:n_disp] / P_in_max, label='input')
-ax1.plot(freq_x / 1e12, spect[:n_disp] / P_in_max, label='output')
-ax1.set_ylabel('normalized power (P)', color='k')
-ax1.set_xlabel('frequency (THz)')
-ax1.legend()
-ax2 = ax1.twinx()
-p2 = ax2.plot(freq_x / 1e12, jac_FMD[:n_disp, 0] / spect_in[:n_disp] / P_in_max, color=right_color, label='FMD')
-if do_num_jac:
-    ax2.plot(freq_x, jac_num[:n_disp, 0], 'bo', label='numerical')
-    ax2.legend()
-ax2.set_ylabel('dP/dff', color=right_color)
-ax2.spines['right'].set_color(right_color)
-ax2.tick_params(axis='y', colors=right_color)
-ax1.set_xlim(left=180, right=210)
-ax2.set_xlim(left=180, right=210)
-plt.show()
 
+# plot derivatives along with spectral power
+if plot_all:
+    right_color = '#c23b22'
+    fig, ax1 = plt.subplots()
+    ax1.plot(freq_x / 1e12, spect_in[:n_disp] / P_in_max, label='input')
+    ax1.plot(freq_x / 1e12, spect[:n_disp] / P_in_max, label='output')
+    ax1.set_ylabel('normalized power (P)', color='k')
+    ax1.set_xlabel('frequency (THz)')
+    ax1.legend()
+    ax2 = ax1.twinx()
+    p2 = ax2.plot(freq_x / 1e12, jac_FMD[:n_disp, 0] / spect_in[:n_disp] / P_in_max, color=right_color, label='FMD')
+    if do_num_jac:
+        ax2.plot(freq_x, jac_num[:n_disp, 0], 'bo', label='numerical')
+        ax2.legend()
+    ax2.set_ylabel('dP/dff', color=right_color)
+    ax2.spines['right'].set_color(right_color)
+    ax2.tick_params(axis='y', colors=right_color)
+    ax1.set_xlim(left=180, right=210)
+    ax2.set_xlim(left=180, right=210)
+    plt.show()
 
-# efficiency version of above plot
-right_color = '#c23b22'
-fig, ax1 = plt.subplots()
-delta_f = 1 / steps / dt
-freq_x = np.arange(n_disp) * delta_f
-ax1.plot(freq_x / 1e12, spect[:n_disp] / P_in_max)
-ax1.set_ylabel('coupling efficiency (eff) (1 / Hz)', color='k')
-ax1.set_xlabel('frequency (THz)')
-ax1.legend()
-ax2 = ax1.twinx()
-p2 = ax2.plot(freq_x / 1e12, jac_FMD[:n_disp, 0] / spect_in[:n_disp], color=right_color, label='FMD')
-if do_num_jac:
-    ax2.plot(freq_x, jac_num[:n_disp, 0] / spect_in[:n_disp], 'bo', label='numerical')
-    ax2.legend()
-ax2.set_ylabel("d_eff/dff", color=right_color)
-ax2.spines['right'].set_color(right_color)
-ax2.tick_params(axis='y', colors=right_color)
-ax1.set_xlim(left=180, right=210)
-ax1.set_ylim(bottom=-0.1, top=1.1)
-ax2.set_xlim(left=180, right=210)
-ax2.set_ylim(bottom=-1.1, top=1.1)
-plt.show()
+if plot_all:
+    # efficiency version of above plot
+    right_color = '#c23b22'
+    fig, ax1 = plt.subplots()
+    ax1.plot(freq_x / 1e12, spect[:n_disp] / P_in_max)
+    ax1.set_ylabel('coupling efficiency (eff) (1 / Hz)', color='k')
+    ax1.set_xlabel('frequency (THz)')
+    ax1.legend()
+    ax2 = ax1.twinx()
+    p2 = ax2.plot(freq_x / 1e12, jac_FMD[:n_disp, 0] / spect_in[:n_disp], color=right_color, label='FMD')
+    if do_num_jac:
+        ax2.plot(freq_x, jac_num[:n_disp, 0] / spect_in[:n_disp], 'bo', label='numerical')
+        ax2.legend()
+    ax2.set_ylabel("d_eff/dff", color=right_color)
+    ax2.spines['right'].set_color(right_color)
+    ax2.tick_params(axis='y', colors=right_color)
+    ax1.set_xlim(left=180, right=210)
+    ax1.set_ylim(bottom=-0.1, top=1.1)
+    ax2.set_xlim(left=180, right=210)
+    ax2.set_ylim(bottom=-1.1, top=1.1)
+    plt.show()
 
 
 """ ALL THE PLOTS """
