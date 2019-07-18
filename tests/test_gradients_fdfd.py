@@ -91,8 +91,8 @@ class TestFDFD(unittest.TestCase):
                  + npa.sum(npa.square(npa.abs(Ex))) \
                  + npa.sum(npa.square(npa.abs(Ey)))
 
-        grad_autograd_rev = jacobian(J_fdfd, mode='reverse')(self.eps_arr).flatten()
-        grad_numerical = grad_num(J_fdfd, self.eps_arr, step_size=DEPS)
+        grad_autograd_rev = jacobian(J_fdfd, mode='reverse')(self.eps_arr)
+        grad_numerical = jacobian(J_fdfd, mode='numerical')(self.eps_arr)
 
         if VERBOSE:
             print('\tobjective function value: ', J_fdfd(self.eps_arr))
@@ -121,8 +121,8 @@ class TestFDFD(unittest.TestCase):
                  + npa.sum(npa.square(npa.abs(Hx))) \
                  + npa.sum(npa.square(npa.abs(Hy)))
 
-        grad_autograd_rev = jacobian(J_fdfd, mode='reverse')(self.eps_arr).flatten()
-        grad_numerical = grad_num(J_fdfd, self.eps_arr, step_size=DEPS)
+        grad_autograd_rev = jacobian(J_fdfd, mode='reverse')(self.eps_arr)
+        grad_numerical = jacobian(J_fdfd, mode='numerical')(self.eps_arr)
 
         if VERBOSE:
             print('\tobjective function value: ', J_fdfd(self.eps_arr2))
