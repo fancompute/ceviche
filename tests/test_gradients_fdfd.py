@@ -45,7 +45,7 @@ class TestFDFD(unittest.TestCase):
 
         # sources (chosen to have objectives around 1)
         self.source_amp_ez = 1e-8
-        self.source_amp_hz = 1e8
+        self.source_amp_hz = 1e-8
 
         self.source_ez = np.zeros((self.Nx, self.Ny))
         self.source_ez[self.Nx//2, self.Ny//2] = self.source_amp_ez
@@ -116,8 +116,8 @@ class TestFDFD(unittest.TestCase):
             Ex, Ey, Hz = f.solve(c * self.eps_r * self.source_hz)
 
             return npa.square(npa.abs(Hz)) \
-                 + 0 * npa.square(npa.abs(Ex)) \
-                 + 0 * npa.square(npa.abs(Ey))
+                 + npa.square(npa.abs(Ex)) \
+                 + npa.square(npa.abs(Ey))
 
         grad_autograd_for = jacobian(J_fdfd, mode='forward')(1.0)
         grad_numerical = jacobian(J_fdfd, mode='numerical')(1.0)
