@@ -181,12 +181,14 @@ def jvp_maker_solve_Ez(g, Ez, info_dict, eps_arr, source):
     Ez_for = spl.spsolve(A, u)
 
     # because we care about the diagonal elements, just element-wise multiply E and E_adj
-    return EPSILON_0 * info_dict['omega']**2 * np.real(Ez_for)
+    return EPSILON_0 * info_dict['omega']**2 * Ez_for
 
 
 def jvp_maker_solve_Ez_source(g, Ez, info_dict, eps_arr, source):
-    """ Gives vjp for solve_Ez with respect to source """    
-    return 1j * info_dict['omega'] * Ez * g
+    """ Gives vjp for solve_Ez with respect to source """  
+
+    A = make_A_Ez(info_dict, eps_arr)      
+    return 1j * info_dict['omega'] * spsolve(A, g)
 
 defvjp(solve_Ez, None, vjp_maker_solve_Ez, vjp_maker_solve_Ez_source)
 defjvp(solve_Ez, None, jvp_maker_solve_Ez, jvp_maker_solve_Ez_source)
@@ -227,7 +229,7 @@ def vjp_maker_solve_Hz(Hz, info_dict, eps_arr, source):
     # return this function for autograd to link-later
     return vjp
 
-def vjp_maker_solve_Hz_source(Hz, info_dict, eps_arr, b):
+def vjp_maker_solve_Hz_source(Hz, info_dict, eps_arr, source):
     """ Gives vjp for solve_Hz with respect to source """    
 
     A = make_A_Hz(info_dict, eps_arr)
@@ -237,5 +239,40 @@ def vjp_maker_solve_Hz_source(Hz, info_dict, eps_arr, b):
 
     return vjp
 
+
+# define the gradient of solve_Hz w.r.t. eps_arr (in Hz)
+def jvp_maker_solve_Hz(g, Hz, info_dict, eps_arr, source):
+    """ Returns a function of the error signal (v) that computes the vector-jacobian product.
+          takes in the output of solve_Hz (Hz) and solve_Hz's other arguments. 
+    """
+
+    # construct the system matrix again and the RHS of the gradient expersion
+    A = make_A_Hz(info_dict, eps_arr)
+    uz = Hz * -g
+
+    ux = spdot(info_dict['Dxb'], Hz)
+    uy = spdot(info_dict['Dyb'], Hz)
+
+    diag = sp.spdiags(1 / eps_arr, [0], eps_arr.size, eps_arr.size)
+    ux = ux * diag * g * diag
+    uy = uy * diag * g * diag
+
+    ux = spdot(info_dict['Dxf'], ux)
+    uy = spdot(info_dict['Dyf'], uy)
+
+    u = (ux + uy)
+
+    Hz_for = spl.spsolve(A, u)
+
+    return 1 / EPSILON_0 * Hz_for
+
+
+def jvp_maker_solve_Hz_source(g, Hz, info_dict, eps_arr, source):
+    """ Gives vjp for solve_Hz with respect to source """    
+
+    A = make_A_Hz(info_dict, eps_arr)      
+    return 1j * info_dict['omega'] * spsolve(A, g)
+
+
 defvjp(solve_Hz, None, vjp_maker_solve_Hz, vjp_maker_solve_Hz_source)
-# jvp not implemented yet!
+defjvp(solve_Hz, None, jvp_maker_solve_Hz, jvp_maker_solve_Hz_source)

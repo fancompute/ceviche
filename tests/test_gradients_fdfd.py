@@ -38,14 +38,14 @@ class TestFDFD(unittest.TestCase):
         self.Ny = 30
         self.omega = 2*np.pi*200e12
         self.dL = 1e-6
-        self.pml = [5, 5]
+        self.pml = [10, 10]
 
         self.source_mask = np.ones((self.Nx, self.Ny))
-        self.source_mask[5, 5] = 1
+        self.source_mask[15, 15] = 1
 
         # sources (chosen to have objectives around 1)
         self.source_amp_ez = 1e-8
-        self.source_amp_hz = 1e-8
+        self.source_amp_hz = 1e8
 
         self.source_ez = np.zeros((self.Nx, self.Ny))
         self.source_ez[self.Nx//2, self.Ny//2] = self.source_amp_ez
@@ -71,9 +71,9 @@ class TestFDFD(unittest.TestCase):
         self.assertLessEqual(norm_ratio, ALLOWED_RATIO)
         print('')
 
-    def test_Hz(self):
+    def test_Hz_reverse(self):
 
-        print('\ttesting Hz in FDFD')
+        print('\ttesting reverse-mode Hz in FDFD')
 
         f = fdfd_hz(self.omega, self.dL, self.eps_r, self.pml)
 
@@ -101,9 +101,37 @@ class TestFDFD(unittest.TestCase):
 
         self.check_gradient_error(grad_numerical, grad_autograd_rev)
 
-    def test_Ez(self):
+    def test_Hz_forward(self):
 
-        print('\ttesting Ez in FDFD')
+        print('\ttesting forward-mode Hz in FDFD')
+
+        f = fdfd_hz(self.omega, self.dL, self.eps_r, self.pml)
+
+        def J_fdfd(c):
+
+            # set the permittivity
+            f.eps_r = c * self.eps_r
+
+            # set the source amplitude to the permittivity at that point
+            Ex, Ey, Hz = f.solve(c * self.eps_r * self.source_hz)
+
+            return npa.square(npa.abs(Hz)) \
+                 + 0 * npa.square(npa.abs(Ex)) \
+                 + 0 * npa.square(npa.abs(Ey))
+
+        grad_autograd_for = jacobian(J_fdfd, mode='forward')(1.0)
+        grad_numerical = jacobian(J_fdfd, mode='numerical')(1.0)
+
+        if VERBOSE:
+            print('\tobjective function value: ', J_fdfd(1.0))
+            print('\tgrad (auto):  \n\t\t', grad_autograd_for)
+            print('\tgrad (num):   \n\t\t', grad_numerical)
+
+        self.check_gradient_error(grad_numerical, grad_autograd_for)
+
+    def test_Ez_reverse(self):
+
+        print('\ttesting reverse-mode Ez in FDFD')
 
         f = fdfd_ez(self.omega, self.dL, self.eps_r, self.pml)
 
@@ -125,11 +153,39 @@ class TestFDFD(unittest.TestCase):
         grad_numerical = jacobian(J_fdfd, mode='numerical')(self.eps_arr)
 
         if VERBOSE:
-            print('\tobjective function value: ', J_fdfd(self.eps_arr2))
+            print('\tobjective function value: ', J_fdfd(self.eps_arr))
             print('\tgrad (auto):  \n\t\t', grad_autograd_rev)
             print('\tgrad (num):   \n\t\t', grad_numerical)
 
         self.check_gradient_error(grad_numerical, grad_autograd_rev)
+
+    def test_Ez_forward(self):
+
+        print('\ttesting forward-mode Ez in FDFD')
+
+        f = fdfd_ez(self.omega, self.dL, self.eps_r, self.pml)
+
+        def J_fdfd(c):
+
+            # set the permittivity
+            f.eps_r = c * self.eps_r
+
+            # set the source amplitude to the permittivity at that point
+            Hx, Hy, Ez = f.solve(c * self.eps_r * self.source_ez)
+
+            return npa.square(npa.abs(Ez)) \
+                 + npa.square(npa.abs(Hx)) \
+                 + npa.square(npa.abs(Hy))
+
+        grad_autograd_for = jacobian(J_fdfd, mode='forward')(1.0)
+        grad_numerical = jacobian(J_fdfd, mode='numerical')(1.0)
+
+        if VERBOSE:
+            print('\tobjective function value: ', J_fdfd(1.0))
+            print('\tgrad (auto):  \n\t\t', grad_autograd_for)
+            print('\tgrad (num):   \n\t\t', grad_numerical)
+
+        self.check_gradient_error(grad_numerical, grad_autograd_for)
 
 
 if __name__ == '__main__':
