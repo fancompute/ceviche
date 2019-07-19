@@ -5,9 +5,8 @@ import copy
 
 from autograd.extend import primitive, defvjp, defjvp
 
-from ceviche.constants import *
-from ceviche.utils import make_sparse, spdot
-from ceviche.solvers import sparse_solve
+from .constants import *
+from .solvers import sparse_solve
 
 class fdfd():
     """ Base class for FDFD simulation """
@@ -319,6 +318,26 @@ def jvp_solve_Hz_source(g, Hz, info_dict, eps_vec, source, iterative=False, meth
 
 defvjp(solve_Hz, None, vjp_maker_solve_Hz, vjp_maker_solve_Hz_source)
 defjvp(solve_Hz, None, jvp_solve_Hz, jvp_solve_Hz_source)
+
+"""======================= SPARSE DOT PRODUCT ========================="""
+
+@primitive
+def spdot(A, x):
+    """ Dot product of sparse matrix A and dense matrix x (Ax = b) """
+    return A.dot(x)
+
+def vjp_maker_spdot(b, A, x):
+    """ Gives vjp for b = spdot(A, x) w.r.t. x"""
+    def vjp(v):
+        return spdot(A.T, v)
+    return vjp
+
+def jvp_spdot(g, b, A, x):
+    """ Gives jvp for b = spdot(A, x) w.r.t. x"""
+    return spdot(A, g)
+
+defvjp(spdot, None, vjp_maker_spdot)
+defjvp(spdot, None, jvp_spdot)
 
 
 """=========================== HELPER FUNCTIONS ==========================="""

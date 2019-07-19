@@ -1,5 +1,10 @@
 import numpy as np
 
+def minimize(objective, params, jac, method='LBFGS', options=None):
+    """ Lets write a master function here that someone can call and replace methods. """
+    pass
+
+
 def adam_minimize(objective, params, jac, step_size=1e-2, Nsteps=100, bounds=None, options={}):
     """Performs Nsteps steps of ADAM minimization of function `objective` with gradient `jac`.
     The `bounds` are set abruptly by rejecting an update step out of bounds."""

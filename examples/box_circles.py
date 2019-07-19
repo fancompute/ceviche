@@ -1,11 +1,13 @@
 import unittest
 import numpy as np
 import matplotlib.pylab as plt
-
-from ceviche import fdfd_hz
-
 import autograd.numpy as npa
 from autograd import grad
+
+import sys
+sys.path.append('../ceviche')
+
+from ceviche import fdfd_hz
 from ceviche.parameterizations import Circle_Shapes
 
 # whether to plot setup stuff

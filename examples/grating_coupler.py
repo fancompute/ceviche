@@ -3,6 +3,7 @@ import autograd.numpy as npa
 import matplotlib.pylab as plt
 import argparse
 import os
+
 import sys
 sys.path.append('../ceviche')
 sys.path.append('../angler')
@@ -30,7 +31,7 @@ if plot_all:
 """ DEFINE PARAMETERS """
 
 npml = 10                          # number of grid points in PML
-dl = 2e-8                          # size (m) of each grid cell
+dl = 10e-8                          # size (m) of each grid cell
 ff = 0.5                           # grating teeth fill factor
 lambda0 = 1550e-9
 omega0 = 2 * np.pi * C_0 / lambda0

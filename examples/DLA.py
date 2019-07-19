@@ -1,14 +1,17 @@
 import unittest
 import numpy as np
 import matplotlib.pylab as plt
+import autograd.numpy as npa
 
+from autograd import grad
 from scipy.optimize import minimize
+
+import sys
+sys.path.append('../ceviche')
 
 from ceviche import fdfd_hz
 from ceviche.constants import *
 
-import autograd.numpy as npa
-from autograd import grad
 
 # whether to plot things below
 PLOT = False

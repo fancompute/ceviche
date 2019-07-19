@@ -1,11 +1,14 @@
 import unittest
 import numpy as np
 import matplotlib.pylab as plt
-
-from ceviche import fdfd_hz
-
 import autograd.numpy as npa
 from autograd import grad
+
+import sys
+sys.path.append('../ceviche')
+
+from ceviche.fdfd import fdfd_hz
+from ceviche.jacobians import jacobian
 
 # whether to plot setup stuff
 PLOT = False
@@ -69,7 +72,7 @@ def intensity(eps_arr):
     return -I / I_H0
 
 # define the gradient for autograd
-grad_I = grad(intensity)
+grad_I = jacobian(intensity, mode='reverse')
 
 # initialize the design region with some eps
 eps_r[box_region == 1] = eps_max

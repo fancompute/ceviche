@@ -1,11 +1,8 @@
 import numpy as np
 import scipy.sparse as sp
 import copy
-import matplotlib.pylab as plt
-import autograd
-from autograd.extend import primitive, defjvp, defvjp
 
-""" Just some utilities for easier testing and debugging"""
+""" ===================== TESTING AND DEBUGGING ===================== """
 
 def make_sparse(N, random=True, density=1):
     """ Makes a sparse NxN matrix. """
@@ -21,7 +18,7 @@ def float_2_array(x):
         return x
 
 def grad_num(fn, arg, step_size=1e-7):
-    """ DEPRICATED: use version in jacobians.py instead
+    """ DEPRICATED: use 'numerical' in jacobians.py instead
     numerically differentiate `fn` w.r.t. its argument `arg` 
     `arg` can be a numpy array of arbitrary shape
     `step_size` can be a number or an array of the same shape as `arg` """
@@ -44,6 +41,22 @@ def grad_num(fn, arg, step_size=1e-7):
 
     return jacobian
 
+def reshape_to_ND(arr, N):
+    """ Adds dimensions to arr until it is dimension N
+    """
+
+    ND = len(arr.shape)
+    if ND > N:
+        raise ValueError("array is larger than {} dimensional, given shape {}".format(N, arr.shape))
+    extra_dims = (N - ND) * (1,)
+    return arr.reshape(arr.shape + extra_dims)
+
+
+""" =========================== AUTOGRAD =========================== """
+
+import autograd
+from autograd.extend import vspace
+
 def get_value(x):
     if type(x) == autograd.numpy.numpy_boxes.ArrayBox:
         return x._value
@@ -52,40 +65,14 @@ def get_value(x):
 
 get_value_arr = np.vectorize(get_value)
 
-def circ2eps(x, y, r, eps_c, eps_b, dL):
-    """ Define eps_r through circle parameters """
-    shape = eps_b.shape   # shape of domain (in num. grids)
-    Nx, Ny = (shape[0], shape[1])
-
-    # x and y coordinate arrays
-    x_coord = np.linspace(-Nx/2*dL, Nx/2*dL, Nx)
-    y_coord = np.linspace(-Ny/2*dL, Ny/2*dL, Ny)
-
-    # x and y mesh
-    xs, ys = np.meshgrid(x_coord, y_coord, indexing='ij')
-
-    eps_r = copy.copy(eps_b)
-    for ih in range(x.shape[0]):
-        mask = (xs - x[ih])**2 + (ys - y[ih])**2 < r[ih]**2
-        eps_r[mask] = eps_c[ih]
-
-    return eps_r
-
-
-def grid_coords(array, dL):
-    # Takes an array and returns the coordinates of the x and y points
-
-    shape = Nx, Ny = array.shape   # shape of domain (in num. grids)
-
-    # x and y coordinate arrays
-    x_coord = np.linspace(-Nx/2*dL, Nx/2*dL, Nx)
-    y_coord = np.linspace(-Ny/2*dL, Ny/2*dL, Ny)
-
-    # x and y mesh
-    xs, ys = np.meshgrid(x_coord, y_coord, indexing='ij')
-
-    return xs, ys
-
+def get_shape(x):
+    """ Gets the shape of x, even if it is not an array """
+    if isinstance(x, float) or isinstance(x, int):
+        return (1,)
+    elif isinstance(x, tuple) or isinstance(x, list):
+        return (len(x),)
+    else:
+        return vspace(x).shape
 
 def vjp_maker_num(fn, arg_inds, steps):
     """ Makes a vjp_maker for the numerical derivative of a function `fn`
@@ -123,30 +110,46 @@ def vjp_maker_num(fn, arg_inds, steps):
 
     return tuple(vjp_makers)
 
+""" ================= SHAPES AND PARAMETERIZATIONS ================= """
 
-"""========================= SPARSE DOT PRODUCT ==========================="""
+def circ2eps(x, y, r, eps_c, eps_b, dL):
+    """ Define eps_r through circle parameters """
+    shape = eps_b.shape   # shape of domain (in num. grids)
+    Nx, Ny = (shape[0], shape[1])
 
-@primitive
-def spdot(A, x):
-    """ Dot product of sparse matrix A and dense matrix x (Ax = b) """
-    return A.dot(x)
+    # x and y coordinate arrays
+    x_coord = np.linspace(-Nx/2*dL, Nx/2*dL, Nx)
+    y_coord = np.linspace(-Ny/2*dL, Ny/2*dL, Ny)
 
-def vjp_maker_spdot(b, A, x):
-    """ Gives vjp for b = spdot(A, x) w.r.t. x"""
-    def vjp(v):
-        return spdot(A.T, v)
-    return vjp
+    # x and y mesh
+    xs, ys = np.meshgrid(x_coord, y_coord, indexing='ij')
 
-def jvp_spdot(g, b, A, x):
-    """ Gives jvp for b = spdot(A, x) w.r.t. x"""
-    return spdot(A, g)
+    eps_r = copy.copy(eps_b)
+    for ih in range(x.shape[0]):
+        mask = (xs - x[ih])**2 + (ys - y[ih])**2 < r[ih]**2
+        eps_r[mask] = eps_c[ih]
 
-defvjp(spdot, None, vjp_maker_spdot)
-defjvp(spdot, None, jvp_spdot)
+    return eps_r
 
 
-""" Plotting and measurement utilities for FDTD, may be moved later"""
+def grid_coords(array, dL):
+    # Takes an array and returns the coordinates of the x and y points
 
+    shape = Nx, Ny = array.shape   # shape of domain (in num. grids)
+
+    # x and y coordinate arrays
+    x_coord = np.linspace(-Nx/2*dL, Nx/2*dL, Nx)
+    y_coord = np.linspace(-Ny/2*dL, Ny/2*dL, Ny)
+
+    # x and y mesh
+    xs, ys = np.meshgrid(x_coord, y_coord, indexing='ij')
+
+    return xs, ys
+
+
+""" =================== PLOTTING AND MEASUREMENT =================== """
+
+import matplotlib.pylab as plt
 
 def aniplot(F, source, steps, component='Ez', num_panels=10):
     """ Animate an FDTD (F) with `source` for `steps` time steps.
@@ -210,12 +213,10 @@ def imarr(arr):
         arr_plot = arr_plot[:,:,0]
     return np.flipud(arr_plot.T)
 
-""" FFT Utilities """
+""" ====================== FOURIER TRANSFORMS  ======================"""
 
+from autograd.extend import primitive, defjvp
 from numpy.fft import fft, fftfreq
-from librosa.core import stft
-from librosa.display import specshow
-
 
 @primitive
 def my_fft(x):    
@@ -239,7 +240,6 @@ def fft_grad(g, ans, x):
 
 defjvp(my_fft, fft_grad)
 
-
 def get_spectrum(series, dt):
     """ Get FFT of series """
 
@@ -251,7 +251,7 @@ def get_spectrum(series, dt):
 
     # multiply with hamming window to get rid of numerical errors
     hamming_window = np.hamming(steps).reshape((steps, 1))
-    signal_f = np.fft.fft(hamming_window * series)
+    signal_f = my_fft(hamming_window * series)
 
     freqs = np.fft.fftfreq(steps, d=dt)
     return freqs, signal_f

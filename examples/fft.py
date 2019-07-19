@@ -1,14 +1,16 @@
-from __future__ import absolute_import
+import autograd.numpy as npa
+import numpy as np
+import matplotlib.pylab as plt
+
+from autograd.extend import defjvp, defvjp
+from scipy.linalg import dft
+
 import sys
 sys.path.append('../ceviche')
 
-import autograd.numpy as npa
-import numpy as np
 from ceviche.fdtd import fdtd
 from ceviche.jacobians import jacobian
-from autograd.extend import defjvp, defvjp
-from scipy.linalg import dft
-import matplotlib.pylab as plt
+
 
 @primitive
 def my_fft(x):    

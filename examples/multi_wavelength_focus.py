@@ -4,6 +4,9 @@ import matplotlib.pylab as plt
 from scipy.optimize import minimize
 from autograd import grad
 
+import sys
+sys.path.append('../ceviche')
+
 from ceviche import fdfd_hz
 from ceviche.constants import C_0
 

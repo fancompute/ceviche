@@ -4,17 +4,7 @@ from autograd.core import make_vjp, make_jvp
 from autograd.wrap_util import unary_to_nary
 from autograd.extend import vspace
 
-from .utils import get_value, get_value_arr, float_2_array
-
-
-def _get_shape(x):
-    """ Gets the shape of x, even if it is not an array """
-    if isinstance(x, float) or isinstance(x, int):
-        return (1,)
-    elif isinstance(x, tuple) or isinstance(x, list):
-        return (len(x),)
-    else:
-        return vspace(x).shape
+from .utils import get_value, get_shape, get_value_arr, float_2_array
 
 
 def _jac_shape(x, ans):

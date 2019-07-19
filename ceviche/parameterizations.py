@@ -2,7 +2,7 @@ import autograd.numpy as np
 from autograd.extend import primitive, defvjp
 import numpy
 
-from ceviche.utils import circ2eps, grid_coords
+from .utils import circ2eps, grid_coords
 
 class Param_Base(object):
 

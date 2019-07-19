@@ -3,7 +3,8 @@ import autograd.numpy as npa
 
 from copy import copy, deepcopy
 
-from ceviche.constants import *
+from .constants import *
+from .utils import reshape_to_ND
 # from ceviche.derivatives import curl_E, curl_H
 
 class fdtd():
@@ -18,29 +19,13 @@ class fdtd():
         """
 
         # set the grid shape
-        eps_r = self.reshape_to_3D(eps_r)
+        eps_r = reshape_to_ND(eps_r, N=3)
         self.Nx, self.Ny, self.Nz = self.grid_shape = eps_r.shape
 
         # set the attributes
         self.dL = dL
         self.npml = npml
         self.eps_r = eps_r
-
-    @staticmethod
-    def reshape_to_3D(arr):
-        """ the FDTD is 3D by default so this fn. converts arrays to 3D 
-                Later, it might be faster to have dedicated 1D, 2D, 3D FDTDs.
-        """
-
-        ND = len(arr.shape)
-        if ND > 3:
-            raise ValueError("array must be between 1-3 dimensional, given shape {}".format(arr.shape))
-        if ND == 1:
-            return arr.reshape(arr.shape + (1, 1))
-        elif ND == 2:
-            return arr.reshape(arr.shape + (1,))
-        else:
-            return arr
 
     def __repr__(self):
         return "FDTD(eps_r.shape={}, dL={}, NPML={})".format(self.grid_shape, self.dL, self.npml)
