@@ -70,7 +70,7 @@ if __name__ == '__main__':
         t0 = time()
         x = solve_iterative(A, b, method=method)
         t1 = time()
-        print('\t\titerative ({}) solver:\n\ttook {} seconds'.format(method, t1 - t0))
+        print('\titerative ({}) solver:\n\t\ttook {} seconds'.format(method, t1 - t0))
 
     print('\n')
 
@@ -106,4 +106,4 @@ if __name__ == '__main__':
         t0 = time()
         x = solve_iterative(A, b, method=method)
         t1 = time()
-        print('\t\titerative ({}) solver:\n\ttook {} seconds'.format(method, t1 - t0))
+        print('\titerative ({}) solver:\n\t\ttook {} seconds'.format(method, t1 - t0))
