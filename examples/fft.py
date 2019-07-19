@@ -6,11 +6,9 @@ import autograd.numpy as npa
 import numpy as np
 from ceviche.fdtd import fdtd
 from ceviche.jacobians import jacobian
-from autograd.extend import defjvp
+from autograd.extend import defjvp, defvjp
 from scipy.linalg import dft
 import matplotlib.pylab as plt
-
-from autograd.extend import primitive, defjvp
 
 @primitive
 def my_fft(x):    
@@ -31,7 +29,6 @@ def fft_grad(g, ans, x):
         Therefore, it looks like the FFT of g
     """
     return np.fft.fft(g)
-
 
 defjvp(my_fft, fft_grad)
 

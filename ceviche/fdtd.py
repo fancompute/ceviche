@@ -4,7 +4,7 @@ import autograd.numpy as npa
 from copy import copy, deepcopy
 
 from ceviche.constants import *
-from ceviche.derivatives import curl_E, curl_H
+# from ceviche.derivatives import curl_E, curl_H
 
 class fdtd():
 
@@ -14,17 +14,33 @@ class fdtd():
                     if eps_r.shape = 3, it holds a single permittivity
                     if eps_r.shape = 4, the last index is the batch index (running several simulations at once)
                 dL: the grid size(s) (float/int or list of 3 floats/ints for dx, dy, dz)
-                NPML: the number of PML grids in each dimension (list of 3 ints)
-                chi3: the 3rd order nonlinear susceptibility (3 dimensional array))                
+                npml: the number of PML grids in each dimension (list of 3 ints)
         """
 
         # set the grid shape
+        eps_r = self.reshape_to_3D(eps_r)
         self.Nx, self.Ny, self.Nz = self.grid_shape = eps_r.shape
 
         # set the attributes
         self.dL = dL
         self.npml = npml
         self.eps_r = eps_r
+
+    @staticmethod
+    def reshape_to_3D(arr):
+        """ the FDTD is 3D by default so this fn. converts arrays to 3D 
+                Later, it might be faster to have dedicated 1D, 2D, 3D FDTDs.
+        """
+
+        ND = len(arr.shape)
+        if ND > 3:
+            raise ValueError("array must be between 1-3 dimensional, given shape {}".format(arr.shape))
+        if ND == 1:
+            return arr.reshape(arr.shape + (1, 1))
+        elif ND == 2:
+            return arr.reshape(arr.shape + (1,))
+        else:
+            return arr
 
     def __repr__(self):
         return "FDTD(eps_r.shape={}, dL={}, NPML={})".format(self.grid_shape, self.dL, self.npml)
@@ -352,3 +368,23 @@ class fdtd():
         self.mEx1 = (1 / self.eps_xx)
         self.mEy1 = (1 / self.eps_yy)
         self.mEz1 = (1 / self.eps_zz)
+
+
+""" ========================== DERIVATIVE OPERATORS ====================== """
+
+def curl_E(axis, Ex, Ey, Ez, dL):
+    if axis == 0:
+        return (npa.roll(Ez, shift=-1, axis=1) - Ez) / dL - (npa.roll(Ey, shift=-1, axis=2) - Ey) / dL
+    elif axis == 1:
+        return (npa.roll(Ex, shift=-1, axis=2) - Ex) / dL - (npa.roll(Ez, shift=-1, axis=0) - Ez) / dL
+    elif axis == 2:
+        return (npa.roll(Ey, shift=-1, axis=0) - Ey) / dL - (npa.roll(Ex, shift=-1, axis=1) - Ex) / dL
+
+def curl_H(axis, Hx, Hy, Hz, dL):
+    if axis == 0:
+        return (Hz - npa.roll(Hz, shift=1, axis=1)) / dL - (Hy - npa.roll(Hy, shift=1, axis=2)) / dL
+    elif axis == 1:
+        return (Hx - npa.roll(Hx, shift=1, axis=2)) / dL - (Hz - npa.roll(Hz, shift=1, axis=0)) / dL
+    elif axis == 2:
+        return (Hy - npa.roll(Hy, shift=1, axis=0)) / dL - (Hx - npa.roll(Hx, shift=1, axis=1)) / dL
+
