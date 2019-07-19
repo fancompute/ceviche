@@ -15,9 +15,24 @@ def sparse_solve(A, b, iterative=False, method='bicg'):
 
 """ ========================== HELPER FUNCTIONS ========================== """
 
-def _solve_direct(A, b):
-    """ Solve Ax=b for x using a direct solver """
-    return spl.spsolve(A, b)
+""" Solve Ax=b for x using a direct solver """
+try:
+    from pyMKL import pardisoSolver
+    print('using MKL')
+    def _solve_direct(A, b):
+        pSolve = pardisoSolver(A, mtype=13)
+        pSolve.factor()
+        x = pSolve.solve(b)
+        pSolve.clear()
+        return x
+except:
+    print('using scipy')    
+    def _solve_direct(A, b):
+        return spl.spsolve(A, b)
+
+# def _solve_direct(A, b):
+#     """ Solve Ax=b for x using a direct solver """
+#     return spl.spsolve(A, b)
 
 def _solve_nonlinear(A, b):
     """ Solve Ax=b for x where A is a function of x """

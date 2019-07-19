@@ -10,7 +10,8 @@ dependencies = [
         'scipy',
         'matplotlib>=2.2.2',
         'autograd',
-        'future'
+        'future',
+        'pyMKL'
 ]
 
 setup(
