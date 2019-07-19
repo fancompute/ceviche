@@ -115,6 +115,13 @@ class fdfd_ez(fdfd):
     def z_to_xy(self, Fz_vec, eps_vec):
         return E_to_H(Fz_vec, self.info_dict, None)
 
+""" sketch of nonlinear FDFD (coming soon)
+class fdfd_ez_nl(fdfd_ez):
+    def __init__(self, omega, L0, eps_r, npml, f_nl):
+        super().__init__(omega, L0, eps_r, npml)
+        # nonlinear initialization 
+"""
+
 
 """ This section is the meat and bones of the FDFD.
     It defines the basic operations needed for FDFD and also their derivatives
