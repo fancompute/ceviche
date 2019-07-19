@@ -20,7 +20,11 @@ class fdfd():
 
         self.info_dict = {'omega': self.omega}
 
+        self.shape = self.Nx, self.Ny = self.get_shape(eps_r)
+
         self.eps_r = eps_r
+        self.N = self.Nx * self.Ny
+
         self.setup_derivatives()
         self.A = self.make_A(self.eps_vec)
 
@@ -51,7 +55,16 @@ class fdfd():
 
     @eps_r.setter
     def eps_r(self, new_eps):
-        raise NotImplementedError("need to implement setter method for eps_r")
+        """ Defines some attributes when eps_r is set. """
+        new_shape = self.get_shape(new_eps)
+        if new_shape != self.shape:
+            self.__init__(self.omega, self.dL, new_eps, npml)
+        else:
+            self.__eps_r = new_eps
+            if callable(new_eps):
+                self.eps_vec = lambda Ez: self.__eps_r(Ez).flatten()
+            else:
+                self.eps_vec = self.__eps_r.flatten()
 
     def make_A(self, eps_r):
         raise NotImplementedError("need to make a make_A() method")
@@ -82,40 +95,13 @@ class fdfd():
     def _vec_to_grid(self, vec):
         return np.reshape(vec, self.shape)
 
-""" base classes for linear and nonlinear fdfd problems """
-
-class fdfd_linear(fdfd):
-
-    def __init__(self, omega, L0, eps_r, npml):
-        super().__init__(omega, L0, eps_r, npml)
-
-    @fdfd.eps_r.setter
-    def eps_r(self, new_eps):
-        """ Defines some attributes when eps_r is set. """
-        assert not callable(new_eps), "for linear problems, eps_r must be a static array"        
-        self.shape = self.Nx, self.Ny = new_eps.shape
-        self.eps_vec = new_eps.flatten()
-        self.__eps_r = new_eps
-
-class fdfd_nonlinear(fdfd):
-
-    def __init__(self, omega, L0, eps_r, npml):
-        super().__init__(omega, L0, eps_r, npml)
-
-    @fdfd.eps_r.setter
-    def eps_r(self, new_eps):
-        """ Defines some attributes when eps_r is set. """
-        assert callable(new_eps), "for nonlinear problems, eps_r must be a static array"        
-        self.shape = self.Nx, self.Ny = new_eps(0).shape
-        self.eps_vec = lambda Ez: new_eps(Ez).flatten()
-        self.__eps_r = new_eps
-
 """ These are the fdfd classes that you'll actually want to use """
 
-class fdfd_hz(fdfd_linear):
-    """ FDFD class for linear Hz polarization """
+class fdfd_hz(fdfd):
+    """ FDFD class for Hz polarization """
 
     def __init__(self, omega, L0, eps_r, npml):
+        assert not callable(eps_r), "for linear problems, eps_r must be a static array"
         super().__init__(omega, L0, eps_r, npml)
 
     def make_A(self, eps_vec):
@@ -127,8 +113,8 @@ class fdfd_hz(fdfd_linear):
     def z_to_xy(self, Fz_vec, eps_vec):
         return H_to_E(Fz_vec, self.info_dict, eps_vec)
 
-class fdfd_ez(fdfd_linear):
-    """ FDFD class for linear Ez polarization """
+class fdfd_ez(fdfd):
+    """ FDFD class for Ez polarization """
 
     def __init__(self, omega, L0, eps_r, npml):
         assert not callable(eps_r), "for linear problems, eps_r must be a static array"
@@ -143,23 +129,17 @@ class fdfd_ez(fdfd_linear):
     def z_to_xy(self, Fz_vec, eps_vec):
         return E_to_H(Fz_vec, self.info_dict, None)
 
-class fdfd_ez_nl(fdfd_nonlinear):
-    """ FDFD class for nonlinear Ez polarization """
-
+class fdfd_ez_nl(fdfd):
     def __init__(self, omega, L0, eps_r, npml):
         assert callable(eps_r), "for nonlinear problems, eps_r must be a function of Ez"
         super().__init__(omega, L0, eps_r, npml)
 
     def make_A(self, eps_vec):
         # note, this returns a function of Ez
-        return lambda Ez: make_A_Ez(self.info_dict, eps_vec(Ez))
-
-    def solve_fn(self, eps_vec, source_vec, iterative=False, method='bicg'):
-        pass
-
-    def z_to_xy(self, Fz_vec, eps_vec):
-        return E_to_H(Fz_vec, self.info_dict, None)
-
+        def A(Ez):
+            eps_nl = eps_vec(Ez)
+            return make_A_Ez(self.info_dict, eps_nl)
+        return A
 
 """ This section is the meat and bones of the FDFD.
     It defines the basic operations needed for FDFD and also their derivatives

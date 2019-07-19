@@ -1,10 +1,11 @@
 import scipy.sparse.linalg as spl
+import scipy.optimize as opt
 
 # for reference https://docs.scipy.org/doc/scipy/reference/sparse.linalg.html
 
 # when importing solvers in other packages use this function
 
-def sparse_solve(A, b, iterative=False, method='bicg'):
+def sparse_solve(A, b, iterative=False, nonlinear=False, method='bicg'):
     """ Solve sparse linear system Ax=b for x.
         if iterative=True, can choose method using `method` kwarg.
     """
@@ -30,12 +31,17 @@ except:
     def _solve_direct(A, b):
         return spl.spsolve(A, b)
 
-# def _solve_direct(A, b):
-#     """ Solve Ax=b for x using a direct solver """
-#     return spl.spsolve(A, b)
-
-def _solve_nonlinear(A, b):
+def _solve_nonlinear(A, b, method_nl='newton_krylov', iterative=False, method='bicg'):
     """ Solve Ax=b for x where A is a function of x """
+
+    def F_min(x):
+        res = spdot(A, x) - b
+        return np.square(np.abs(res))
+
+    x_0 = np.zeros(b.shape)
+
+    return opt.newton_krylov(F_min, x_0)
+
     raise NotImplementedError("Implement this")
 
 
