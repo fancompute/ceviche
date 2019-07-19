@@ -84,7 +84,7 @@ class TestFDFD(unittest.TestCase):
             f.eps_r = eps_r
 
             # set the source amplitude to the permittivity at that point
-            Ex, Ey, Hz = f.solve(eps_r * self.source_hz)
+            Ex, Ey, Hz = f.solve(eps_r * self.source_hz, iterative=True)
 
             return npa.sum(npa.square(npa.abs(Hz))) \
                  + npa.sum(npa.square(npa.abs(Ex))) \

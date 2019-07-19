@@ -37,15 +37,23 @@ ITERATIVE_METHODS = {
     'gcrotmk': spl.gcrotmk
 }
 
+ATOL = 1e-8
+
 def _solve_iterative(A, b, method='bicg'):
     """ Solve Ax=b for x using an iterative solver """
-
     try:
         solver_fn = ITERATIVE_METHODS[method]
     except:
         raise ValueError("iterative method {} not found.\n supported methods are:\n {}".format(method, ITERATIVE_METHODS))
 
-    return solver_fn(A, b)
+    x, info = solver_fn(A, b, atol=ATOL)
+
+    if info > 0:
+        raise ValueError("tried {} iterations and did not converge".format(info))
+    elif info < 0:
+        raise ValueError("iterative solver threw error")
+
+    return x
 
 """ ============================ SPEED TESTS ============================= """
 
