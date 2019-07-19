@@ -13,7 +13,6 @@ import sys
 sys.path.append('../ceviche')
 
 from ceviche.utils import grad_num
-from ceviche.primitives import *
 from ceviche.fdfd import fdfd_hz, fdfd_ez
 from ceviche.jacobians import jacobian
 

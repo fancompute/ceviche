@@ -1,13 +1,25 @@
 import scipy.sparse.linalg as spl
 
 # for reference https://docs.scipy.org/doc/scipy/reference/sparse.linalg.html
-# run this file with `python -W ignore ceviche/solvers.py` to suppress warnings
 
-def solve_direct(A, b):
+# when importing solvers in other packages use this function
+
+def sparse_solve(A, b, iterative=False, method='bicg'):
+    """ Solve sparse linear system Ax=b for x.
+        if iterative=True, can choose method using `method` kwarg.
+    """
+    if iterative:
+        return _solve_iterative(A, b, method=method)
+    else:
+        return _solve_direct(A, b)
+
+""" ========================== HELPER FUNCTIONS ========================== """
+
+def _solve_direct(A, b):
     """ Solve Ax=b for x using a direct solver """
     return spl.spsolve(A, b)
 
-def solve_nonlinear(A, b):
+def _solve_nonlinear(A, b):
     """ Solve Ax=b for x where A is a function of x """
     raise NotImplementedError("Implement this")
 
@@ -25,7 +37,7 @@ ITERATIVE_METHODS = {
     'gcrotmk': spl.gcrotmk
 }
 
-def solve_iterative(A, b, method='bicg'):
+def _solve_iterative(A, b, method='bicg'):
     """ Solve Ax=b for x using an iterative solver """
 
     try:
@@ -35,12 +47,9 @@ def solve_iterative(A, b, method='bicg'):
 
     return solver_fn(A, b)
 
-# when importing solvers in other packages, this are the name: function dictionary
-SOLVER_MAP = {
-    'direct': solve_direct,
-    'nonlinear': solve_nonlinear,
-    'iterative': solve_direct
-}
+""" ============================ SPEED TESTS ============================= """
+
+# to run speed tests use `python -W ignore ceviche/solvers.py` to suppress warnings
 
 if __name__ == '__main__':
 
@@ -60,23 +69,23 @@ if __name__ == '__main__':
 
     # DIRECT SOLVE
     t0 = time()
-    x = solve_direct(A, b)
+    x = _solve_direct(A, b)
     t1 = time()
-    print('\tdirect solver:\n\ttook {} seconds\n'.format(t1 - t0))
+    print('\tdirect solver:\n\t\ttook {} seconds\n'.format(t1 - t0))
 
     # ITERATIVE SOLVES
 
     for method in ITERATIVE_METHODS.keys():
         t0 = time()
-        x = solve_iterative(A, b, method=method)
+        x = _solve_iterative(A, b, method=method)
         t1 = time()
-        print('\titerative ({}) solver:\n\t\ttook {} seconds'.format(method, t1 - t0))
+        print('\titerative solver ({}):\n\t\ttook {} seconds'.format(method, t1 - t0))
 
     print('\n')
 
     print('WITH FDFD MATRICES:\n')
 
-    m, n = 100, 100
+    m, n = 400, 100
     print('\tfor dimensions = {}\n'.format((m, n)))
     eps_r = np.random.random((m, n)) + 1
     b = np.random.random((m * n, )) - 0.5
@@ -96,14 +105,14 @@ if __name__ == '__main__':
 
     # DIRECT SOLVE
     t0 = time()
-    x = solve_direct(A, b)
+    x = _solve_direct(A, b)
     t1 = time()
-    print('\tdirect solver:\n\ttook {} seconds\n'.format(t1 - t0))
+    print('\tdirect solver:\n\t\ttook {} seconds\n'.format(t1 - t0))
 
     # ITERATIVE SOLVES
 
     for method in ITERATIVE_METHODS.keys():
         t0 = time()
-        x = solve_iterative(A, b, method=method)
+        x = _solve_iterative(A, b, method=method)
         t1 = time()
-        print('\titerative ({}) solver:\n\t\ttook {} seconds'.format(method, t1 - t0))
+        print('\titerative solver ({}):\n\t\ttook {} seconds'.format(method, t1 - t0))
