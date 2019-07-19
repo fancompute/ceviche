@@ -1,5 +1,8 @@
+# custom
 .DS_Store
 *.mat
+examples/figs/*.pdf
+examples/figs/data/*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
