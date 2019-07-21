@@ -55,7 +55,7 @@ def reshape_to_ND(arr, N):
 """ =========================== AUTOGRAD =========================== """
 
 import autograd
-from autograd.extend import vspace
+from autograd.extend import primitive, vspace, defvjp, defjvp
 
 def get_value(x):
     if type(x) == autograd.numpy.numpy_boxes.ArrayBox:
@@ -109,6 +109,25 @@ def vjp_maker_num(fn, arg_inds, steps):
         vjp_makers.append(vjp_single_arg(ia=ia))
 
     return tuple(vjp_makers)
+
+@primitive
+def spdot(A, x):
+    """ Dot product of sparse matrix A and dense matrix x (Ax = b) """
+    return A.dot(x)
+
+def vjp_maker_spdot(b, A, x):
+    """ Gives vjp for b = spdot(A, x) w.r.t. x"""
+    def vjp(v):
+        return spdot(A.T, v)
+    return vjp
+
+def jvp_spdot(g, b, A, x):
+    """ Gives jvp for b = spdot(A, x) w.r.t. x"""
+    return spdot(A, g)
+
+defvjp(spdot, None, vjp_maker_spdot)
+defjvp(spdot, None, jvp_spdot)
+
 
 """ ================= SHAPES AND PARAMETERIZATIONS ================= """
 

@@ -1,49 +1,80 @@
+import autograd.numpy as np
 import scipy.sparse.linalg as spl
 import scipy.optimize as opt
+import logging
+
+from .utils import spdot
+
+try:
+    from pyMKL import pardisoSolver
+    using_mkl = True
+except:
+    using_mkl = False
 
 # for reference https://docs.scipy.org/doc/scipy/reference/sparse.linalg.html
 
+
+""" ========================== MASTER FUNCTIONS ========================== """
 # when importing solvers in other packages use this function
+
 
 def sparse_solve(A, b, iterative=False, nonlinear=False, method='bicg'):
     """ Solve sparse linear system Ax=b for x.
         if iterative=True, can choose method using `method` kwarg.
     """
+    if nonlinear:
+        return _solve_nonlinear(A, b, iterative=iterative, method=method)
+    else:
+        return _solve_linear(A, b, iterative=iterative, method=method)
+
+""" ========================== SOLVER FUNCTIONS ========================== """
+
+def _solve_linear(A, b, iterative=False, method='bicg'):
     if iterative:
         return _solve_iterative(A, b, method=method)
     else:
         return _solve_direct(A, b)
 
-""" ========================== HELPER FUNCTIONS ========================== """
+# # for reference https://docs.scipy.org/doc/scipy-0.14.0/reference/generated/scipy.optimize.newton_krylov.html
+# def _solve_nonlinear(A, b, method_nl='newton_krylov', iterative=False, method='bicg'):
+#     """ Solve Ax=b for x where A is a function of x """
 
-""" Solve Ax=b for x using a direct solver """
-try:
-    from pyMKL import pardisoSolver
-    print('using MKL')
-    def _solve_direct(A, b):
+#     vec_0 = np.zeros(b.shape)
+#     x_0 = sparse_solve(A(vec_0), b)
+
+#     def F(x):
+#         A_x = A(x)
+#         res = spdot(A_x, x) - b
+#         return np.square(np.abs(res))
+
+#     x_sol = opt.newton_krylov(F, x_0, method='lgmres', verbose=True)
+#     return x_sol
+
+def _solve_nonlinear(A, b, method_nl='newton_krylov', iterative=False, method='bicg'):
+    """ Solve Ax=b for x where A is a function of x """
+
+    vec_0 = np.zeros(b.shape)
+    x_i = sparse_solve(A(vec_0), b)
+
+    max_iters = 100
+    for i in range(max_iters):
+        print('i = {}, norm = {}'.format(i, np.linalg.norm(x_i) / x_i.size))
+        A_i = A(x_i)
+        x_i = sparse_solve(A_i, b)
+
+    return x_i
+
+
+def _solve_direct(A, b):
+    """ Direct solver """
+    if using_mkl:
         pSolve = pardisoSolver(A, mtype=13)
         pSolve.factor()
         x = pSolve.solve(b)
         pSolve.clear()
         return x
-except:
-    print('using scipy')    
-    def _solve_direct(A, b):
+    else:
         return spl.spsolve(A, b)
-
-def _solve_nonlinear(A, b, method_nl='newton_krylov', iterative=False, method='bicg'):
-    """ Solve Ax=b for x where A is a function of x """
-
-    def F_min(x):
-        res = spdot(A, x) - b
-        return np.square(np.abs(res))
-
-    x_0 = np.zeros(b.shape)
-
-    return opt.newton_krylov(F_min, x_0)
-
-    raise NotImplementedError("Implement this")
-
 
 # dict of iterative methods supported (name: function)
 ITERATIVE_METHODS = {
@@ -61,7 +92,7 @@ ITERATIVE_METHODS = {
 ATOL = 1e-8
 
 def _solve_iterative(A, b, method='bicg'):
-    """ Solve Ax=b for x using an iterative solver """
+    """ Iterative solver """
     try:
         solver_fn = ITERATIVE_METHODS[method]
     except:

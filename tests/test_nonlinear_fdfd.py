@@ -43,8 +43,8 @@ class TestFDFD(unittest.TestCase):
         self.source_mask[15, 15] = 1
 
         # sources (chosen to have objectives around 1)
-        self.source_amp_ez = 1e-8
-        self.source_amp_hz = 1e-8
+        self.source_amp_ez = 1e3
+        self.source_amp_hz = 1e3
 
         self.source_ez = np.zeros((self.Nx, self.Ny))
         self.source_ez[self.Nx//2, self.Ny//2] = self.source_amp_ez
@@ -53,8 +53,8 @@ class TestFDFD(unittest.TestCase):
         self.source_hz[self.Nx//2, self.Ny//2] = self.source_amp_hz
 
         # starting relative permittivity (random for debugging)
-        self.eps_lin   = np.random.random((self.Nx, self.Ny)) + 1    
-        self.chi3 = 1
+        self.eps_lin = np.random.random((self.Nx, self.Ny)) + 1    
+        self.chi3 = 2
         self.eps_nl = lambda Ez: self.eps_lin + 3 * self.chi3 * np.square(np.abs(Ez))
 
     def check_gradient_error(self, grad_num, grad_auto):
@@ -105,8 +105,6 @@ class TestFDFD(unittest.TestCase):
 
         f = fdfd_ez_nl(self.omega, self.dL, self.eps_nl, self.pml)
 
-        import pdb; pdb.set_trace()
-
         def J_fdfd(eps_arr):
 
             eps_lin = eps_arr.reshape((self.Nx, self.Ny))
@@ -119,11 +117,13 @@ class TestFDFD(unittest.TestCase):
 
             # set the source amplitude to the permittivity at that point
             Hx, Hy, Ez = f.solve(self.source_ez)
+            print(np.max(np.square(np.abs(Ez))))
 
             return npa.sum(npa.square(npa.abs(Ez))) \
                  + npa.sum(npa.square(npa.abs(Hx))) \
                  + npa.sum(npa.square(npa.abs(Hy)))
 
+        print(J_fdfd(self.eps_lin))
         grad_autograd_rev = jacobian(J_fdfd, mode='reverse')(self.eps_lin)
         grad_numerical = jacobian(J_fdfd, mode='numerical')(self.eps_lin)
 
