@@ -430,8 +430,8 @@ def jvp_solve_Ez_nl_source(g, Ez, info_dict, eps_vec, source, iterative=False, m
     A = make_A_Ez(info_dict, eps_vec)      
     return 1j * info_dict['omega'] * sparse_solve(A, g, iterative=iterative, method=method)
 
-# defvjp(solve_Ez_nl, None, vjp_maker_solve_Ez_nl, vjp_maker_solve_Ez_nl_source)
-# defjvp(solve_Ez_nl, None, jvp_solve_Ez_nl, jvp_solve_Ez_nl_source)
+defvjp(solve_Ez_nl, None, vjp_maker_solve_Ez_nl, vjp_maker_solve_Ez_nl_source)
+defjvp(solve_Ez_nl, None, jvp_solve_Ez_nl, jvp_solve_Ez_nl_source)
 
 """=========================== HELPER FUNCTIONS ==========================="""
 
