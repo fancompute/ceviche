@@ -33,14 +33,11 @@ class TestFDFD(unittest.TestCase):
     def setUp(self):
 
         # basic simulation parameters
-        self.Nx = 30
-        self.Ny = 30
+        self.Nx = 20
+        self.Ny = 20
         self.omega = 2*np.pi*200e12
         self.dL = 1e-6
-        self.pml = [10, 10]
-
-        self.source_mask = np.ones((self.Nx, self.Ny))
-        self.source_mask[15, 15] = 1
+        self.pml = [5, 5]
 
         # sources (chosen to have objectives around 1)
         self.source_amp_ez = 1e3
@@ -105,25 +102,27 @@ class TestFDFD(unittest.TestCase):
 
         f = fdfd_ez_nl(self.omega, self.dL, self.eps_nl, self.pml)
 
+        Hx, Hy, Ez = f.solve(self.source_ez)        
+        mod_strength = self.chi3 * np.max(np.square(np.abs(Ez)))
+        print('modulation strength (chi3 * max(|E|^2)) = {}'.format(mod_strength))
+
         def J_fdfd(eps_arr):
 
             eps_lin = eps_arr.reshape((self.Nx, self.Ny))
 
             # construct nonlinear epsilon
-            eps_nl = lambda Ez: self.eps_lin + 3 * self.chi3 * np.square(np.abs(Ez))
+            eps_nl = lambda Ez: eps_lin + 3 * self.chi3 * np.square(np.abs(Ez))
 
             # set the permittivity
             f.eps_r = eps_nl
 
             # set the source amplitude to the permittivity at that point
             Hx, Hy, Ez = f.solve(self.source_ez)
-            print(np.max(np.square(np.abs(Ez))))
 
             return npa.sum(npa.square(npa.abs(Ez))) \
                  + npa.sum(npa.square(npa.abs(Hx))) \
                  + npa.sum(npa.square(npa.abs(Hy)))
 
-        print(J_fdfd(self.eps_lin))
         grad_autograd_rev = jacobian(J_fdfd, mode='reverse')(self.eps_lin)
         grad_numerical = jacobian(J_fdfd, mode='numerical')(self.eps_lin)
 

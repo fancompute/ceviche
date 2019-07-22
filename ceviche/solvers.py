@@ -3,8 +3,12 @@ import scipy.sparse.linalg as spl
 import scipy.optimize as opt
 import logging
 
+import numpy as npo    #numpy original
+
+from numpy.linalg import norm
 from .utils import spdot
 
+# try to import MKL but just use scipy sparse solve if not
 try:
     from pyMKL import pardisoSolver
     using_mkl = True
@@ -35,32 +39,30 @@ def _solve_linear(A, b, iterative=False, method='bicg'):
     else:
         return _solve_direct(A, b)
 
-# # for reference https://docs.scipy.org/doc/scipy-0.14.0/reference/generated/scipy.optimize.newton_krylov.html
-# def _solve_nonlinear(A, b, method_nl='newton_krylov', iterative=False, method='bicg'):
-#     """ Solve Ax=b for x where A is a function of x """
+def _relative_residual(A, x, b):
+    """ computes relative residual: ||Ax - b|| / ||b|| """
+    res = norm(A.dot(x) - b)
+    return res / norm(b)
 
-#     vec_0 = np.zeros(b.shape)
-#     x_0 = sparse_solve(A(vec_0), b)
+def _solve_nonlinear(A, b, iterative=False, method='bicg', verbose=False, atol=1e-10, max_iters=100):
+    """ Solve Ax=b for x where A is a function of x using direct substitution """
 
-#     def F(x):
-#         A_x = A(x)
-#         res = spdot(A_x, x) - b
-#         return np.square(np.abs(res))
+    vec_0 = np.zeros(b.shape)   # no field
+    A_0 = A(vec_0)              # system matrix with no field
+    x_i = sparse_solve(A_0, b, iterative=iterative, method=method)  # linear field
 
-#     x_sol = opt.newton_krylov(F, x_0, method='lgmres', verbose=True)
-#     return x_sol
-
-def _solve_nonlinear(A, b, method_nl='newton_krylov', iterative=False, method='bicg'):
-    """ Solve Ax=b for x where A is a function of x """
-
-    vec_0 = np.zeros(b.shape)
-    x_i = sparse_solve(A(vec_0), b)
-
-    max_iters = 100
     for i in range(max_iters):
-        print('i = {}, norm = {}'.format(i, np.linalg.norm(x_i) / x_i.size))
+
         A_i = A(x_i)
-        x_i = sparse_solve(A_i, b)
+        rel_res = _relative_residual(A_i, x_i, b)
+
+        if verbose:
+            print('i = {}, relative residual = {}'.format(i, rel_res))
+
+        if rel_res < atol:
+            break
+        
+        x_i = sparse_solve(A_i, b, iterative=iterative, method=method)
 
     return x_i
 
