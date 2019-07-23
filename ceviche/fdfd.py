@@ -6,7 +6,7 @@ import copy
 from autograd.extend import primitive, defvjp, defjvp
 
 from .constants import *
-from .solvers import sparse_solve
+from .solvers import sparse_solve#, solve_nonlinear
 from .utils import spdot
 
 class fdfd():
@@ -152,7 +152,8 @@ class fdfd_ez_nl(fdfd_nonlinear):
         super().__init__(omega, L0, eps_r, npml)
 
     def make_A(self, eps_vec):
-        return make_A_Ez_nl(self.info_dict, eps_vec)
+        return 0
+        # return make_A_Ez_nl(self.info_dict, eps_vec)
 
     def solve_fn(self, eps_vec, source_vec, iterative=False, method='bicg'):
         return solve_Ez_nl(self.info_dict, eps_vec, source_vec, iterative=False, method='bicg')
@@ -204,6 +205,7 @@ def make_A_Hz(info_dict, eps_vec):
       + info_dict['omega']**2 * MU_0 * sp.eye(eps_vec.size)
     return A
 
+@primitive
 def make_A_Ez(info_dict, eps_vec):
     """ constructs the system matrix for `Ez` polarization """
     diag = EPSILON_0 * sp.spdiags(eps_vec, [0], eps_vec.size, eps_vec.size)
@@ -212,18 +214,11 @@ def make_A_Ez(info_dict, eps_vec):
       + info_dict['omega']**2 * diag
     return A
 
-def make_A_Ez_nl(info_dict, eps_vec):
-    """ constructs the nonlinear system matrix for `Ez` polarization """
+def vjp_maker_make_A_Ez(A, info_dict, eps_vec):
+    def vjp(v):
+        return EPSILON_0 * info_dict['omega']**2 * v
 
-    def A_fn(Ez):
-        eps_nl = eps_vec(Ez)
-        diag = EPSILON_0 * sp.spdiags(eps_nl, [0], eps_nl.size, eps_nl.size)
-        A = 1 / MU_0 * info_dict['Dxf'].dot(info_dict['Dxb']) \
-          + 1 / MU_0 * info_dict['Dyf'].dot(info_dict['Dyb']) \
-          + info_dict['omega']**2 * diag
-        return A
-
-    return A_fn
+defvjp(make_A_Ez, None, vjp_maker_make_A_Ez)
 
 """========================== FIELD CONVERSIONS ==========================="""
 
@@ -383,55 +378,78 @@ defjvp(solve_Hz, None, jvp_solve_Hz, jvp_solve_Hz_source)
 
 # Nonlinear Ez
 
+"""=========================== SPECIAL SOLVE =========================="""
+
+# from .solvers import relative_residual
+from numpy.linalg import norm
+from .utils import get_value
+
 @primitive
-def solve_Ez_nl(info_dict, eps_vec, source, iterative=False, method='bicg'):
-    """ solve `Ez = A^-1 b` where A is constructed from the FDFD `info_dict`
-        and 'eps_vec' is a (1D) vecay of the relative permittivity
-    """
-    A = make_A_Ez_nl(info_dict, eps_vec)
+def special_solve(info_dict, eps, b):
+    A = make_A_Ez(info_dict, get_value(eps))
+    return sparse_solve(A, b)
+
+def special_solve_T(info_dict, eps, b):
+    A = make_A_Ez(info_dict, get_value(eps))
+    return sparse_solve(A.T, b)
+
+def vjp_special_solve(x, info_dict, eps, b):
+    print('type(x)=', type(x))
+    print('type(info_dict)=', type(info_dict))
+    print('type(eps)=', type(eps))
+    print('type(b)=', type(b))
+    def vjp(v):
+        print('type(v)=', type(v))
+        x_aj = special_solve(info_dict, eps, -v)
+        return x * x_aj
+    return vjp
+
+defvjp(special_solve, None, vjp_special_solve, None)
+
+def solve_nonlinear(info_dict, eps_fn, b, iterative=False, method='bicg', verbose=False, atol=1e-10, max_iters=10):
+    """ Solve Ax=b for x where A is a function of x using direct substitution """
+
+    def relative_residual(eps, x, b):
+        """ computes relative residual: ||Ax - b|| / ||b|| """
+        A = make_A_Ez(info_dict, eps)
+        res = norm(A.dot(x) - b)
+        return res / norm(b)
+
+    vec_0 = np.zeros(b.shape)
+    eps_0 = eps_fn(vec_0)
+
+    E_i = special_solve(info_dict, eps_0, b)
+
+    for i in range(max_iters):
+
+        eps_i = eps_fn(E_i)
+        E_i = special_solve(info_dict, eps_i, b)
+        # rel_res = relative_residual(eps_i, E_i, b)
+
+        # if verbose:
+            # print('i = {}, relative residual = {}'.format(i, rel_res))
+
+        # if rel_res < atol:
+            # break
+        
+    return E_i
+
+@primitive
+def solve_Ez_nl(info_dict, eps_fn, source, iterative=False, method='bicg'):
+
     b = 1j * info_dict['omega'] * source
-    Ez = sparse_solve(A, b, nonlinear=True, iterative=iterative, method=method)
+    Ez = solve_nonlinear(info_dict, eps_fn, b)
     return Ez
 
 # define the gradient of solve_Ez w.r.t. eps_vec (in Ez)
-def vjp_maker_solve_Ez_nl(Ez, info_dict, eps_vec, source, iterative=False, method='bicg'):
-    """ Gives vjp for solve_Ez with respect to eps_vec """    
-    # construct the system matrix again
-    A = make_A_Ez(info_dict, eps_vec)
-    # vector-jacobian product function to return
-    def vjp(v):
-        # solve the adjoint problem and get those electric fields (note D info_dict are different and transposed)
-        Ez_aj = sparse_solve(A.T, -v, iterative=iterative, method=method)
-        # because we care about the diagonal elements, just element-wise multiply E and E_adj
-        # note: need np.real() for adjoint returns w.r.t. real quantities but not in forward mode
-        return EPSILON_0 * info_dict['omega']**2 * np.real(Ez_aj * Ez)
-    return vjp
+def vjp_maker_solve_Ez_nl(Ez, info_dict, eps_fn, source, iterative=False, method='bicg'):
+    return lambda v: v
 
-def vjp_maker_solve_Ez_nl_source(Ez, info_dict, eps_vec, source, iterative=False, method='bicg'):
-    """ Gives vjp for solve_Ez with respect to source """    
-    A = make_A_Ez(info_dict, eps_vec)
-    def vjp(v):
-        return 1j * info_dict['omega'] * sparse_solve(A.T, v, iterative=iterative, method=method)
-    return vjp
-
-# define the gradient of solve_Ez w.r.t. eps_vec (in Ez)
-def jvp_solve_Ez_nl(g, Ez, info_dict, eps_vec, source, iterative=False, method='bicg'):
-    """ Gives jvp for solve_Ez with respect to eps_vec """    
-    # construct the system matrix again and the RHS of the gradient expersion
-    A = make_A_Ez(info_dict, eps_vec)
-    u = Ez * -g
-    # solve the adjoint problem and get those electric fields (note D info_dict are different and transposed)
-    Ez_for = sparse_solve(A, u, iterative=iterative, method=method)
-    # because we care about the diagonal elements, just element-wise multiply E and E_adj
-    return EPSILON_0 * info_dict['omega']**2 * Ez_for
-
-def jvp_solve_Ez_nl_source(g, Ez, info_dict, eps_vec, source, iterative=False, method='bicg'):
-    """ Gives jvp for solve_Ez with respect to source """  
-    A = make_A_Ez(info_dict, eps_vec)      
-    return 1j * info_dict['omega'] * sparse_solve(A, g, iterative=iterative, method=method)
+def vjp_maker_solve_Ez_nl_source(Ez, info_dict, eps_fn, source, iterative=False, method='bicg'):
+    return lambda v: v
 
 defvjp(solve_Ez_nl, None, vjp_maker_solve_Ez_nl, vjp_maker_solve_Ez_nl_source)
-defjvp(solve_Ez_nl, None, jvp_solve_Ez_nl, jvp_solve_Ez_nl_source)
+# defjvp(solve_Ez_nl, None, jvp_solve_Ez_nl, jvp_solve_Ez_nl_source)
 
 """=========================== HELPER FUNCTIONS ==========================="""
 

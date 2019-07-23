@@ -5,8 +5,11 @@ import logging
 
 import numpy as npo    #numpy original
 
+
 from numpy.linalg import norm
 from .utils import spdot
+
+from autograd.extend import primitive, defvjp
 
 # try to import MKL but just use scipy sparse solve if not
 try:
@@ -39,7 +42,7 @@ def _solve_linear(A, b, iterative=False, method='bicg'):
     else:
         return _solve_direct(A, b)
 
-def _relative_residual(A, x, b):
+def relative_residual(A, x, b):
     """ computes relative residual: ||Ax - b|| / ||b|| """
     res = norm(A.dot(x) - b)
     return res / norm(b)
@@ -54,7 +57,7 @@ def _solve_nonlinear(A, b, iterative=False, method='bicg', verbose=False, atol=1
     for i in range(max_iters):
 
         A_i = A(x_i)
-        rel_res = _relative_residual(A_i, x_i, b)
+        rel_res = relative_residual(A_i, x_i, b)
 
         if verbose:
             print('i = {}, relative residual = {}'.format(i, rel_res))
@@ -65,6 +68,64 @@ def _solve_nonlinear(A, b, iterative=False, method='bicg', verbose=False, atol=1
         x_i = sparse_solve(A_i, b, iterative=iterative, method=method)
 
     return x_i
+
+"""=========================== SPECIAL SOLVE =========================="""
+
+# from autograd.extend import primitive, defvjp
+# @primitive
+# def make_A_Ez(info_dict, eps_vec):
+#     """ constructs the system matrix for `Ez` polarization """
+#     diag = EPSILON_0 * sp.spdiags(eps_vec, [0], eps_vec.size, eps_vec.size)
+#     A = 1 / MU_0 * info_dict['Dxf'].dot(info_dict['Dxb']) \
+#       + 1 / MU_0 * info_dict['Dyf'].dot(info_dict['Dyb']) \
+#       + info_dict['omega']**2 * diag
+#     return A
+
+# def vjp_maker_make_A_Ez(A, info_dict, eps_vec):
+#     return lambda v: EPSILON_0 * info_dict['omega']**2 * v
+
+# defvjp(make_A_Ez, None, vjp_maker_make_A_Ez)
+
+@primitive
+def special_solve(eps, b, make_A):
+    A = make_A(eps)
+    return sparse_solve(A, b)
+
+def special_solve_T(eps, b, make_A):
+    A = make_A(eps)
+    return sparse_solve(A.T, b)
+
+def vjp_special_solve(x, eps, b, make_A):
+    def vjp(v):
+        x_aj = special_solve_T(eps, -v)
+        return x * x_aj
+    return vjp
+
+defvjp(special_solve, vjp_special_solve)
+
+def solve_nonlinear(eps_fn, b, make_A, iterative=False, method='bicg', verbose=False, atol=1e-10, max_iters=100):
+    """ Solve Ax=b for x where A is a function of x using direct substitution """
+
+    vec_0 = np.zeros(b.shape)
+    eps_0 = eps_fn(vec_0)
+
+    E_i = special_solve(eps_0, b, make_A)
+
+    for i in range(max_iters):
+
+        eps_i = eps_fn(E_i)
+        E_i = special_solve(eps_i, b, make_A)
+        rel_res = _relative_residual(make_A(eps_i), E_i, b)
+
+        if verbose:
+            print('i = {}, relative residual = {}'.format(i, rel_res))
+
+        if rel_res < atol:
+            break
+        
+    return E_i
+
+"""========================== ORIGINAL SOLVERS ========================="""
 
 
 def _solve_direct(A, b):
@@ -110,6 +171,7 @@ def _solve_iterative(A, b, method='bicg'):
     return x
 
 """ ============================ SPEED TESTS ============================= """
+
 
 # to run speed tests use `python -W ignore ceviche/solvers.py` to suppress warnings
 

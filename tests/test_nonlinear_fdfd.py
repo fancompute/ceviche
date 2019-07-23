@@ -5,6 +5,7 @@ import autograd.numpy as npa
 import scipy.sparse as sp
 import scipy.sparse.linalg as spl
 import copy
+from numpy.linalg import norm
 
 from autograd.extend import primitive, defvjp
 from autograd import grad
@@ -12,7 +13,7 @@ from autograd import grad
 import sys
 sys.path.append('../ceviche')
 
-from ceviche.utils import grad_num
+from ceviche.utils import grad_num, get_value
 from ceviche.fdfd import fdfd_hz, fdfd_ez, fdfd_ez_nl
 from ceviche.jacobians import jacobian
 
@@ -33,11 +34,11 @@ class TestFDFD(unittest.TestCase):
     def setUp(self):
 
         # basic simulation parameters
-        self.Nx = 20
-        self.Ny = 20
+        self.Nx = 10
+        self.Ny = 10
         self.omega = 2*np.pi*200e12
         self.dL = 1e-6
-        self.pml = [5, 5]
+        self.pml = [2, 2]
 
         # sources (chosen to have objectives around 1)
         self.source_amp_ez = 1e3
@@ -59,9 +60,9 @@ class TestFDFD(unittest.TestCase):
             compares the norm of the gradient to the norm of the difference
             Throws error if this is greater than ALLOWED RATIO
         """
-        norm_grad = np.linalg.norm(grad_num)
+        norm_grad = norm(grad_num)
         print('\t\tnorm of gradient:   ', norm_grad)
-        norm_diff = np.linalg.norm(grad_num - grad_auto)
+        norm_diff = norm(grad_num - get_value(grad_auto))
         print('\t\tnorm of difference: ', norm_diff)
         norm_ratio = norm_diff / norm_grad        
         print('\t\tratio of norms:     ', norm_ratio)
@@ -112,6 +113,13 @@ class TestFDFD(unittest.TestCase):
 
             # construct nonlinear epsilon
             eps_nl = lambda Ez: eps_lin + 3 * self.chi3 * np.square(np.abs(Ez))
+            eps_nl = primitive(eps_nl)
+            def vjp_maker_eps_nl(eps, Ez):
+                def vjp(v):
+                    return 3 * self.chi3 * Ez * v
+                return vjp
+
+            defvjp(eps_nl, vjp_maker_eps_nl)
 
             # set the permittivity
             f.eps_r = eps_nl
