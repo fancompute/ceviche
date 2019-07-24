@@ -227,7 +227,8 @@ def measure_fields(F, source, steps, probes, component='Ez'):
 
 def imarr(arr):
     """ puts array 'arr' into form ready to plot """
-    arr_plot = arr.copy()
+    arr_value = get_value(arr)
+    arr_plot = arr_value.copy()
     if len(arr.shape) == 3:
         arr_plot = arr_plot[:,:,0]
     return np.flipud(arr_plot.T)
@@ -295,3 +296,15 @@ def plot_spectral_power(series, dt, f_top=2e14):
     plt.xlabel('frequency (Hz)')
     plt.ylabel('power (|signal|^2)')
     plt.show()
+
+""" ========================= LINEAR ALGEBRA ========================= """
+
+def block_4(A, B, C, D):
+    """ Constructs a big matrix out of four sparse blocks
+        returns [A B]
+                [C D]
+    """
+    left = sp.vstack([A, C])
+    right = sp.vstack([B, D])
+    return sp.hstack([left, right])    
+

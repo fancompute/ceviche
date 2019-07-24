@@ -5,6 +5,8 @@ import autograd.numpy as npa
 import scipy.sparse as sp
 import scipy.sparse.linalg as spl
 import copy
+import matplotlib.pylab as plt
+
 from numpy.linalg import norm
 
 from autograd.extend import primitive, defvjp
@@ -13,7 +15,7 @@ from autograd import grad
 import sys
 sys.path.append('../ceviche')
 
-from ceviche.utils import grad_num, get_value
+from ceviche.utils import grad_num, get_value, imarr
 from ceviche.fdfd import fdfd_hz, fdfd_ez, fdfd_ez_nl
 from ceviche.jacobians import jacobian
 from ceviche.constants import *
@@ -34,11 +36,11 @@ class TestFDFD(unittest.TestCase):
     def setUp(self):
 
         # basic simulation parameters
-        self.Nx = 10
-        self.Ny = 10
+        self.Nx = 20
+        self.Ny = 20
         self.omega = 2*np.pi*200e12
-        self.dL = 1e-6
-        self.pml = [2, 2]
+        self.dL = 5e-8
+        self.pml = [5, 5]
 
         # sources (chosen to have objectives around 1)
         self.source_amp_ez = 1e3
@@ -52,7 +54,7 @@ class TestFDFD(unittest.TestCase):
 
         # starting relative permittivity (random for debugging)
         self.eps_lin = np.random.random((self.Nx, self.Ny)) + 1    
-        self.chi3 = 2e10
+        self.chi3 = 2000
         self.eps_nl = lambda Ez: self.eps_lin + 3 * self.chi3 * np.square(np.abs(Ez))
 
     def check_gradient_error(self, grad_num, grad_auto):
@@ -105,7 +107,7 @@ class TestFDFD(unittest.TestCase):
 
         Hx, Hy, Ez = f.solve(self.source_ez)        
         mod_strength = self.chi3 * np.max(np.square(np.abs(Ez)))
-        print('modulation strength (chi3 * max(|E|^2)) = {}'.format(mod_strength))
+        print('\t\tmodulation strength (chi3 * max(|E|^2)) = {}'.format(mod_strength))
 
         def J_fdfd(eps_arr):
 

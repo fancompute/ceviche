@@ -18,6 +18,8 @@ try:
 except:
     using_mkl = False
 
+DEFAULT_SOLVER = 'bicg'
+
 # for reference https://docs.scipy.org/doc/scipy/reference/sparse.linalg.html
 
 
@@ -25,7 +27,7 @@ except:
 # when importing solvers in other packages use this function
 
 
-def sparse_solve(A, b, iterative=False, nonlinear=False, method='bicg'):
+def sparse_solve(A, b, iterative=False, nonlinear=False, method=DEFAULT_SOLVER):
     """ Solve sparse linear system Ax=b for x.
         if iterative=True, can choose method using `method` kwarg.
     """
@@ -36,7 +38,7 @@ def sparse_solve(A, b, iterative=False, nonlinear=False, method='bicg'):
 
 """ ========================== SOLVER FUNCTIONS ========================== """
 
-def _solve_linear(A, b, iterative=False, method='bicg'):
+def _solve_linear(A, b, iterative=False, method=DEFAULT_SOLVER):
     if iterative:
         return _solve_iterative(A, b, method=method)
     else:
@@ -47,7 +49,7 @@ def relative_residual(A, x, b):
     res = norm(A.dot(x) - b)
     return res / norm(b)
 
-def _solve_nonlinear(A, b, iterative=False, method='bicg', verbose=False, atol=1e-10, max_iters=100):
+def _solve_nonlinear(A, b, iterative=False, method=DEFAULT_SOLVER, verbose=False, atol=1e-10, max_iters=100):
     """ Solve Ax=b for x where A is a function of x using direct substitution """
 
     vec_0 = np.zeros(b.shape)   # no field
@@ -103,7 +105,7 @@ def vjp_special_solve(x, eps, b, make_A):
 
 defvjp(special_solve, vjp_special_solve)
 
-def solve_nonlinear(eps_fn, b, make_A, iterative=False, method='bicg', verbose=False, atol=1e-10, max_iters=100):
+def solve_nonlinear(eps_fn, b, make_A, iterative=False, method=DEFAULT_SOLVER, verbose=False, atol=1e-10, max_iters=100):
     """ Solve Ax=b for x where A is a function of x using direct substitution """
 
     vec_0 = np.zeros(b.shape)
@@ -154,7 +156,7 @@ ITERATIVE_METHODS = {
 
 ATOL = 1e-8
 
-def _solve_iterative(A, b, method='bicg'):
+def _solve_iterative(A, b, method=DEFAULT_SOLVER):
     """ Iterative solver """
     try:
         solver_fn = ITERATIVE_METHODS[method]
