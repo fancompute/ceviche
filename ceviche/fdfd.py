@@ -386,27 +386,30 @@ from .utils import get_value
 
 @primitive
 def special_solve(info_dict, eps, b):
-    A = make_A_Ez(info_dict, get_value(eps))
+    A = make_A_Ez(info_dict, eps)
     return sparse_solve(A, b)
 
+# @primitive
 def special_solve_T(info_dict, eps, b):
-    A = make_A_Ez(info_dict, get_value(eps))
+    A = make_A_Ez(info_dict, eps)
     return sparse_solve(A.T, b)
 
 def vjp_special_solve(x, info_dict, eps, b):
-    print('type(x)=', type(x))
-    print('type(info_dict)=', type(info_dict))
-    print('type(eps)=', type(eps))
-    print('type(b)=', type(b))
     def vjp(v):
-        print('type(v)=', type(v))
-        x_aj = special_solve(info_dict, eps, -v)
+        x_aj = special_solve_T(info_dict, eps, -v)
         return x * x_aj
     return vjp
 
-defvjp(special_solve, None, vjp_special_solve, None)
+# def vjp_special_solve_T(x, info_dict, eps, b):
+#     def vjp(v):
+#         x_aj = special_solve(info_dict, eps, -v)
+#         return x * x_aj
+#     return vjp
 
-def solve_nonlinear(info_dict, eps_fn, b, iterative=False, method='bicg', verbose=False, atol=1e-10, max_iters=10):
+defvjp(special_solve, None, vjp_special_solve, None)
+# defvjp(special_solve_T, None, vjp_special_solve_T, None)
+
+def solve_nonlinear(info_dict, eps_fn, b, iterative=False, method='bicg', verbose=True, atol=1e-10, max_iters=10):
     """ Solve Ax=b for x where A is a function of x using direct substitution """
 
     def relative_residual(eps, x, b):
@@ -423,33 +426,23 @@ def solve_nonlinear(info_dict, eps_fn, b, iterative=False, method='bicg', verbos
     for i in range(max_iters):
 
         eps_i = eps_fn(E_i)
-        E_i = special_solve(info_dict, eps_i, b)
-        # rel_res = relative_residual(eps_i, E_i, b)
+        rel_res = relative_residual(get_value(eps_i), get_value(E_i), b)
 
-        # if verbose:
-            # print('i = {}, relative residual = {}'.format(i, rel_res))
+        if verbose:
+            print('i = {}, relative residual = {}'.format(i, rel_res))
 
-        # if rel_res < atol:
-            # break
+        if rel_res < atol:
+            break
         
+        E_i = special_solve(info_dict, eps_i, b)
+
     return E_i
 
-@primitive
 def solve_Ez_nl(info_dict, eps_fn, source, iterative=False, method='bicg'):
 
     b = 1j * info_dict['omega'] * source
     Ez = solve_nonlinear(info_dict, eps_fn, b)
     return Ez
-
-# define the gradient of solve_Ez w.r.t. eps_vec (in Ez)
-def vjp_maker_solve_Ez_nl(Ez, info_dict, eps_fn, source, iterative=False, method='bicg'):
-    return lambda v: v
-
-def vjp_maker_solve_Ez_nl_source(Ez, info_dict, eps_fn, source, iterative=False, method='bicg'):
-    return lambda v: v
-
-defvjp(solve_Ez_nl, None, vjp_maker_solve_Ez_nl, vjp_maker_solve_Ez_nl_source)
-# defjvp(solve_Ez_nl, None, jvp_solve_Ez_nl, jvp_solve_Ez_nl_source)
 
 """=========================== HELPER FUNCTIONS ==========================="""
 

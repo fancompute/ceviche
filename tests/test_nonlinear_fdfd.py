@@ -62,7 +62,7 @@ class TestFDFD(unittest.TestCase):
         """
         norm_grad = norm(grad_num)
         print('\t\tnorm of gradient:   ', norm_grad)
-        norm_diff = norm(grad_num - get_value(grad_auto))
+        norm_diff = norm(grad_num - grad_auto)
         print('\t\tnorm of difference: ', norm_diff)
         norm_ratio = norm_diff / norm_grad        
         print('\t\tratio of norms:     ', norm_ratio)
@@ -111,15 +111,8 @@ class TestFDFD(unittest.TestCase):
 
             eps_lin = eps_arr.reshape((self.Nx, self.Ny))
 
-            # construct nonlinear epsilon
-            eps_nl = lambda Ez: eps_lin + 3 * self.chi3 * np.square(np.abs(Ez))
-            eps_nl = primitive(eps_nl)
-            def vjp_maker_eps_nl(eps, Ez):
-                def vjp(v):
-                    return 3 * self.chi3 * Ez * v
-                return vjp
-
-            defvjp(eps_nl, vjp_maker_eps_nl)
+            # construct nonlinear epsilon using autograd numpy wrapper
+            eps_nl = lambda Ez: eps_lin + 3 * self.chi3 * npa.square(npa.abs(Ez))
 
             # set the permittivity
             f.eps_r = eps_nl

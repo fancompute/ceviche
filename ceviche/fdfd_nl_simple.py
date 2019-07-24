@@ -73,17 +73,20 @@ def solve_nl(eps_fn):
 
 if __name__ == '__main__':
 
-	def objective(c):
+	def objective(mask):
 
-		eps_fn = lambda E: 1 - c * E
+		# eps_fn = lambda E: 1 - c * E
+		eps_fn = lambda E: mask * np.ones((N, )) + np.square(E)
+
 		E_nl = solve_E(eps_fn)
 		return np.sum(E_nl)
 
-	c0 = 1.0
+	c0 = 1.0 * np.ones((N, ))
 	delta_c = 1e-6
 	o1 = objective(c0)
 	print('objective = ', objective(c0))
 	do_dc = autograd.grad(objective)
 	print('gradient = ', do_dc(c0))
+	print('gradient (sum) = ', np.sum(do_dc(c0)))
 	o2 = objective(c0 + delta_c)
 	print('numerical = ', (o2 - o1) / delta_c)
