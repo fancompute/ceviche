@@ -417,14 +417,19 @@ def solve_nonlinear(info_dict, eps_fn, b, iterative=False, method='bicg', verbos
         res = norm(A.dot(x) - b)
         return res / norm(b)
 
+    #note, uncommenting first one 'unhooks' this function from autograd, uses vjp of solve_Ez_nl
+    # eps_fn_static = lambda E: get_value(eps_fn(E))
+    #note, uncommenting second one uses vjps defined for special solve
+    eps_fn_static = lambda E: eps_fn(E)
+
     vec_0 = np.zeros(b.shape)
-    eps_0 = eps_fn(vec_0)
+    eps_0 = eps_fn_static(vec_0)
 
     E_i = special_solve(info_dict, eps_0, b)
 
     for i in range(max_iters):
 
-        eps_i = eps_fn(E_i)
+        eps_i = eps_fn_static(E_i)
         rel_res = relative_residual(get_value(eps_i), get_value(E_i), b)
 
         if verbose:
@@ -437,11 +442,31 @@ def solve_nonlinear(info_dict, eps_fn, b, iterative=False, method='bicg', verbos
 
     return E_i
 
+@primitive
 def solve_Ez_nl(info_dict, eps_fn, source, iterative=False, method='bicg'):
 
     b = 1j * info_dict['omega'] * source
     Ez = solve_nonlinear(info_dict, eps_fn, b)
     return Ez
+
+def vjp_maker_solve_Ez_nl_eps(Ez, info_dict, eps_fn, source, iterative=False, method='bicg'):
+
+    eps_eval = get_value(eps_fn(Ez))
+    A = make_A_Ez(info_dict, eps_eval)
+    b = 1j * info_dict['omega'] * source
+
+    f = A.dot(Ez) - b
+
+    def vjp(v):
+        return f
+    return vjp
+
+def vjp_maker_solve_Ez_nl_b(Ez, info_dict, eps_fn, source, iterative=False, method='bicg'):
+    def vjp(v):
+        return v
+    return vjp
+
+defvjp(solve_Ez_nl, None, vjp_maker_solve_Ez_nl_eps, vjp_maker_solve_Ez_nl_b)
 
 # To do: write our simpler adjoint formalism for converged solutions here
 
