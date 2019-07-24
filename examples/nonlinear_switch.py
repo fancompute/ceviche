@@ -28,16 +28,16 @@ PLOT = False
 
 # make parameters
 omega = 2 * np.pi * 200e12  # lambda = 1.5 um
-dL = 10e-8
+dL = 5e-8
 eps_max = 2
 npml = 10
 spc = 10
-L = 3e-6
+L = 5e-6
 Nx, Ny = 2*npml + 4*spc + int(L/dL), 2*npml + 4*spc + int(L/dL)
 eps_r = np.ones((Nx, Ny))
 
 # the nonlinear epsilon to use
-chi3 = 2e8
+chi3 = 1e10
 def eps_nl(Ez):
     density = (eps_max - eps_r)/ (eps_max - 1)
     return eps_r + density * 3 * chi3 * np.square(np.abs(Ez))
