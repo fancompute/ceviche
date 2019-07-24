@@ -112,7 +112,7 @@ class TestFDFD(unittest.TestCase):
             eps_lin = eps_arr.reshape((self.Nx, self.Ny))
 
             # construct nonlinear epsilon using autograd numpy wrapper
-            eps_nl = lambda Ez: eps_lin + 3 * self.chi3 * npa.square(npa.abs(Ez))
+            eps_nl = lambda Ez: eps_lin + 3 * eps_lin * self.chi3 * npa.square(npa.abs(Ez))
 
             # set the permittivity
             f.eps_r = eps_nl
@@ -124,7 +124,6 @@ class TestFDFD(unittest.TestCase):
                  + npa.sum(npa.square(npa.abs(Hx))) \
                  + npa.sum(npa.square(npa.abs(Hy)))
 
-        print('now evaluatig reverse')
         grad_autograd_rev = jacobian(J_fdfd, mode='reverse')(self.eps_lin)
         grad_numerical = jacobian(J_fdfd, mode='numerical')(self.eps_lin)
 
