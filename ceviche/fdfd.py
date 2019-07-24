@@ -6,8 +6,9 @@ import copy
 from autograd.extend import primitive, defvjp, defjvp
 
 from .constants import *
-from .solvers import sparse_solve#, solve_nonlinear
+from .solvers import sparse_solve
 from .utils import spdot
+from .jacobians import jacobian
 
 class fdfd():
     """ Base class for FDFD simulation """
@@ -108,6 +109,12 @@ class fdfd_nonlinear(fdfd):
         """ Defines some attributes when eps_r is set. """
         assert callable(new_eps), "for nonlinear problems, eps_r must be a static array"        
         self.shape = self.Nx, self.Ny = new_eps(0).shape
+        try:
+            # try autogradding the epsilon function with field of 0
+            # this comes with a warning, ignore it
+            jacobian(new_eps)(np.zeros(self.shape))
+        except:
+            raise ValueError("The supplied eps_r function is NOT autograd-compatable, make sure you defined it using autograd.numpy functions!")
         self.eps_vec = lambda Ez: new_eps(Ez.reshape(self.shape)).flatten()
         self.__eps_r = new_eps
 
@@ -147,18 +154,17 @@ class fdfd_ez(fdfd_linear):
 class fdfd_ez_nl(fdfd_nonlinear):
     """ FDFD class for nonlinear Ez polarization """
 
-    def __init__(self, omega, L0, eps_r, npml):
-        assert callable(eps_r), "for nonlinear problems, eps_r must be a function of Ez"
-        super().__init__(omega, L0, eps_r, npml)
+    def __init__(self, omega, L0, eps_fn, npml):
+        assert callable(eps_fn), "for nonlinear problems, eps_r must be a function of Ez"
+        super().__init__(omega, L0, eps_fn, npml)
 
-    def make_A(self, eps_vec):
-        return 0
-        # return make_A_Ez_nl(self.info_dict, eps_vec)
+    def make_A(self, eps_fn):
+        return lambda Ez: make_A_Ez(self.info_dict, eps_vec(Ez))
 
-    def solve_fn(self, eps_vec, source_vec, iterative=False, method='bicg'):
-        return solve_Ez_nl(self.info_dict, eps_vec, source_vec, iterative=False, method='bicg')
+    def solve_fn(self, eps_fn, source_vec, iterative=False, method='bicg'):
+        return solve_Ez_nl(self.info_dict, eps_fn, source_vec, iterative=False, method='bicg')
 
-    def z_to_xy(self, Fz_vec, eps_vec):
+    def z_to_xy(self, Fz_vec, eps_fn):
         return E_to_H(Fz_vec, self.info_dict, None)
 
 
@@ -205,7 +211,8 @@ def make_A_Hz(info_dict, eps_vec):
       + info_dict['omega']**2 * MU_0 * sp.eye(eps_vec.size)
     return A
 
-@primitive
+# note: this primitive not actually needed. but saving for later
+# @primitive
 def make_A_Ez(info_dict, eps_vec):
     """ constructs the system matrix for `Ez` polarization """
     diag = EPSILON_0 * sp.spdiags(eps_vec, [0], eps_vec.size, eps_vec.size)
@@ -214,11 +221,12 @@ def make_A_Ez(info_dict, eps_vec):
       + info_dict['omega']**2 * diag
     return A
 
-def vjp_maker_make_A_Ez(A, info_dict, eps_vec):
-    def vjp(v):
-        return EPSILON_0 * info_dict['omega']**2 * v
+# def vjp_maker_make_A_Ez(A, info_dict, eps_vec):
+#     def vjp(v):
+#         return EPSILON_0 * info_dict['omega']**2 * v
+#     return vjp
 
-defvjp(make_A_Ez, None, vjp_maker_make_A_Ez)
+# defvjp(make_A_Ez, None, vjp_maker_make_A_Ez)
 
 """========================== FIELD CONVERSIONS ==========================="""
 
@@ -380,7 +388,6 @@ defjvp(solve_Hz, None, jvp_solve_Hz, jvp_solve_Hz_source)
 
 """=========================== SPECIAL SOLVE =========================="""
 
-# from .solvers import relative_residual
 from numpy.linalg import norm
 from .utils import get_value
 
@@ -389,7 +396,6 @@ def special_solve(info_dict, eps, b):
     A = make_A_Ez(info_dict, eps)
     return sparse_solve(A, b)
 
-# @primitive
 def special_solve_T(info_dict, eps, b):
     A = make_A_Ez(info_dict, eps)
     return sparse_solve(A.T, b)
@@ -397,19 +403,12 @@ def special_solve_T(info_dict, eps, b):
 def vjp_special_solve(x, info_dict, eps, b):
     def vjp(v):
         x_aj = special_solve_T(info_dict, eps, -v)
-        return x * x_aj
+        return info_dict['omega']**2 * EPSILON_0 * x * x_aj
     return vjp
 
-# def vjp_special_solve_T(x, info_dict, eps, b):
-#     def vjp(v):
-#         x_aj = special_solve(info_dict, eps, -v)
-#         return x * x_aj
-#     return vjp
-
 defvjp(special_solve, None, vjp_special_solve, None)
-# defvjp(special_solve_T, None, vjp_special_solve_T, None)
 
-def solve_nonlinear(info_dict, eps_fn, b, iterative=False, method='bicg', verbose=True, atol=1e-10, max_iters=10):
+def solve_nonlinear(info_dict, eps_fn, b, iterative=False, method='bicg', verbose=False, atol=1e-10, max_iters=10):
     """ Solve Ax=b for x where A is a function of x using direct substitution """
 
     def relative_residual(eps, x, b):

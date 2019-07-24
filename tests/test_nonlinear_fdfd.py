@@ -16,7 +16,7 @@ sys.path.append('../ceviche')
 from ceviche.utils import grad_num, get_value
 from ceviche.fdfd import fdfd_hz, fdfd_ez, fdfd_ez_nl
 from ceviche.jacobians import jacobian
-
+from ceviche.constants import *
 """
 This file tests the autograd gradients of an FDFD and makes sure that they
 equal the numerical derivatives
@@ -69,7 +69,7 @@ class TestFDFD(unittest.TestCase):
         self.assertLessEqual(norm_ratio, ALLOWED_RATIO)
         print('')
 
-    def t1est_Ez_lin(self):
+    def test_Ez_lin(self):
 
         print('\ttesting linear Ez in FDFD')
 
