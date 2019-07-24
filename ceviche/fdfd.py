@@ -443,6 +443,8 @@ def solve_Ez_nl(info_dict, eps_fn, source, iterative=False, method='bicg'):
     Ez = solve_nonlinear(info_dict, eps_fn, b)
     return Ez
 
+# To do: write our simpler adjoint formalism for converged solutions here
+
 """=========================== HELPER FUNCTIONS ==========================="""
 
 def compute_derivative_matrices(omega, shape, npml, dL):

@@ -52,7 +52,7 @@ class TestFDFD(unittest.TestCase):
 
         # starting relative permittivity (random for debugging)
         self.eps_lin = np.random.random((self.Nx, self.Ny)) + 1    
-        self.chi3 = 2
+        self.chi3 = 2e10
         self.eps_nl = lambda Ez: self.eps_lin + 3 * self.chi3 * np.square(np.abs(Ez))
 
     def check_gradient_error(self, grad_num, grad_auto):
