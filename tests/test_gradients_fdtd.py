@@ -20,6 +20,8 @@ ALLOWED_RATIO = 1e-4    # maximum allowed ratio of || grad_num - grad_auto || vs
 DEPS = 1e-6             # numerical gradient step size
 VERBOSE = False
 
+print("Testing the FDTD gradients")
+
 class TestFDTD(unittest.TestCase):
     '''Tests for Gradient Correctness'''
 

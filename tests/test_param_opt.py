@@ -7,7 +7,7 @@ from autograd.extend import primitive, defvjp
 from autograd import grad
 
 from ceviche.utils import grad_num
-from ceviche.primitives import *
+# from ceviche.primitives import *
 from ceviche.fdfd import fdfd_hz, fdfd_ez
 
 """ Runs the same optimization for a bunch of different parameterizations 

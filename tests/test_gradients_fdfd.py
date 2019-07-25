@@ -26,6 +26,8 @@ ALLOWED_RATIO = 1e-4    # maximum allowed ratio of || grad_num - grad_auto || vs
 VERBOSE = False         # print out full gradients?
 DEPS = 1e-6             # numerical gradient step size
 
+print("Testing the Linear FDFD gradients")
+
 class TestFDFD(unittest.TestCase):
 
     """ Tests the flexible objective function specifier """
@@ -177,7 +179,7 @@ class TestFDFD(unittest.TestCase):
                  + npa.square(npa.abs(Hy))
 
         grad_autograd_for = jacobian(J_fdfd, mode='forward')(1.0)
-        grad_numerical = jacobian(J_fdfd, mode='numerical')(1.0)*1.2
+        grad_numerical = jacobian(J_fdfd, mode='numerical')(1.0)
 
         if VERBOSE:
             print('\tobjective function value: ', J_fdfd(1.0))

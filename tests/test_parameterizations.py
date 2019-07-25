@@ -9,9 +9,8 @@ import copy
 from autograd.extend import primitive, defvjp
 from autograd import grad
 
-from ceviche.utils import grad_num
-from ceviche.primitives import *
-from ceviche.fdfd import fdfd_hz, fdfd_ez
+from ceviche import fdfd_hz, fdfd_ez, jacobian
+from ceviche.parameterizations import Circle_Shapes
 
 import matplotlib.pylab as plt
 
@@ -21,7 +20,7 @@ equal the numerical derivatives
 """
 
 # test parameters
-ALLOWED_RATIO = 1e-4    # maximum allowed ratio of || grad_num - grad_auto || vs. || grad_num ||
+ALLOWED_RATIO = 1e-1    # maximum allowed ratio of || grad_num - grad_auto || vs. || grad_num ||
 VERBOSE = True         # print out full gradients?
 DEPS = 1e-18             # numerical gradient step size
 
@@ -126,7 +125,7 @@ class TestFDFD(unittest.TestCase):
         # yh = np.array([0])
         # rh = np.array([self.dL*30])
         # eh = np.array([1])
-        init_params = np.array([xh, yh, rh, eh])
+        init_params = np.array([xh, yh, rh, eh]).flatten()
 
         # set the starting epsilon using the parameterization
         eps_init = param.get_eps(xh, yh, rh, eh)
@@ -141,6 +140,7 @@ class TestFDFD(unittest.TestCase):
 
         def objective(params):
 
+            params = params.reshape(-1, 2)
             xs = params[0,:]
             ys = params[1,:]
             rs = params[2,:]
@@ -164,10 +164,10 @@ class TestFDFD(unittest.TestCase):
                  + npa.sum(npa.square(npa.abs(Ex))) \
                  + npa.sum(npa.square(npa.abs(Ey)))
 
-        grad_autograd = grad(objective)(init_params)
+        grad_autograd = jacobian(objective)(init_params)
         Nh = xh.size
         step_size = np.hstack((np.ones((3*Nh))*self.dL*1e-5, np.ones((Nh))*1e-5))
-        grad_numerical = grad_num(objective, init_params, step_size=step_size)
+        grad_numerical = jacobian(objective, mode='numerical', step_size=1e-9)(init_params)
 
         if VERBOSE:
             print('\tobjective function value: ', objective(init_params))
@@ -196,8 +196,6 @@ class TestFDFD(unittest.TestCase):
         eps_max = 1.0
         eps_background = copy.copy(self.eps_r)
         eps_background[design_region == 1] = eps_max
-
-        from ceviche.parameterizations import Circle_Shapes
 
         test_params = [Circle_Shapes(eps_background, self.dL)]
         for param in test_params:
