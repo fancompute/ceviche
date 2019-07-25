@@ -1,6 +1,5 @@
-[![Build Status](https://travis-ci.com/twhughes/ceviche.svg?token=ZCPktA3Ki2eYVXYnfbrz&branch=master)](https://travis-ci.com/twhughes/ceviche)
+# ceviche [![Build Status](https://travis-ci.com/twhughes/ceviche.svg?token=ZCPktA3Ki2eYVXYnfbrz&branch=master)](https://travis-ci.com/twhughes/ceviche)
 
-# ceviche
 Electromagnetic Simulation Tools + Automatic Differentiation
 
 ## What is ceviche?
