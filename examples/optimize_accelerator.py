@@ -3,15 +3,16 @@ import numpy as np
 import matplotlib.pylab as plt
 import autograd.numpy as npa
 
-from autograd import grad
 from scipy.optimize import minimize
 
 import sys
 sys.path.append('../ceviche')
 
-from ceviche import fdfd_hz
+from ceviche import fdfd_hz, jacobian
 from ceviche.constants import *
+from ceviche.utils import imarr
 
+""" Optimize energy gain of dielectric particle accelerator """
 
 # whether to plot things below
 PLOT = False
@@ -45,7 +46,7 @@ eta[Nx//2, :] = np.exp(1j * 2 * np.pi * channel_ys / Ny)
 
 # plot the probe through channel
 if PLOT:
-    plt.plot(np.real(eta[Nx//2,:]), label='RE\{eta\}')
+    plt.plot(np.real(imarr(eta[Nx//2,:])), label='RE\{eta\}')
     plt.xlabel('position along channel (y)')
     plt.ylabel('eta (y)')
     plt.show()
@@ -89,7 +90,7 @@ def accel_gradient(eps_arr):
     return -np.abs(G)
 
 # define the gradient for autograd
-grad_g = grad(accel_gradient)
+grad_g = jacobian(accel_gradient)
 
 # optimization
 NIter = 10
@@ -105,13 +106,13 @@ N_per = 10
 eps_big = F.eps_r._value.copy()
 for i in range(N_per):
     eps_big = np.concatenate([eps_big, eps_big])
-plt.imshow(eps_big, cmap='nipy_spectral')
+plt.imshow(imarr(eps_big), cmap='nipy_spectral')
 plt.colorbar()
 plt.show()
 
 # plot the accelerating fields
 Ex, Ey, Hz = F.solve(source)
-plt.imshow(np.real(Ey._value) / E0, cmap='RdBu')
+plt.imshow(np.real(imarr(Ey)) / E0, cmap='RdBu')
 plt.title('E_y / E0 (<-)')
 plt.xlabel('y')
 plt.ylabel('x')

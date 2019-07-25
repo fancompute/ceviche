@@ -3,20 +3,22 @@ import autograd.numpy as npa
 import matplotlib.pylab as plt
 import argparse
 import os
+import json
 
 import sys
 sys.path.append('../ceviche')
-sys.path.append('../angler')
 
+from ceviche import fdfd_ez as fdfd
+from ceviche import fdtd, jacobian
 from ceviche.constants import *
 from ceviche.utils import imarr, aniplot, my_fft
-from ceviche.fdfd import fdfd_ez as fdfd
-from ceviche.fdtd import fdtd
-from ceviche.jacobians import jacobian
+
+# note, need angler package for mode profile calculation (pip install angler) https://github.com/fancompute/angler
 from angler import Simulation
 
-# This file generates Fig. 4 of the main text.
-# It computes the coupling efficiency of a grating coupler and differentiates the spectrum with respect to the grating fill factor
+""" Forward Mode Demo.  This file generates Fig. 4 of the main text.
+    It computes the coupling efficiency of a grating coupler and differentiates the spectrum with respect to the grating fill factor
+"""
 
 """ PARSE ARGUMENTS """
 
@@ -498,8 +500,6 @@ params = {
     'grating_eps':grating_eps,
     'coupling_efficiency':coupling_efficiency
 }
-
-import json
 
 with open(fname_base + 'params.json', 'w') as fp:
     json.dump(params, fp)

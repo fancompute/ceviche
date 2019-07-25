@@ -8,39 +8,14 @@ from scipy.linalg import dft
 import sys
 sys.path.append('../ceviche')
 
-from ceviche.fdtd import fdtd
-from ceviche.jacobians import jacobian
+from ceviche import fdtd, jacobian
+from ceviche.utils import my_fft
 
-
-@primitive
-def my_fft(x):    
-    """ 
-    Wrapper for numpy's FFT, so I can add a primitive to it
-        FFT(x) is like a DFT matrix (D) dot with x
-    """
-    return np.fft.fft(x)
-
-
-def fft_grad(g, ans, x):
-    """ 
-    Define the jacobian-vector product of my_fft(x)
-        The gradient of FFT times g is the vjp
-        ans = fft(x) = D @ x
-        jvp(fft(x))(g) = d{fft}/d{x} @ g
-                       = D @ g
-        Therefore, it looks like the FFT of g
-    """
-    return np.fft.fft(g)
-
-defjvp(my_fft, fft_grad)
-
-
-###
+""" Autograd through spectrum computation """
 
 Nx = 50
 Ny = 50
 Nz = 1
-
 
 npml = 10
 
@@ -50,7 +25,7 @@ pml = [npml, npml, 0]
 
 # source parameters
 sigma = 10e-15
-total_time = 0.1e-12
+total_time = 0.5e-12
 t0 = sigma * 10
 
 source_amp = 1
@@ -65,11 +40,13 @@ dt = F.dt
 steps = int(total_time / dt)
 print('{} time steps'.format(steps))
 
-gaussian = lambda t: source_pos * source_amp * np.exp(-(t - t0 / dt)**2 / 2 / (sigma / dt)**2)
+gaussian = lambda t: source_amp * np.exp(-(t - t0 / dt)**2 / 2 / (sigma / dt)**2)
 source = lambda t: source_pos * gaussian(t) * np.cos(omega * t * dt)
 
-# plt.plot(dt * np.arange(steps), np.sum(source(np.arange(steps)), axis=(0,1)))
-# plt.show()
+plt.plot(dt * np.arange(steps), np.sum(source(np.arange(steps)), axis=(0,1)))
+plt.xlabel('time (sec)')
+plt.ylabel('source amplitude')
+plt.show()
 
 measure_pos = np.zeros((Nx, Ny, Nz))
 measure_pos[-npml-10, Ny//2, Nz//2] = 1
@@ -81,7 +58,6 @@ def objective(eps_space):
         fields = F.forward(Jz=source(t_index))
         measured.append(npa.sum(fields['Ez'] * measure_pos))
     measured_f = my_fft(npa.array(measured))
-    # measured_f = dft(steps) @ npa.array(measured)
     spectral_power = npa.square(npa.abs(measured_f))
     return spectral_power
 

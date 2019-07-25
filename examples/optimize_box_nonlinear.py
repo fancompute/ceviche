@@ -2,18 +2,16 @@ import unittest
 import numpy as np
 import matplotlib.pylab as plt
 import autograd.numpy as npa
-from autograd import grad
 
 import sys
 sys.path.append('../ceviche')
 
-from ceviche.fdfd import fdfd_ez, fdfd_ez_nl
-from ceviche.jacobians import jacobian
+from ceviche import fdfd_ez, fdfd_ez_nl, jacobian
 from ceviche.utils import imarr, get_value
 
 """ NONLINEAR SWITCH 
     
-    This is the same as the box.py example.
+    This is the same as the optimize_box.py example.
     However, now we have a linear + nonlinear simulation.
     The objective is to maximize the intensity felt at the probe for the LINEAR sim.
     While minimizing the intensity for the NONLINEAR simulation.

@@ -1,13 +1,11 @@
 import autograd.numpy as np
 import matplotlib.pylab as plt
-
 from scipy.optimize import minimize
-from autograd import grad
 
 import sys
 sys.path.append('../ceviche')
 
-from ceviche import fdfd_hz
+from ceviche import fdfd_hz, jacobian
 from ceviche.constants import C_0
 
 PLOT = False
@@ -126,7 +124,7 @@ def objective(eps_arr):
     return -np.log(obj_total / Nw)            # return negative (for maximizing) and normalize by number of wavelengths (starting objective = 1)
 
 # define the gradient for autograd
-grad_J = grad(objective)
+grad_J = jacobian(objective)
 
 """  optimization loop """
 

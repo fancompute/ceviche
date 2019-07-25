@@ -11,11 +11,11 @@ Electromagnetic Simulation Tools + Automatic Differentiation
 
 Both are written in `numpy` / `scipy` and are compatible with the [HIPS autograd package](https://github.com/HIPS/autograd).
 
-What this means is that you can write code to solve your E&M problem, and then use automatic differentiation on your results.
+This allows you to write code to solve your E&M problem, and then use automatic differentiation on your results.
 
-This is incredibly powerful as it allows you to do gradient-based optimization or sensitivity analysis without the tedius process of deriving your derivatives analytically.
+As a result, you can do gradient-based optimization or sensitivity analysis without the tedius process of deriving your derivatives analytically.
 
-### A quick example
+### A simple example
 
 Lets say we have a domain of where we wish to inject light at position `source` and measure its intensity at `probe`.
 
@@ -24,21 +24,25 @@ Between these two points, there's a box at location `pos_box` with permittivity 
 We can write a function computing the intensity as a function of `eps` using our FDFD solver
 
 ```python
+import autograd.numpy as np           # import the autograd wrapper for numpy
+from ceviche import fdfd_ez as fdfd   # import the FDFD solver
+
+# make an FDFD simulation
+f = fdfd(omega, dl, eps_box, npml=[10, 10])
+
 def intensity(eps):
     """ computes electric intensity at `probe` for a given box permittivity of `eps`
 
         source |-----| probe
             .  | eps |  .
                |_____|
-
-    `fdfd` is a ceviche FDFD object that is defined earlier for this problem ^
     """
 
     # set the permittivity in the box region to the input argument
     fdfd.eps_r[box_pos] = eps
 
     # solve the fields
-    Ex, Ey, Hz = fdfd.solve(source)
+    Ex, Ey, Hz = f.solve(source)
 
     # compute the intensity at `probe`
     I = np.square(np.abs(Ex)) + np.square(np.abs(Ex))
@@ -50,23 +54,36 @@ Then, we can very easily differentiate this function using automatic differentia
 ```python
 
 # use autograd to differentiate `intensity` function
-dI_deps_fn = autograd.grad(intensity)
+grad_fn = jacobian(intensity)
 
-# evaluate it at the current value of `eps`
-dI_deps = dI_deps_fn(eps_current)
+# then, evaluate it at the current value of `eps`
+dI_deps = grad_fn(eps_curr)
 
-# or ... do gradient based optimization
+# or do gradient based optimization
 for _ in range(10):
     eps_current += step_size * dI_deps_fn(eps_current)
 ```
 
-## What isn't ceviche?
+## Design Principle
 
-`ceviche` is not Lumerical.  `ceviche` is designed with simplicity in mind and is meant to serve as a base package for building your projects from.  However, with some exceptions, it does not provide streamlined interfaces for optimization, source or device creation, or visualization.  If you want that kind of thing, you need to build it around the base functionality of ceviche in your own project.  This decision was made to keep things clean and easy to understand, with a focus on the meaty bits that make this package unique.  For some inspiration, see the `examples` directory.
+`ceviche` is designed with simplicity in mind and is meant to serve as a base package for building your projects from.  However, with some exceptions, it does not provide streamlined interfaces for optimization, source or device creation, or visualization.  If you want that kind of thing, you need to build it around the base functionality of ceviche in your own project.  This decision was made to keep things clean and easy to understand, with a focus on the meaty bits that make this package unique.  For some inspiration, see the `examples` directory.  
+
+
+For more user friendly features, check out our [`angler`](https://github.com/fancompute/angler) package.  We plan to merge the two packages at a later date to give these automatic differentiation capabilities to `angler`.
 
 ## Installation
 
-For now, you just need to import ceviche from wherever it is located on your local machine.   A nicer installation will be added later.
+`ceviche` is not on PyPI yet.
+To install locally from source:
+
+    pip install -e .
+
+from the main directory.
+
+Alternatively, just import the package from within your python script
+
+    import sys
+    sys.path.append('path/to/ceviche')
 
 ## Package Structure
 
@@ -74,29 +91,37 @@ For now, you just need to import ceviche from wherever it is located on your loc
 
 The `ceviche` directory contains everything needed.
 
-To get the FDFD and FDTD tools, import directly `from ceviche import fdtd, fdfd_ez, fdfd_hz`
+To get the FDFD and FDTD simulators, import directly `from ceviche import fdtd, fdfd_ez, fdfd_hz, fdfd_ez_nl`
+
+To get the differentiation, import `from ceviche import jacobian`.
 
 `constants.py` contains some constants `EPSILON_0`, `C_0`, `ETA_0`, `Q_E`, which are needed throughout the package
 
-`utils.py` contains a few useful functions, more to be added later.
+`utils.py` contains a few useful functions for plotting, autogradding, and various other things.
 
 ### Examples
 
-A few examples are given in `examples`.
+There are many demos in the `examples` directory, which will give you a good sense of how to use the package.
 
 ### Tests
 
 Tests are located in `tests`.  To run, `cd` into `tests` and
 
- `python -m unittest` to run all or
+    python -m unittest
 
- `python specific_test.py` to run a specific one.
+to run all or
 
-Some of these tests involve visual inspection of the field plots rather than error checking on values.
+    python specific_test.py
+
+to run a specific one.  Some of these tests involve visual inspection of the field plots rather than error checking on values.
+
+To run all of the gradient checking functions, run 
+
+    bash tests/test_all_gradients.sh
 
 ## Citation
 
-If you use this for your work, please cite
+If you use this for your research or work, please cite
 
     @article{hughes2018adjoint,
       title={Adjoint method and inverse design for nonlinear nanophotonic devices},

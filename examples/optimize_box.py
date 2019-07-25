@@ -2,13 +2,14 @@ import unittest
 import numpy as np
 import matplotlib.pylab as plt
 import autograd.numpy as npa
-from autograd import grad
 
 import sys
 sys.path.append('../ceviche')
 
-from ceviche.fdfd import fdfd_hz
-from ceviche.jacobians import jacobian
+from ceviche import fdfd_hz, jacobian
+from ceviche.utils import imarr
+
+""" Optimize intensity focusing through a box with continuous varying permittivity """
 
 # whether to plot setup stuff
 PLOT = False
@@ -37,7 +38,7 @@ probe[-npml-spc, Ny//2] = 1
 
 # plot the probe through channel
 if PLOT:
-    plt.imshow(np.abs(probe + box_region + source).T)
+    plt.imshow(np.abs(imarr(probe + box_region + source)))
     plt.show()
 
 # vacuum test, get normalization
@@ -52,7 +53,7 @@ print('I_H0 = {}'.format(I_H0))
 
 # plot the vacuum fields
 if PLOT:
-    plt.imshow(np.real(Hz).T, cmap='RdBu')
+    plt.imshow(np.real(imarr(Hz)), cmap='RdBu')
     plt.title('real(Hz)')
     plt.xlabel('y')
     plt.ylabel('x')
@@ -79,18 +80,27 @@ eps_r[box_region == 1] = eps_max
 
 from scipy.optimize import minimize
 bounds = [(1, eps_max) if box_region.flatten()[i] == 1 else (1,1) for i in range(eps_r.size)]
+
 minimize(intensity, eps_r, args=(), method='L-BFGS-B', jac=grad_I,
     bounds=bounds, tol=None, callback=None,
-    options={'disp': True, 'maxcor': 10, 'ftol': 2.220446049250313e-09, 'gtol': 1e-05, 'eps': 1e-08, 'maxfun': 15000, 'maxiter': 100, 'iprint': -1, 'maxls': 20})
+    options={'disp': True,
+             'maxcor': 10,
+             'ftol': 2.220446049250313e-09,
+             'gtol': 1e-05,
+             'eps': 1e-08,
+             'maxfun': 15000,
+             'maxiter': 100,
+             'iprint': -1,
+             'maxls': 20})
 
 # plot the final permittivity
-plt.imshow(F.eps_r._value.T, cmap='nipy_spectral')
+plt.imshow(imarr(F.eps_r), cmap='nipy_spectral')
 plt.colorbar()
 plt.show()
 
 # plot the fields
 Ex, Ey, Hz = F.solve(source)
-plt.imshow(np.real(Hz._value).T, cmap='RdBu')
+plt.imshow(np.real(imarr(Hz), cmap='RdBu')
 plt.title('real(H_z)')
 plt.xlabel('y')
 plt.ylabel('x')

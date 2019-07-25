@@ -7,8 +7,11 @@ from autograd import grad
 import sys
 sys.path.append('../ceviche')
 
-from ceviche import fdfd_hz
+from ceviche import fdfd_hz, jacobian
 from ceviche.parameterizations import Circle_Shapes
+from ceviche.utils import imarr
+
+""" Optimize intensity focusing through a box with holes """
 
 # whether to plot setup stuff
 PLOT = True
@@ -52,7 +55,7 @@ circ_param = Circle_Shapes(eps_background, dL)
 # plot the initial permittivity for debugging
 if PLOT:
     eps_init = circ_param.get_eps(params[0, :], params[1, :], params[2, :], np.ones((Nh)))
-    plt.imshow(eps_init, cmap='gray')
+    plt.imshow(imarr(eps_init), cmap='gray')
     plt.colorbar()
     plt.show()
 
@@ -62,7 +65,7 @@ probe[-npml-spc, Ny//2] = 1
 
 # plot the probe through channel
 if PLOT:
-    plt.imshow(np.abs(probe + box_region + source).T)
+    plt.imshow(np.abs(imarr(probe + box_region + source)))
     plt.show()
 
 # vacuum test, get normalization
@@ -77,7 +80,7 @@ print('I_H0 = {}'.format(I_H0))
 
 # plot the startig fields
 if PLOT:
-    plt.imshow(np.real(Hz).T, cmap='RdBu')
+    plt.imshow(np.real(imarr(Hz)), cmap='RdBu')
     plt.title('real(Hz)')
     plt.xlabel('y')
     plt.ylabel('x')
@@ -98,7 +101,7 @@ def intensity(params):
     return -I / I_H0
 
 # define the gradient for autograd
-grad_I = grad(intensity)
+grad_I = jacobian(intensity, mode='reverse')
 
 # from ceviche.optimizers import adam_minimize
 # # bounds = [(1, eps_max) if box_region.flatten()[i] == 1 else (1,1) for i in range(eps_r.size)]
@@ -111,18 +114,25 @@ from scipy.optimize import minimize
 # bounds = [(1, eps_max) if box_region.flatten()[i] == 1 else (1,1) for i in range(eps_r.size)]
 minimize(intensity, params.ravel(), args=(), method='L-BFGS-B', jac=grad_I,
     bounds=None, tol=None, callback=None,
-    options={'disp': True, 'maxcor': 10, 'ftol': 2.220446049250313e-09, 'gtol': 1e-05, 
-    'eps': 1e-08, 'maxfun': 15000, 'maxiter': 20, 'iprint': -1, 'maxls': 18})
+    options={'disp': True,
+             'maxcor': 10,
+             'ftol': 2.220446049250313e-09,
+             'gtol': 1e-05,
+             'eps': 1e-08,
+             'maxfun': 15000,
+             'maxiter': 20,
+             'iprint': -1,
+             'maxls': 18})
 
 
 # plot the final permittivity
-plt.imshow(F.eps_r._value.T, cmap='nipy_spectral')
+plt.imshow(imarr(F.eps_r), cmap='nipy_spectral')
 plt.colorbar()
 plt.show()
 
 # plot the fields
 Ex, Ey, Hz = F.solve(source)
-plt.imshow(np.real(Hz._value).T, cmap='RdBu')
+plt.imshow(np.real(imarr(Hz), cmap='RdBu')
 plt.title('real(H_z)')
 plt.xlabel('y')
 plt.ylabel('x')
