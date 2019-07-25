@@ -76,7 +76,9 @@ For more user friendly features, check out our [`angler`](https://github.com/fan
 `ceviche` is not on PyPI yet.
 To install locally from source:
 
-    pip install -e .
+    git clone https://github.com/solgaardlab/neurophox
+    pip install -e neurophox
+    pip install -r requirements.txt
 
 from the main directory.
 
