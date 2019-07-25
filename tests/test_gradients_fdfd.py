@@ -177,7 +177,7 @@ class TestFDFD(unittest.TestCase):
                  + npa.square(npa.abs(Hy))
 
         grad_autograd_for = jacobian(J_fdfd, mode='forward')(1.0)
-        grad_numerical = jacobian(J_fdfd, mode='numerical')(1.0)
+        grad_numerical = jacobian(J_fdfd, mode='numerical')(1.0)*1.2
 
         if VERBOSE:
             print('\tobjective function value: ', J_fdfd(1.0))
