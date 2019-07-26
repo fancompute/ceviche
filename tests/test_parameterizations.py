@@ -20,8 +20,8 @@ equal the numerical derivatives
 """
 
 # test parameters
-ALLOWED_RATIO = 1e-1    # maximum allowed ratio of || grad_num - grad_auto || vs. || grad_num ||
-VERBOSE = True         # print out full gradients?
+ALLOWED_RATIO = 1e-1     # maximum allowed ratio of || grad_num - grad_auto || vs. || grad_num ||
+VERBOSE = True           # print out full gradients?
 DEPS = 1e-18             # numerical gradient step size
 
 class TestFDFD(unittest.TestCase):

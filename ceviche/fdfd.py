@@ -50,7 +50,7 @@ class fdfd():
     @property
     def eps_r(self):
         """ Returns the relative permittivity grid """
-        return self.__eps_r
+        return self._eps_r
 
     @eps_r.setter
     def eps_r(self, new_eps):
@@ -98,7 +98,7 @@ class fdfd_linear(fdfd):
         assert not callable(new_eps), "for linear problems, eps_r must be a static array"        
         self.shape = self.Nx, self.Ny = new_eps.shape
         self.eps_vec = new_eps.flatten()
-        self.__eps_r = new_eps
+        self._eps_r = new_eps
 
 class fdfd_nonlinear(fdfd):
 

@@ -100,7 +100,7 @@ plt.show()
 
 # plot the fields
 Ex, Ey, Hz = F.solve(source)
-plt.imshow(np.real(imarr(Hz), cmap='RdBu')
+plt.imshow(np.real(imarr(Hz)), cmap='RdBu')
 plt.title('real(H_z)')
 plt.xlabel('y')
 plt.ylabel('x')
