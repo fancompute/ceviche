@@ -10,11 +10,11 @@ sys.path.append('../ceviche')
 
 from ceviche import fdfd_hz, jacobian
 from ceviche.constants import *
-from ceviche.utils import imarr
+from ceviche.utils import imarr, get_value
 
 """ Optimize energy gain of dielectric particle accelerator """
 
-# whether to plot things below
+# whether to plot the setup images
 PLOT = False
 
 # make parameters
@@ -23,12 +23,13 @@ omega = 2 * np.pi * C_0 / wavelength   # angular frequency
 beta = .5                              # speed of electron / speed of light
 dL = wavelength / 50.0                # grid size (m)
 
-Nx, Ny = 400, int(beta * wavelength / dL)
+Nx, Ny = 450, int(beta * wavelength / dL)
 
-eps_max = 2
+eps_max = 3
 eps_r = np.ones((Nx, Ny))
 source = np.zeros((Nx, Ny))
 source[30, :] = 10
+source[-30-1, :] = -10
 npml = [20, 0]
 spc = 100
 gap = 20
@@ -93,26 +94,38 @@ def accel_gradient(eps_arr):
 grad_g = jacobian(accel_gradient)
 
 # optimization
-NIter = 10
+NIter = 200000
 bounds_eps = [(1, eps_max) if design_region.flatten()[i] == 1 else (1,1) for i in range(eps_r.size)]
 minimize(accel_gradient, eps_r.flatten(), args=(), method='L-BFGS-B', jac=grad_g,
     bounds=bounds_eps, tol=None, callback=None,
-    options={'disp': True, 'maxcor': 10, 'ftol': 2.220446049250313e-09,
-             'gtol': 1e-05, 'eps': 1e-08, 'maxfun': 15000, 'maxiter': NIter,
-             'iprint': -1, 'maxls': 20})
+    options={'disp': True,
+             'maxcor': 10,
+             'ftol': 2.220446049250313e-09,
+             'gtol': 1e-05,
+             'eps': 1e-08,
+             'maxfun': 15000,
+             'maxiter': NIter,
+             'iprint': -1,
+             'maxls': 20})
+
+def stack(arr, num_periods=1):
+    # returns an array that is stacked `num_periods` times along y.  For plotting many periods of the accelerator unit cell.
+    arr_orig = get_value(arr).copy()
+    arr_big = get_value(arr).copy()
+    for i in range(num_periods):
+        arr_big = np.hstack([arr_big, arr_orig])
+    return arr_big
+
+num_periods = 4
 
 # plot the final permittivity
-N_per = 10
-eps_big = F.eps_r._value.copy()
-for i in range(N_per):
-    eps_big = np.concatenate([eps_big, eps_big])
-plt.imshow(imarr(eps_big), cmap='nipy_spectral')
+plt.imshow(imarr(stack(F.eps_r, num_periods=num_periods)), cmap='nipy_spectral')
 plt.colorbar()
 plt.show()
 
 # plot the accelerating fields
 Ex, Ey, Hz = F.solve(source)
-plt.imshow(np.real(imarr(Ey)) / E0, cmap='RdBu')
+plt.imshow(imarr(np.real(stack(Ey, num_periods=num_periods)))  / E0 , cmap='RdBu')
 plt.title('E_y / E0 (<-)')
 plt.xlabel('y')
 plt.ylabel('x')
