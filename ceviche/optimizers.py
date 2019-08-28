@@ -26,7 +26,7 @@ def adam_minimize(objective, params, jac, step_size=1e-2, Nsteps=100, bounds=Non
 
         of = objective(params)
         of_list.append(of) 
-        grad = jac(params)
+        grad = jac(params).ravel()
 
         if 'disp' in opt_keys:
             if options['disp'] == True:
@@ -38,12 +38,12 @@ def adam_minimize(objective, params, jac, step_size=1e-2, Nsteps=100, bounds=Non
 
         (grad_adam, mopt, vopt) = step_adam(grad, mopt, vopt, iteration, beta1, beta2)
 
-        params = params - step_size*grad_adam # Note: minus cause we minimize
+        params -= step_size*grad_adam # Note: minus cause we minimize
         if bounds:
             params[params < bounds[0]] = bounds[0]
             params[params > bounds[1]] = bounds[1]
 
-    return of_list
+    return (of_list, params)
 
 
 def step_adam(gradient, mopt_old, vopt_old, iteration, beta1, beta2, epsilon=1e-8):
