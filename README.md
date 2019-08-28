@@ -124,7 +124,7 @@ To run all of the gradient checking functions, run
 
 ## Citation
 
-If you use this for your research or work, please cite
+An arxiv preprint will be released soon.  For now, if you use this for your research or work, please cite
 
     @article{hughes2018adjoint,
       title={Adjoint method and inverse design for nonlinear nanophotonic devices},
