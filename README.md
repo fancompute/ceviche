@@ -124,15 +124,11 @@ To run all of the gradient checking functions, run
 
 ## Citation
 
-An arxiv preprint will be released soon.  For now, if you use this for your research or work, please cite
+If you use this for your research or work, please cite
 
-    @article{hughes2018adjoint,
-      title={Adjoint method and inverse design for nonlinear nanophotonic devices},
-      author={Hughes, Tyler W and Minkov, Momchil and Williamson, Ian AD and Fan, Shanhui},
-      journal={ACS Photonics},
-      volume={5},
-      number={12},
-      pages={4781--4787},
-      year={2018},
-      publisher={ACS Publications}
+    @misc{1908.10507,
+    Author = {Tyler W Hughes and Ian A D Williamson and Momchil Minkov and Shanhui Fan},
+    Title = {Forward-Mode Differentiation of Maxwell's Equations},
+    Year = {2019},
+    Eprint = {arXiv:1908.10507},
     }
