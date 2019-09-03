@@ -94,10 +94,10 @@ Alternatively, just download it:
 
 and then import the package from within your python script
     
-    ```python
+```python
     import sys
     sys.path.append('path/to/ceviche')
-    ```
+```
 
 ## Package Structure
 
