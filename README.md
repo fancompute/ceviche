@@ -74,8 +74,13 @@ For more user friendly features, check out our [`angler`](https://github.com/fan
 
 ## Installation
 
-`ceviche` is not on PyPI yet.
-To install locally from source:
+There are many ways to install `ceviche`.
+
+The easiest is by 
+
+    pip install ceviche
+
+But to install from a local copy, one can do
 
     git clone https://github.com/twhughes/ceviche.git
     pip install -e ceviche
@@ -83,10 +88,16 @@ To install locally from source:
 
 from the main directory.
 
-Alternatively, just import the package from within your python script
+Alternatively, just download it:
 
+    git clone https://github.com/twhughes/ceviche.git
+
+and then import the package from within your python script
+    
+    ```python
     import sys
     sys.path.append('path/to/ceviche')
+    ```
 
 ## Package Structure
 
