@@ -22,11 +22,13 @@ As a result, you can do gradient-based optimization, sensitivity analysis, or pl
 
 ### A simple example
 
-Lets say we have a domain of where we wish to inject light at position `source` and measure its intensity at `probe`.
+Let's saw we inject light at position `source` and measure its intensity at `probe`.
 
 Between these two points, there's a box at location `pos_box` with permittivity `eps`.
 
-We can write a function computing the intensity as a function of `eps` using our FDFD solver
+We're interested in computing how the intensity measured changes with respect to `eps`.
+
+With ceviche, we first write a simple function computing the measured intensity as a function of `eps` using FDFD
 
 ```python
 import autograd.numpy as np           # import the autograd wrapper for numpy
@@ -54,7 +56,8 @@ def intensity(eps):
     return = np.sum(I * probe)
 ```
 
-Then, we can very easily differentiate this function using automatic differentiation
+Then, finding the derivative of the intensity is as easy as calling one function and evaluating at the current permittivity
+
 
 ```python
 
@@ -64,14 +67,24 @@ grad_fn = jacobian(intensity)
 # then, evaluate it at the current value of `eps`
 dI_deps = grad_fn(eps_curr)
 
-# or do gradient based optimization
+```
+
+Note that we didnt have to derive anything by hand for this specific situation!
+
+Armed with this capability, we can now do things like gradient based optimization to maximize the intensity.
+
+```python
 for _ in range(10):
     eps_current += step_size * dI_deps_fn(eps_current)
 ```
 
+This becomes more powerful when you have several degrees of freedom, like in a topology optimization problem, or when your machine learning model involves running an FDFD or FDTD simulation.
+
 ## Design Principle
 
-`ceviche` is designed with simplicity in mind and is meant to serve as a base package for building your projects from.  However, with some exceptions, it does not provide streamlined interfaces for optimization, source or device creation, or visualization.  If you want that kind of thing, you need to build it around the base functionality of ceviche in your own project.  This decision was made to keep things clean and easy to understand, with a focus on the meaty bits that make this package unique.  For some inspiration, see the `examples` directory.  
+`ceviche` is designed with simplicity and flexibility in mind and is meant to serve as a base package for building your projects from.  Because of this -- with some exceptions -- it does not have simple interfaces for optimization, source or device creation, or visualization.  While those things may be added later, for now you will need to build them yourself.  Thankfully, because ceviche takes care of the hard parts, this can be relatively easy!
+
+For some inspiration, see the `examples` directory.
 
 For more user friendly features, check out our [`angler`](https://github.com/fancompute/angler) package.  We plan to merge the two packages at a later date to give these automatic differentiation capabilities to `angler`.
 
