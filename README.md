@@ -18,7 +18,7 @@ Both are written in `numpy` / `scipy` and are compatible with the [HIPS autograd
 
 This allows you to write code to solve your E&M problem, and then use automatic differentiation on your results.
 
-As a result, you can do gradient-based optimization or sensitivity analysis without the tedius process of deriving your derivatives analytically.
+As a result, you can do gradient-based optimization, sensitivity analysis, or plug your E&M solver into a machine learning model without the tedius process of deriving your derivatives analytically.
 
 ### A simple example
 
@@ -73,7 +73,6 @@ for _ in range(10):
 
 `ceviche` is designed with simplicity in mind and is meant to serve as a base package for building your projects from.  However, with some exceptions, it does not provide streamlined interfaces for optimization, source or device creation, or visualization.  If you want that kind of thing, you need to build it around the base functionality of ceviche in your own project.  This decision was made to keep things clean and easy to understand, with a focus on the meaty bits that make this package unique.  For some inspiration, see the `examples` directory.  
 
-
 For more user friendly features, check out our [`angler`](https://github.com/fancompute/angler) package.  We plan to merge the two packages at a later date to give these automatic differentiation capabilities to `angler`.
 
 ## Installation
@@ -84,7 +83,7 @@ The easiest is by
 
     pip install ceviche
 
-But to install from a local copy, one can do
+But to install from a local copy, one can instead do
 
     git clone https://github.com/twhughes/ceviche.git
     pip install -e ceviche
