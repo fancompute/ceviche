@@ -2,6 +2,10 @@
 
 Electromagnetic Simulation Tools + Automatic Differentiation.  Code for the arxiv preprint [Forward-Mode Differentiation of Maxwell's Equations](https://arxiv.org/abs/1908.10507).
 
+<img src="/img/horizontal-color.png" title="ceviche" alt="ceviche">
+
+(logo by [@nagilmer](http://nadinegilmer.com/))
+
 ## What is ceviche?
 
 `ceviche` provides two core electromagnetic simulation tools for solving Maxwell's equations:
