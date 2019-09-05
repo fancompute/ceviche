@@ -14,7 +14,7 @@ Electromagnetic Simulation Tools + Automatic Differentiation.  Code for the arxi
 
 - finite-difference time-domain (FDTD)
 
-Both are written in `numpy` / `scipy` and are compatible with the [HIPS autograd package](https://github.com/HIPS/autograd).
+Both are written in `numpy` / `scipy` and are compatible with the [HIPS autograd package](https://github.com/HIPS/autograd), supporting forward-mode and reverse-mode automatic differentiation.
 
 This allows you to write code to solve your E&M problem, and then use automatic differentiation on your results.
 
