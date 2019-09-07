@@ -553,9 +553,9 @@ def createDws(w, s, dL, shape):
 
     Nx, Ny = shape
 
-    if w is 'x':
+    if w == 'x':
         if Nx > 1:
-            if s is 'f':
+            if s == 'f':
                 dxf = sp.diags([-1, 1, 1], [0, 1, -Nx+1], shape=(Nx, Nx))
                 Dws = 1 / dL * sp.kron(dxf, sp.eye(Ny))
             else:
@@ -563,9 +563,9 @@ def createDws(w, s, dL, shape):
                 Dws = 1 / dL * sp.kron(dxb, sp.eye(Ny))
         else:
             Dws = sp.eye(Ny)            
-    if w is 'y':
+    if w == 'y':
         if Ny > 1:
-            if s is 'f':
+            if s == 'f':
                 dyf = sp.diags([-1, 1, 1], [0, 1, -Ny+1], shape=(Ny, Ny))
                 Dws = 1 / dL * sp.kron(sp.eye(Nx), dyf)
             else:
@@ -597,12 +597,12 @@ def create_sfactor(s, omega, dL, N, N_pml):
     dw = N_pml * dL
 
     for i in range(N):
-        if s is 'f':
+        if s == 'f':
             if i <= N_pml:
                 sfactor_vecay[i] = S(dL * (N_pml - i + 0.5), dw, omega)
             elif i > N - N_pml:
                 sfactor_vecay[i] = S(dL * (i - (N - N_pml) - 0.5), dw, omega)
-        if s is 'b':
+        if s == 'b':
             if i <= N_pml:
                 sfactor_vecay[i] = S(dL * (N_pml - i + 1), dw, omega)
             elif i > N - N_pml:
