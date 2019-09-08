@@ -3,4 +3,4 @@ librosa>=0.7.0
 matplotlib>=3.0.3
 numpy>=1.16.2
 pyMKL==0.0.3
-scipy==1.2.1
+scipy
