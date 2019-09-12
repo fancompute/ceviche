@@ -52,7 +52,7 @@ def intensity(eps):
     Ex, Ey, Hz = f.solve(source)
 
     # compute the intensity at `probe`
-    I = np.square(np.abs(Ex)) + np.square(np.abs(Ex))
+    I = np.square(np.abs(Ex)) + np.square(np.abs(Ey))
     return = np.sum(I * probe)
 ```
 
