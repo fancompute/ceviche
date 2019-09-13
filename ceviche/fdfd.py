@@ -206,6 +206,7 @@ class fdfd_ez_nl(fdfd_nonlinear):
 
 """======================== SYSTEM MATRIX CREATION ========================"""
 
+# NEED TO DO GRID AVERAGING HERE NEXT!
 def make_A_Hz(info_dict, eps_vec):
     """ constructs the system matrix for `Hz` polarization """
     diag = 1 / EPSILON_0 * sp.spdiags(1/eps_vec, [0], eps_vec.size, eps_vec.size)
