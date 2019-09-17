@@ -45,6 +45,14 @@ def grid_xyz_to_center(Q_xx, Q_yy, Q_zz):
 
     return Q_xx_avg, Q_yy_avg, Q_zz_avg
 
+
+def vec_zz_to_xy(info_dict, vec_zz, grid_averaging=True):
+    """ does grid averaging on z vector vec_zz """
+    arr_zz = vec_zz.reshape(info_dict['shape'])[:,:,None]
+    arr_xx, arr_yy, _ = grid_center_to_xyz(arr_zz, averaging=grid_averaging)
+    vec_xx, vec_yy = arr_xx.flatten(), arr_yy.flatten()
+    return vec_xx, vec_yy
+
 """ ===================== TESTING AND DEBUGGING ===================== """
 
 

@@ -8,8 +8,10 @@ from autograd.extend import primitive, defvjp, defjvp
 
 from .constants import *
 from .solvers import sparse_solve, DEFAULT_SOLVER
-from .utils import spdot, block_4
+from .utils import spdot, block_4, grid_center_to_xyz, vec_zz_to_xy
 from .jacobians import jacobian
+
+AVG = False  # whether to do grid averaging (under development, gradients dont match exactly yet.)
 
 class fdfd():
     """ Base class for FDFD simulation """
@@ -24,8 +26,9 @@ class fdfd():
         self.info_dict = {'omega': self.omega}
 
         self.eps_r = eps_r
+
         self.setup_derivatives()
-        self.A = self.make_A(self.eps_vec)
+        self.A = self.make_A(self.eps_vec_zz)
 
     def setup_derivatives(self):
 
@@ -72,10 +75,10 @@ class fdfd():
         source_vec = source.flatten()
 
         # solve the z component of the fields
-        Fz_vec = self.solve_fn(self.eps_vec, source_vec, iterative=iterative, method=method)
+        Fz_vec = self.solve_fn(self.eps_vec_zz, source_vec, iterative=iterative, method=method)
 
-        # get the x and y vecays, put into tuple
-        Fx_vec, Fy_vec = self.z_to_xy(Fz_vec, self.eps_vec)
+        # get the x and y vectors, put into tuple
+        Fx_vec, Fy_vec = self.z_to_xy(Fz_vec, self.eps_vec_zz)
         field_vectors = (Fx_vec, Fy_vec, Fz_vec)
 
         # convert all fields to grid and return tuple of them
@@ -97,7 +100,11 @@ class fdfd_linear(fdfd):
         """ Defines some attributes when eps_r is set. """
         assert not callable(new_eps), "for linear problems, eps_r must be a static array"        
         self.shape = self.Nx, self.Ny = new_eps.shape
-        self.eps_vec = new_eps.flatten()
+        self.info_dict['shape'] = self.shape
+        self.eps_zz, self.eps_yy, self.eps_xx = grid_center_to_xyz(new_eps[:,:,None])        
+        self.eps_vec_xx = self.eps_xx.flatten()
+        self.eps_vec_yy = self.eps_yy.flatten()
+        self.eps_vec_zz = self.eps_zz.flatten()
         self._eps_r = new_eps
 
 class fdfd_nonlinear(fdfd):
@@ -110,6 +117,7 @@ class fdfd_nonlinear(fdfd):
         """ Defines some attributes when eps_r is set. """
         assert callable(new_eps), "for nonlinear problems, eps_r must be a static array"        
         self.shape = self.Nx, self.Ny = new_eps(0).shape
+        self.info_dict['shape'] = self.shape
         try:
             # try autogradding the epsilon function with field of 0
             # this comes with a warning, ignore it
@@ -118,7 +126,7 @@ class fdfd_nonlinear(fdfd):
                 jacobian(new_eps)(np.zeros(self.shape))
         except:
             raise ValueError("The supplied eps_r function is NOT autograd-compatable, make sure you defined it using autograd.numpy functions!")
-        self.eps_vec = lambda Ez: new_eps(Ez.reshape(self.shape)).flatten()
+        self.eps_vec_zz = lambda Ez: new_eps(Ez.reshape(self.shape)).flatten()
         self.__eps_r = new_eps
 
 """ These are the fdfd classes that you'll actually want to use """
@@ -129,8 +137,8 @@ class fdfd_hz(fdfd_linear):
     def __init__(self, omega, L0, eps_r, npml):
         super().__init__(omega, L0, eps_r, npml)
 
-    def make_A(self, eps_vec):
-        return make_A_Hz(self.info_dict, eps_vec)
+    def make_A(self, eps_vec_zz):
+        return make_A_Hz(self.info_dict, eps_vec_zz)
 
     def solve_fn(self, eps_vec, source_vec, iterative=False, method=DEFAULT_SOLVER):
         return solve_Hz(self.info_dict, eps_vec, source_vec, iterative=iterative, method=method)
@@ -145,11 +153,11 @@ class fdfd_ez(fdfd_linear):
         assert not callable(eps_r), "for linear problems, eps_r must be a static array"
         super().__init__(omega, L0, eps_r, npml)
 
-    def make_A(self, eps_vec):
-        return make_A_Ez(self.info_dict, eps_vec)
+    def make_A(self, eps_vec_zz):
+        return make_A_Ez(self.info_dict, eps_vec_zz)
 
-    def solve_fn(self, eps_vec, source_vec, iterative=False, method=DEFAULT_SOLVER):
-        return solve_Ez(self.info_dict, eps_vec, source_vec, iterative=False, method=DEFAULT_SOLVER)
+    def solve_fn(self, eps_vec_zz, source_vec, iterative=False, method=DEFAULT_SOLVER):
+        return solve_Ez(self.info_dict, eps_vec_zz, source_vec, iterative=False, method=DEFAULT_SOLVER)
 
     def z_to_xy(self, Fz_vec, eps_vec):
         return E_to_H(Fz_vec, self.info_dict, None)
@@ -207,19 +215,23 @@ class fdfd_ez_nl(fdfd_nonlinear):
 """======================== SYSTEM MATRIX CREATION ========================"""
 
 # NEED TO DO GRID AVERAGING HERE NEXT!
-def make_A_Hz(info_dict, eps_vec):
+def make_A_Hz(info_dict, eps_vec_zz):
     """ constructs the system matrix for `Hz` polarization """
-    diag = 1 / EPSILON_0 * sp.spdiags(1/eps_vec, [0], eps_vec.size, eps_vec.size)
-    A = spdot(info_dict['Dxf'], spdot(info_dict['Dxb'].T, diag).T) \
-      + spdot(info_dict['Dyf'], spdot(info_dict['Dyb'].T, diag).T) \
-      + info_dict['omega']**2 * MU_0 * sp.eye(eps_vec.size)
+    N = eps_vec_zz.size
+    eps_vec_xx, eps_vec_yy = vec_zz_to_xy(info_dict, eps_vec_zz, grid_averaging=AVG)
+    diag_xx = 1 / EPSILON_0 * sp.spdiags(1/eps_vec_xx, [0], N, N)
+    diag_yy = 1 / EPSILON_0 * sp.spdiags(1/eps_vec_yy, [0], N, N)
+    A = spdot(info_dict['Dxf'], spdot(info_dict['Dxb'].T, diag_xx).T) \
+      + spdot(info_dict['Dyf'], spdot(info_dict['Dyb'].T, diag_yy).T) \
+      + info_dict['omega']**2 * MU_0 * sp.eye(N)
     return A
 
 # note: this primitive not actually needed. but saving for later
 # @primitive
-def make_A_Ez(info_dict, eps_vec):
+def make_A_Ez(info_dict, eps_vec_zz):
     """ constructs the system matrix for `Ez` polarization """
-    diag = EPSILON_0 * sp.spdiags(eps_vec, [0], eps_vec.size, eps_vec.size)
+    N = eps_vec_zz.size
+    diag = EPSILON_0 * sp.spdiags(eps_vec_zz, [0], N, N)
     A = 1 / MU_0 * info_dict['Dxf'].dot(info_dict['Dxb']) \
       + 1 / MU_0 * info_dict['Dyf'].dot(info_dict['Dyb']) \
       + info_dict['omega']**2 * diag
@@ -250,27 +262,28 @@ def E_to_H(Ez, info_dict, eps_vec=None):
     Hy = Ez_to_Hy(Ez, info_dict)
     return Hx, Hy
 
-def Hz_to_Ex(Hz, info_dict, eps_vec, adjoint=False):
+def Hz_to_Ex(Hz, info_dict, eps_vec_xx, adjoint=False):
     """ Returns electric field `Ex` from magnetic field `Hz` """
     # note: adjoint switch is because backprop thru this fn. has different form
     if adjoint:
-        Ex =  spdot(info_dict['Dyf'].T, Hz) / eps_vec / EPSILON_0
+        Ex =  spdot(info_dict['Dyf'].T, Hz) / eps_vec_xx / EPSILON_0
     else:
-        Ex = -spdot(info_dict['Dyb'],   Hz) / eps_vec / EPSILON_0
+        Ex = -spdot(info_dict['Dyb'],   Hz) / eps_vec_xx / EPSILON_0
     return Ex
 
-def Hz_to_Ey(Hz, info_dict, eps_vec, adjoint=False):
+def Hz_to_Ey(Hz, info_dict, eps_vec_yy, adjoint=False):
     """ Returns electric field `Ey` from magnetic field `Hz` """
     if adjoint:
-        Ey = -spdot(info_dict['Dxf'].T, Hz) / eps_vec / EPSILON_0
+        Ey = -spdot(info_dict['Dxf'].T, Hz) / eps_vec_yy / EPSILON_0
     else:
-        Ey =  spdot(info_dict['Dxb'],   Hz) / eps_vec / EPSILON_0
+        Ey =  spdot(info_dict['Dxb'],   Hz) / eps_vec_yy / EPSILON_0
     return Ey
 
-def H_to_E(Hz, info_dict, eps_vec, adjoint=False):
+def H_to_E(Hz, info_dict, eps_vec_zz, adjoint=False):
     """ More convenient function to return both Ex and Ey from Hz """
-    Ex = Hz_to_Ex(Hz, info_dict, eps_vec, adjoint=adjoint)
-    Ey = Hz_to_Ey(Hz, info_dict, eps_vec, adjoint=adjoint)
+    eps_vec_xx, eps_vec_yy = vec_zz_to_xy(info_dict, eps_vec_zz, grid_averaging=AVG)    
+    Ex = Hz_to_Ex(Hz, info_dict, eps_vec_xx, adjoint=adjoint)
+    Ey = Hz_to_Ey(Hz, info_dict, eps_vec_yy, adjoint=adjoint)
     return Ex, Ey
 
 """======================== SOLVING FOR THE FIELDS ========================"""
@@ -278,20 +291,20 @@ def H_to_E(Hz, info_dict, eps_vec, adjoint=False):
 # Linear Ez
 
 @primitive
-def solve_Ez(info_dict, eps_vec, source, iterative=False, method=DEFAULT_SOLVER):
+def solve_Ez(info_dict, eps_vec_zz, source, iterative=False, method=DEFAULT_SOLVER):
     """ solve `Ez = A^-1 b` where A is constructed from the FDFD `info_dict`
         and 'eps_vec' is a (1D) vecay of the relative permittivity
     """
-    A = make_A_Ez(info_dict, eps_vec)
+    A = make_A_Ez(info_dict, eps_vec_zz)
     b = 1j * info_dict['omega'] * source
     Ez = sparse_solve(A, b, iterative=iterative, method=method)
     return Ez
 
 # define the gradient of solve_Ez w.r.t. eps_vec (in Ez)
-def vjp_maker_solve_Ez(Ez, info_dict, eps_vec, source, iterative=False, method=DEFAULT_SOLVER):
+def vjp_maker_solve_Ez(Ez, info_dict, eps_vec_zz, source, iterative=False, method=DEFAULT_SOLVER):
     """ Gives vjp for solve_Ez with respect to eps_vec """    
     # construct the system matrix again
-    A = make_A_Ez(info_dict, eps_vec)
+    A = make_A_Ez(info_dict, eps_vec_zz)
     # vector-jacobian product function to return
     def vjp(v):
         # solve the adjoint problem and get those electric fields (note D info_dict are different and transposed)
@@ -301,27 +314,27 @@ def vjp_maker_solve_Ez(Ez, info_dict, eps_vec, source, iterative=False, method=D
         return EPSILON_0 * info_dict['omega']**2 * np.real(Ez_aj * Ez)
     return vjp
 
-def vjp_maker_solve_Ez_source(Ez, info_dict, eps_vec, source, iterative=False, method=DEFAULT_SOLVER):
+def vjp_maker_solve_Ez_source(Ez, info_dict, eps_vec_zz, source, iterative=False, method=DEFAULT_SOLVER):
     """ Gives vjp for solve_Ez with respect to source """    
-    A = make_A_Ez(info_dict, eps_vec)
+    A = make_A_Ez(info_dict, eps_vec_zz)
     def vjp(v):
         return 1j * info_dict['omega'] * sparse_solve(A.T, v, iterative=iterative, method=method)
     return vjp
 
 # define the gradient of solve_Ez w.r.t. eps_vec (in Ez)
-def jvp_solve_Ez(g, Ez, info_dict, eps_vec, source, iterative=False, method=DEFAULT_SOLVER):
+def jvp_solve_Ez(g, Ez, info_dict, eps_vec_zz, source, iterative=False, method=DEFAULT_SOLVER):
     """ Gives jvp for solve_Ez with respect to eps_vec """    
     # construct the system matrix again and the RHS of the gradient expersion
-    A = make_A_Ez(info_dict, eps_vec)
+    A = make_A_Ez(info_dict, eps_vec_zz)
     u = Ez * -g
     # solve the adjoint problem and get those electric fields (note D info_dict are different and transposed)
     Ez_for = sparse_solve(A, u, iterative=iterative, method=method)
     # because we care about the diagonal elements, just element-wise multiply E and E_adj
     return EPSILON_0 * info_dict['omega']**2 * Ez_for
 
-def jvp_solve_Ez_source(g, Ez, info_dict, eps_vec, source, iterative=False, method=DEFAULT_SOLVER):
+def jvp_solve_Ez_source(g, Ez, info_dict, eps_vec_zz, source, iterative=False, method=DEFAULT_SOLVER):
     """ Gives jvp for solve_Ez with respect to source """  
-    A = make_A_Ez(info_dict, eps_vec)      
+    A = make_A_Ez(info_dict, eps_vec_zz)      
     return 1j * info_dict['omega'] * sparse_solve(A, g, iterative=iterative, method=method)
 
 defvjp(solve_Ez, None, vjp_maker_solve_Ez, vjp_maker_solve_Ez_source)
@@ -330,49 +343,55 @@ defjvp(solve_Ez, None, jvp_solve_Ez, jvp_solve_Ez_source)
 # Linear Hz
 
 @primitive
-def solve_Hz(info_dict, eps_vec, source, iterative=False, method=DEFAULT_SOLVER):
+def solve_Hz(info_dict, eps_vec_zz, source, iterative=False, method=DEFAULT_SOLVER):
     """ solve `Hz = A^-1 b` where A is constructed from the FDFD `info_dict`
         and 'eps_vec' is a (1D) vecay of the relative permittivity
     """
-    A = make_A_Hz(info_dict, eps_vec)
+
+    A = make_A_Hz(info_dict, eps_vec_zz)
     b = 1j * info_dict['omega'] * source    
     Hz = sparse_solve(A, b, iterative=iterative, method=method)
     return Hz
 
-def vjp_maker_solve_Hz(Hz, info_dict, eps_vec, source, iterative=False, method=DEFAULT_SOLVER):
+def vjp_maker_solve_Hz(Hz, info_dict, eps_vec_zz, source, iterative=False, method=DEFAULT_SOLVER):
     """ Gives vjp for solve_Hz with respect to eps_vec """    
     # get the forward electric fields
-    Ex, Ey = H_to_E(Hz, info_dict, eps_vec, adjoint=False)
+    Ex, Ey = H_to_E(Hz, info_dict, eps_vec_zz, adjoint=False)
     # construct the system matrix again
-    A = make_A_Hz(info_dict, eps_vec)
+    A = make_A_Hz(info_dict, eps_vec_zz)
+
     # vector-jacobian product function to return
     def vjp(v):
         # solve the adjoint problem and get those electric fields (note D info_dict are different and transposed)
         Hz_aj = sparse_solve(A.T, -v, iterative=iterative, method=method)
-        Ex_aj, Ey_aj = H_to_E(Hz_aj, info_dict, eps_vec, adjoint=True)
+        Ex_aj, Ey_aj = H_to_E(Hz_aj, info_dict, eps_vec_zz, adjoint=True)
         # because we care about the diagonal elements, just element-wise multiply E and E_adj
         return EPSILON_0 * np.real(Ex_aj * Ex + Ey_aj * Ey)
     # return this function for autograd to link-later
     return vjp
 
-def vjp_maker_solve_Hz_source(Hz, info_dict, eps_vec, source, iterative=False, method=DEFAULT_SOLVER):
+def vjp_maker_solve_Hz_source(Hz, info_dict, eps_vec_zz, source, iterative=False, method=DEFAULT_SOLVER):
     """ Gives vjp for solve_Hz with respect to source """    
-    A = make_A_Hz(info_dict, eps_vec)
+    A = make_A_Hz(info_dict, eps_vec_zz)
     def vjp(v):
         return 1j * info_dict['omega'] * sparse_solve(A.T, v, iterative=iterative, method=method)
     return vjp
 
 # define the gradient of solve_Hz w.r.t. eps_vec (in Hz)
-def jvp_solve_Hz(g, Hz, info_dict, eps_vec, source, iterative=False, method=DEFAULT_SOLVER):
+def jvp_solve_Hz(g, Hz, info_dict, eps_vec_zz, source, iterative=False, method=DEFAULT_SOLVER):
     """ Gives jvp for solve_Hz with respect to eps_vec """    
     # construct the system matrix again and the RHS of the gradient expersion
-    A = make_A_Hz(info_dict, eps_vec)
+    A = make_A_Hz(info_dict, eps_vec_zz)
     ux = spdot(info_dict['Dxb'], Hz)
     uy = spdot(info_dict['Dyb'], Hz)
-    diag = sp.spdiags(1 / eps_vec, [0], eps_vec.size, eps_vec.size)
+    # do grid averaging
+    N = eps_vec_zz.size
+    eps_vec_xx, eps_vec_yy = vec_zz_to_xy(info_dict, eps_vec_zz, grid_averaging=AVG)    
+    diag_xx = sp.spdiags(1 / eps_vec_xx, [0], N, N)
+    diag_yy = sp.spdiags(1 / eps_vec_yy, [0], N, N)
     # the g gets multiplied in at the middle of the expression
-    ux = ux * diag * g * diag
-    uy = uy * diag * g * diag
+    ux = ux * diag_xx * g * diag_xx
+    uy = uy * diag_yy * g * diag_yy
     ux = spdot(info_dict['Dxf'], ux)
     uy = spdot(info_dict['Dyf'], uy)
     # add the x and y components and multiply by A_inv on the left
