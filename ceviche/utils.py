@@ -2,7 +2,51 @@ import numpy as np
 import scipy.sparse as sp
 import copy
 
+""" ==================== FDTD AND FDFD UTILITIES ==================== """
+
+import autograd.numpy as npa
+
+
+def grid_center_to_xyz(Q_mid, averaging=True):
+    """ Computes the interpolated value of the quantity Q_mid felt at the Ex, Ey, Ez positions of the Yee latice
+        Returns these three components
+    """
+
+    # initialize
+    Q_xx = copy.copy(Q_mid)
+    Q_yy = copy.copy(Q_mid)
+    Q_zz = copy.copy(Q_mid)
+
+    # if averaging, set the respective xx, yy, zz components to the midpoint in the Yee lattice.
+    if averaging:
+
+        # get the value from the middle of the next cell over
+        Q_x_r = npa.roll(Q_mid, shift=1, axis=0)
+        Q_y_r = npa.roll(Q_mid, shift=1, axis=1)
+        Q_z_r = npa.roll(Q_mid, shift=1, axis=2)
+
+        # average with the two middle values
+        Q_xx = (Q_mid + Q_x_r)/2
+        Q_yy = (Q_mid + Q_y_r)/2
+        Q_zz = (Q_mid + Q_z_r)/2
+
+    return Q_xx, Q_yy, Q_zz
+
+
+def grid_xyz_to_center(Q_xx, Q_yy, Q_zz):
+    """ Computes the interpolated value of the quantitys Q_xx, Q_yy, Q_zz at the center of Yee latice
+        Returns these three components
+    """
+
+    # compute the averages
+    Q_xx_avg = (Q_xx.astype('float') + npa.roll(Q_xx, shift=1, axis=0))/2
+    Q_yy_avg = (Q_yy.astype('float') + npa.roll(Q_yy, shift=1, axis=1))/2
+    Q_zz_avg = (Q_zz.astype('float') + npa.roll(Q_zz, shift=1, axis=2))/2
+
+    return Q_xx_avg, Q_yy_avg, Q_zz_avg
+
 """ ===================== TESTING AND DEBUGGING ===================== """
+
 
 def make_sparse(N, random=True, density=1):
     """ Makes a sparse NxN matrix. """
@@ -11,11 +55,13 @@ def make_sparse(N, random=True, density=1):
     D = sp.random(N, N, density=density) + 1j * sp.random(N, N, density=density)
     return D
 
+
 def float_2_array(x):
     if not isinstance(x, np.ndarray):
         return np.array([x])
     else:
         return x
+
 
 def grad_num(fn, arg, step_size=1e-7):
     """ DEPRICATED: use 'numerical' in jacobians.py instead
@@ -41,6 +87,7 @@ def grad_num(fn, arg, step_size=1e-7):
 
     return jacobian
 
+
 def reshape_to_ND(arr, N):
     """ Adds dimensions to arr until it is dimension N
     """
@@ -54,8 +101,10 @@ def reshape_to_ND(arr, N):
 
 """ =========================== AUTOGRAD =========================== """
 
+
 import autograd
 from autograd.extend import primitive, vspace, defvjp, defjvp
+
 
 def get_value(x):
     if type(x) == autograd.numpy.numpy_boxes.ArrayBox:
@@ -65,6 +114,7 @@ def get_value(x):
 
 get_value_arr = np.vectorize(get_value)
 
+
 def get_shape(x):
     """ Gets the shape of x, even if it is not an array """
     if isinstance(x, float) or isinstance(x, int):
@@ -73,6 +123,7 @@ def get_shape(x):
         return (len(x),)
     else:
         return vspace(x).shape
+
 
 def vjp_maker_num(fn, arg_inds, steps):
     """ Makes a vjp_maker for the numerical derivative of a function `fn`
@@ -110,6 +161,7 @@ def vjp_maker_num(fn, arg_inds, steps):
 
     return tuple(vjp_makers)
 
+
 @primitive
 def spdot(A, x):
     """ Dot product of sparse matrix A and dense matrix x (Ax = b) """
@@ -131,7 +183,9 @@ defjvp(spdot, None, jvp_spdot)
 
 """ =================== PLOTTING AND MEASUREMENT =================== """
 
+
 import matplotlib.pylab as plt
+
 
 def aniplot(F, source, steps, component='Ez', num_panels=10):
     """ Animate an FDTD (F) with `source` for `steps` time steps.
@@ -188,6 +242,7 @@ def measure_fields(F, source, steps, probes, component='Ez'):
             measured[t_index, probe_index] = field_probe
     return measured
 
+
 def imarr(arr):
     """ puts array 'arr' into form ready to plot """
     arr_value = get_value(arr)
@@ -196,10 +251,12 @@ def imarr(arr):
         arr_plot = arr_plot[:,:,0]
     return np.flipud(arr_plot.T)
 
+
 """ ====================== FOURIER TRANSFORMS  ======================"""
 
 from autograd.extend import primitive, defjvp
 from numpy.fft import fft, fftfreq
+
 
 @primitive
 def my_fft(x):    
@@ -223,6 +280,7 @@ def fft_grad(g, ans, x):
 
 defjvp(my_fft, fft_grad)
 
+
 def get_spectrum(series, dt):
     """ Get FFT of series """
 
@@ -239,15 +297,18 @@ def get_spectrum(series, dt):
     freqs = np.fft.fftfreq(steps, d=dt)
     return freqs, signal_f
 
+
 def get_max_power_freq(series, dt):
 
     freqs, signal_f = get_spectrum(series, dt)
     return freqs[np.argmax(signal_f)]
 
+
 def get_spectral_power(series, dt):
 
     freqs, signal_f = get_spectrum(series, dt)
     return freqs, np.square(np.abs(signal_f))
+
 
 def plot_spectral_power(series, dt, f_top=2e14):
     steps = len(series)
@@ -261,6 +322,7 @@ def plot_spectral_power(series, dt, f_top=2e14):
     plt.show()
 
 """ ========================= LINEAR ALGEBRA ========================= """
+
 
 def block_4(A, B, C, D):
     """ Constructs a big matrix out of four sparse blocks

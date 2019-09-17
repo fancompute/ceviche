@@ -4,8 +4,8 @@ import autograd.numpy as npa
 from copy import copy, deepcopy
 
 from .constants import *
-from .utils import reshape_to_ND
-# from ceviche.derivatives import curl_E, curl_H
+from .utils import reshape_to_ND, grid_center_to_xyz, grid_xyz_to_center
+
 
 class fdtd():
 
@@ -64,7 +64,7 @@ class fdtd():
     def eps_r(self, new_eps):
         """ Defines some attributes when eps_r is set. """
         self.__eps_r = new_eps
-        self.eps_xx, self.eps_yy, self.eps_zz = self._grid_center_to_xyz(self.__eps_r)
+        self.eps_xx, self.eps_yy, self.eps_zz = grid_center_to_xyz(self.__eps_r)
         self.eps_arr = self.__eps_r.flatten()
         self.N = self.eps_arr.size
         self.grid_shape = self.Nx, self.Ny, self.Nz = self.__eps_r.shape
@@ -221,44 +221,44 @@ class fdtd():
         courant_stability = dL_avg / C_0
         self.dt = courant_stability * stability_factor
 
-    @staticmethod
-    def _grid_center_to_xyz(Q_mid, averaging=True):
-        """ Computes the interpolated value of the quantity Q_mid felt at the Ex, Ey, Ez positions of the Yee latice
-            Returns these three components
-        """
+    # @staticmethod
+    # def _grid_center_to_xyz(Q_mid, averaging=True):
+    #     """ Computes the interpolated value of the quantity Q_mid felt at the Ex, Ey, Ez positions of the Yee latice
+    #         Returns these three components
+    #     """
 
-        # initialize
-        Q_xx = copy(Q_mid)
-        Q_yy = copy(Q_mid)
-        Q_zz = copy(Q_mid)
+    #     # initialize
+    #     Q_xx = copy(Q_mid)
+    #     Q_yy = copy(Q_mid)
+    #     Q_zz = copy(Q_mid)
 
-        # if averaging, set the respective xx, yy, zz components to the midpoint in the Yee lattice.
-        if averaging:
+    #     # if averaging, set the respective xx, yy, zz components to the midpoint in the Yee lattice.
+    #     if averaging:
 
-            # get the value from the middle of the next cell over
-            Q_x_r = npa.roll(Q_mid, shift=1, axis=0)
-            Q_y_r = npa.roll(Q_mid, shift=1, axis=1)
-            Q_z_r = npa.roll(Q_mid, shift=1, axis=2)
+    #         # get the value from the middle of the next cell over
+    #         Q_x_r = npa.roll(Q_mid, shift=1, axis=0)
+    #         Q_y_r = npa.roll(Q_mid, shift=1, axis=1)
+    #         Q_z_r = npa.roll(Q_mid, shift=1, axis=2)
 
-            # average with the two middle values
-            Q_xx = (Q_mid + Q_x_r)/2
-            Q_yy = (Q_mid + Q_y_r)/2
-            Q_zz = (Q_mid + Q_z_r)/2
+    #         # average with the two middle values
+    #         Q_xx = (Q_mid + Q_x_r)/2
+    #         Q_yy = (Q_mid + Q_y_r)/2
+    #         Q_zz = (Q_mid + Q_z_r)/2
 
-        return Q_xx, Q_yy, Q_zz
+    #     return Q_xx, Q_yy, Q_zz
 
-    @staticmethod
-    def _grid_xyz_to_center(Q_xx, Q_yy, Q_zz):
-        """ Computes the interpolated value of the quantitys Q_xx, Q_yy, Q_zz at the center of Yee latice
-            Returns these three components
-        """
+    # @staticmethod
+    # def _grid_xyz_to_center(Q_xx, Q_yy, Q_zz):
+    #     """ Computes the interpolated value of the quantitys Q_xx, Q_yy, Q_zz at the center of Yee latice
+    #         Returns these three components
+    #     """
 
-        # compute the averages
-        Q_xx_avg = (Q_xx.astype('float') + npa.roll(Q_xx, shift=1, axis=0))/2
-        Q_yy_avg = (Q_yy.astype('float') + npa.roll(Q_yy, shift=1, axis=1))/2
-        Q_zz_avg = (Q_zz.astype('float') + npa.roll(Q_zz, shift=1, axis=2))/2
+    #     # compute the averages
+    #     Q_xx_avg = (Q_xx.astype('float') + npa.roll(Q_xx, shift=1, axis=0))/2
+    #     Q_yy_avg = (Q_yy.astype('float') + npa.roll(Q_yy, shift=1, axis=1))/2
+    #     Q_zz_avg = (Q_zz.astype('float') + npa.roll(Q_zz, shift=1, axis=2))/2
 
-        return Q_xx_avg, Q_yy_avg, Q_zz_avg
+    #     return Q_xx_avg, Q_yy_avg, Q_zz_avg
 
     def _compute_sigmas(self):
         """ Computes sigma tensors for PML """
