@@ -11,7 +11,7 @@ from .solvers import sparse_solve, DEFAULT_SOLVER
 from .utils import spdot, block_4, grid_center_to_xyz, vec_zz_to_xy
 from .jacobians import jacobian
 
-AVG = True  # whether to do grid averaging (under development, gradients dont match exactly yet.)
+AVG = False  # whether to do grid averaging (under development, gradients dont match exactly yet.)
 
 class fdfd():
     """ Base class for FDFD simulation """
