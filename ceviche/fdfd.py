@@ -223,23 +223,14 @@ def make_A_Hz(info_dict, eps_vec_zz):
       + info_dict['omega']**2 * MU_0 * sp.eye(N)
     return A
 
-# note: this primitive not actually needed. but saving for later
-# @primitive
 def make_A_Ez(info_dict, eps_vec_zz):
     """ constructs the system matrix for `Ez` polarization """
     N = eps_vec_zz.size
-    diag = EPSILON_0 * sp.spdiags(eps_vec_zz, [0], N, N)
+    diag_zz = EPSILON_0 * sp.spdiags(eps_vec_zz, [0], N, N)
     A = 1 / MU_0 * info_dict['Dxf'].dot(info_dict['Dxb']) \
       + 1 / MU_0 * info_dict['Dyf'].dot(info_dict['Dyb']) \
-      + info_dict['omega']**2 * diag
+      + info_dict['omega']**2 * diag_zz
     return A
-
-# def vjp_maker_make_A_Ez(A, info_dict, eps_vec):
-#     def vjp(v):
-#         return EPSILON_0 * info_dict['omega']**2 * v
-#     return vjp
-
-# defvjp(make_A_Ez, None, vjp_maker_make_A_Ez)
 
 """========================== FIELD CONVERSIONS ==========================="""
 
@@ -365,8 +356,8 @@ def vjp_maker_solve_Hz(Hz, info_dict, eps_vec_zz, source, iterative=False, metho
         Ex_aj, Ey_aj = H_to_E(Hz_aj, info_dict, eps_vec_zz, adjoint=True)
         # because we care about the diagonal elements, just element-wise multiply E and E_adj        
 
-        _, Ex_aj = vec_zz_to_xy(info_dict, Ex_aj, grid_averaging=True)
-        Ey_aj, _ = vec_zz_to_xy(info_dict, Ey_aj, grid_averaging=True)
+        # _, Ex_aj = vec_zz_to_xy(info_dict, Ex_aj, grid_averaging=AVG)
+        # Ey_aj, _ = vec_zz_to_xy(info_dict, Ey_aj, grid_averaging=AVG)
 
         return EPSILON_0 * np.real(Ex_aj * Ex + Ey_aj * Ey)
     # return this function for autograd to link-later
