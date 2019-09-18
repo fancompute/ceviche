@@ -11,7 +11,7 @@ from .solvers import sparse_solve, DEFAULT_SOLVER
 from .utils import spdot, block_4, grid_center_to_xyz, vec_zz_to_xy
 from .jacobians import jacobian
 
-AVG = False  # whether to do grid averaging (under development, gradients dont match exactly yet.)
+AVG = True  # whether to do grid averaging (under development, gradients dont match exactly yet.)
 
 class fdfd():
     """ Base class for FDFD simulation """
@@ -101,10 +101,7 @@ class fdfd_linear(fdfd):
         assert not callable(new_eps), "for linear problems, eps_r must be a static array"        
         self.shape = self.Nx, self.Ny = new_eps.shape
         self.info_dict['shape'] = self.shape
-        self.eps_zz, self.eps_yy, self.eps_xx = grid_center_to_xyz(new_eps[:,:,None])        
-        self.eps_vec_xx = self.eps_xx.flatten()
-        self.eps_vec_yy = self.eps_yy.flatten()
-        self.eps_vec_zz = self.eps_zz.flatten()
+        self.eps_vec_zz = new_eps.flatten()
         self._eps_r = new_eps
 
 class fdfd_nonlinear(fdfd):
@@ -262,28 +259,28 @@ def E_to_H(Ez, info_dict, eps_vec=None):
     Hy = Ez_to_Hy(Ez, info_dict)
     return Hx, Hy
 
-def Hz_to_Ex(Hz, info_dict, eps_vec_xx, adjoint=False):
+def Hz_to_Ex(Hz, info_dict, eps_vec_yy, adjoint=False):
     """ Returns electric field `Ex` from magnetic field `Hz` """
     # note: adjoint switch is because backprop thru this fn. has different form
     if adjoint:
-        Ex =  spdot(info_dict['Dyf'].T, Hz) / eps_vec_xx / EPSILON_0
+        Ex =  spdot(info_dict['Dyf'].T, Hz) / eps_vec_yy / EPSILON_0
     else:
-        Ex = -spdot(info_dict['Dyb'],   Hz) / eps_vec_xx / EPSILON_0
+        Ex = -spdot(info_dict['Dyb'],   Hz) / eps_vec_yy / EPSILON_0
     return Ex
 
-def Hz_to_Ey(Hz, info_dict, eps_vec_yy, adjoint=False):
+def Hz_to_Ey(Hz, info_dict, eps_vec_xx, adjoint=False):
     """ Returns electric field `Ey` from magnetic field `Hz` """
     if adjoint:
-        Ey = -spdot(info_dict['Dxf'].T, Hz) / eps_vec_yy / EPSILON_0
+        Ey = -spdot(info_dict['Dxf'].T, Hz) / eps_vec_xx / EPSILON_0
     else:
-        Ey =  spdot(info_dict['Dxb'],   Hz) / eps_vec_yy / EPSILON_0
+        Ey =  spdot(info_dict['Dxb'],   Hz) / eps_vec_xx / EPSILON_0
     return Ey
 
 def H_to_E(Hz, info_dict, eps_vec_zz, adjoint=False):
     """ More convenient function to return both Ex and Ey from Hz """
     eps_vec_xx, eps_vec_yy = vec_zz_to_xy(info_dict, eps_vec_zz, grid_averaging=AVG)    
-    Ex = Hz_to_Ex(Hz, info_dict, eps_vec_xx, adjoint=adjoint)
-    Ey = Hz_to_Ey(Hz, info_dict, eps_vec_yy, adjoint=adjoint)
+    Ex = Hz_to_Ex(Hz, info_dict, eps_vec_yy, adjoint=adjoint)
+    Ey = Hz_to_Ey(Hz, info_dict, eps_vec_xx, adjoint=adjoint)
     return Ex, Ey
 
 """======================== SOLVING FOR THE FIELDS ========================"""
@@ -357,6 +354,7 @@ def vjp_maker_solve_Hz(Hz, info_dict, eps_vec_zz, source, iterative=False, metho
     """ Gives vjp for solve_Hz with respect to eps_vec """    
     # get the forward electric fields
     Ex, Ey = H_to_E(Hz, info_dict, eps_vec_zz, adjoint=False)
+
     # construct the system matrix again
     A = make_A_Hz(info_dict, eps_vec_zz)
 
@@ -365,7 +363,11 @@ def vjp_maker_solve_Hz(Hz, info_dict, eps_vec_zz, source, iterative=False, metho
         # solve the adjoint problem and get those electric fields (note D info_dict are different and transposed)
         Hz_aj = sparse_solve(A.T, -v, iterative=iterative, method=method)
         Ex_aj, Ey_aj = H_to_E(Hz_aj, info_dict, eps_vec_zz, adjoint=True)
-        # because we care about the diagonal elements, just element-wise multiply E and E_adj
+        # because we care about the diagonal elements, just element-wise multiply E and E_adj        
+
+        _, Ex_aj = vec_zz_to_xy(info_dict, Ex_aj, grid_averaging=True)
+        Ey_aj, _ = vec_zz_to_xy(info_dict, Ey_aj, grid_averaging=True)
+
         return EPSILON_0 * np.real(Ex_aj * Ex + Ey_aj * Ey)
     # return this function for autograd to link-later
     return vjp
@@ -497,6 +499,74 @@ def vjp_maker_solve_Ez_nl_b(Ez, info_dict, eps_fn, source, iterative=False, meth
     return vjp
 
 defvjp(solve_Ez_nl, None, vjp_maker_solve_Ez_nl_eps, vjp_maker_solve_Ez_nl_b)
+
+
+"""============================= SOURCE / TFSF ============================"""
+
+def b_TFSF(fdfd, inside_mask, theta):
+    """ Returns a source vector for FDFD that will implement TFSF 
+            A: the FDFD system matrix
+            inside_mask: a binary mask (vector) specifying the inside of the TFSF region
+            theta: [0, 2pi] the angle of the source relative to y=0+
+
+                      y ^
+                        |
+                        |
+                  <-----|----- > x
+                        |\
+                        | \                                     
+                        v |\
+                          theta             
+    see slide 32 of https://empossible.net/wp-content/uploads/2019/08/Lecture-4d-FDFD-Formulation.pdf                                                       
+    """
+
+    lambda0 = 2 * np.pi * C_0 / fdfd.omega
+    f_src = compute_f(theta, lambda0, fdfd.dL,  inside.shape)
+
+    Q = compute_Q(inside_mask)
+    A = fdfd.make_A(fdfd.eps_r.copy().flatten())
+
+    quack = (Q.dot(A) - A.dot(Q))
+
+    return quack.dot(f_src)
+
+def compute_Q(inside_mask):
+    """ Compute the matrix used in PDF to get source """
+
+    # convert masks to vectors and get outside portion
+    inside_vec = inside_mask.flatten()
+    outside_vec = 1 - inside_vec
+    N = outside_vec.size
+
+    # make a sparse diagonal matrix and return
+    Q = sp.diags([outside_vec], [0], shape=(N, N))
+    return Q
+
+
+def compute_f(theta, lambda0, dL, shape):
+    """ Compute the 'vacuum' field vector """
+
+    # get plane wave k vector components (in units of grid cells)
+    k0 = 2 * np.pi / lambda0 * dL
+    kx =  k0 * np.sin(theta)
+    ky = -k0 * np.cos(theta)  # negative because downwards
+
+    # array to write into
+    f_src = np.zeros(shape, dtype=np.complex128)
+
+    # get coordinates
+    Nx, Ny = shape
+    xpoints = np.arange(Nx)
+    ypoints = np.arange(Ny)
+    xv, yv = np.meshgrid(xpoints, ypoints, indexing='ij')
+
+    # compute values and insert into array
+    x_PW = np.exp(1j * xpoints * kx)[:, None]
+    y_PW = np.exp(1j * ypoints * ky)[:, None]
+
+    f_src[xv, yv] = np.outer(x_PW, y_PW)
+
+    return f_src.flatten()
 
 """=========================== HELPER FUNCTIONS ==========================="""
 
