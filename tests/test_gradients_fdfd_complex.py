@@ -55,8 +55,8 @@ class TestFDFD(unittest.TestCase):
         self.source_hz[self.Nx//2, self.Ny//2] = self.source_amp_hz
 
         # starting relative permittivity (random for debugging)
-        # self.eps_r   = np.random.random((self.Nx, self.Ny)) + 1
-        self.eps_r   = np.ones((self.Nx, self.Ny)) + 1
+        self.eps_r   = np.random.random((self.Nx, self.Ny)) + 1
+        self.eps_r   = self.eps_r + 1j * (np.random.random((self.Nx, self.Ny)) + 1)
         self.eps_arr = self.eps_r.flatten()
 
     def check_gradient_error(self, grad_num, grad_auto):

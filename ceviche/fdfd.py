@@ -99,6 +99,7 @@ class fdfd_linear(fdfd):
     def eps_r(self, new_eps):
         """ Defines some attributes when eps_r is set. """
         assert not callable(new_eps), "for linear problems, eps_r must be a static array"        
+        new_eps = new_eps + 0.0 * (1 + 1j)    # make it complex
         self.shape = self.Nx, self.Ny = new_eps.shape
         self.info_dict['shape'] = self.shape
         self.eps_vec_zz = new_eps.flatten()
@@ -123,8 +124,9 @@ class fdfd_nonlinear(fdfd):
                 jacobian(new_eps)(np.zeros(self.shape))
         except:
             raise ValueError("The supplied eps_r function is NOT autograd-compatable, make sure you defined it using autograd.numpy functions!")
-        self.eps_vec_zz = lambda Ez: new_eps(Ez.reshape(self.shape)).flatten()
-        self.__eps_r = new_eps
+        new_eps_complex = lambda Ez: new_eps(Ez) + 0.0 * (1 + 1j)
+        self.eps_vec_zz = lambda Ez: new_eps_complex(Ez.reshape(self.shape)).flatten()
+        self.__eps_r = new_eps_complex
 
 """ These are the fdfd classes that you'll actually want to use """
 
