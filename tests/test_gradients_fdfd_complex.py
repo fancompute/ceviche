@@ -73,7 +73,7 @@ class TestFDFD(unittest.TestCase):
         self.assertLessEqual(norm_ratio, ALLOWED_RATIO)
         print('')
 
-    def test_Hz_reverse(self):
+    def tes1t_Hz_reverse(self):
 
         print('\ttesting reverse-mode Hz in FDFD')
 
@@ -131,7 +131,7 @@ class TestFDFD(unittest.TestCase):
 
         self.check_gradient_error(grad_numerical, grad_autograd_for)
 
-    def test_Ez_reverse(self):
+    def te1st_Ez_reverse(self):
 
         print('\ttesting reverse-mode Ez in FDFD')
 
