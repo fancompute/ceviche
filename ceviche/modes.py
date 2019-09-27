@@ -7,7 +7,7 @@ from copy import deepcopy
 from ceviche.constants import *
 from ceviche.fdfd import compute_derivative_matrices
 
-def get_modes(eps_cross, omega, dL, npml, m=1, filter=True):
+def get_modes(eps_cross, omega, dL, npml, m=1, filtering=True):
     """ Solve for the modes of a waveguide cross section 
         ARGUMENTS
             eps_cross: the permittivity profile of the waveguide
@@ -15,7 +15,7 @@ def get_modes(eps_cross, omega, dL, npml, m=1, filter=True):
             dL:        grid size of the cross section
             npml:      number of PML points on each side of the cross section
             m:         number of modes to solve for
-            filter:    whether to filter out evanescent modes
+            filtering:    whether to filter out evanescent modes
         RETURNS
             vals:      array of effective indeces of the modes
             vectors:   array containing the corresponding mode profiles
@@ -35,7 +35,7 @@ def get_modes(eps_cross, omega, dL, npml, m=1, filter=True):
     n_max = np.sqrt(np.max(eps_cross))
     vals, vecs = solver_eigs(A, m, guess_value=4*n_max)
 
-    if filter:
+    if filtering:
         vals, vecs = filter_modes(vals, vecs)
 
     if vals.size == 0:
