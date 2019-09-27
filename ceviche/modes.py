@@ -123,7 +123,7 @@ if __name__ == '__main__':
     vals, vecs = get_modes(eps_wg, omega_0, dL, npml=10, m=10)
 
     plt.plot(np.linspace(-Lx, Lx, Nx) / 2 / lambda0, np.abs(vecs))
-    plt.xlabel('x position ($\lambda_0$')
+    plt.xlabel('x position ($\lambda_0$)')
     plt.ylabel('mode profile (normalized)')
     plt.show()
 
