@@ -15,7 +15,7 @@ def get_modes(eps_cross, omega, dL, npml, m=1, filtering=True):
             dL:        grid size of the cross section
             npml:      number of PML points on each side of the cross section
             m:         number of modes to solve for
-            filtering:    whether to filter out evanescent modes
+            filtering: whether to filter out evanescent modes
         RETURNS
             vals:      array of effective indeces of the modes
             vectors:   array containing the corresponding mode profiles
@@ -36,7 +36,10 @@ def get_modes(eps_cross, omega, dL, npml, m=1, filtering=True):
     vals, vecs = solver_eigs(A, m, guess_value=4*n_max)
 
     if filtering:
-        vals, vecs = filter_modes(vals, vecs)
+        filter_re = lambda vals: np.real(vals) > 1.0
+        filter_im = lambda vals: np.abs(np.imag(vals)) <= 1e-12
+        filters = [filter_re, filter_im]
+        vals, vecs = filter_modes(vals, vecs, filters=filters)
 
     if vals.size == 0:
         raise BaseException("Could not find any eigenmodes for this waveguide")
@@ -59,27 +62,30 @@ def solver_eigs(A, Neigs, guess_value=1.0):
     return values, vectors
 
 
-def filter_modes(values, vectors, n_eff_low=1.0, evan_cutoff=1e-12):
-    """ Filters out evanescent modes
+def filter_modes(values, vectors, filters=None):
+    """ Generic Filtering Function
         ARGUMENTS
             values: array of effective index values
             vectors: array of mode profiles
-            n_eff_low: the lowest real(n_eff) that is acceptable
-            evan_cutoff: the highest |imag(n_eff)| that is acceptable
+            filters: list of functions of `values` that return True for modes satisfying the desired filter condition
         RETURNS
             vals:      array of filtered effective indeces of the modes
             vectors:   array containing the corresponding, filtered mode profiles
     """
 
-    # conditions for keeping the mode
-    positive_neff = (np.real(values) > n_eff_low)
-    propagating = (np.abs(np.imag(values)) <= evan_cutoff)
+    # if no filters, just return
+    if filters is None:
+        return values, vectors
 
-    # logical and them together
-    both_conditions = np.logical_and(positive_neff, propagating)
+    # elements to keep, all for starts
+    keep_elements = np.ones(values.shape)
+
+    for f in filters:
+        keep_f = f(values)
+        keep_elements = np.logical_and(keep_elements, keep_f)
 
     # get the indeces you want to keep
-    keep_indeces = np.where(both_conditions)[0]
+    keep_indeces = np.where(keep_elements)[0]
 
     # filter and return arrays
     return values[keep_indeces], vectors[:, keep_indeces]
