@@ -5,7 +5,7 @@ import scipy.sparse.linalg as spl
 from copy import deepcopy
 
 from ceviche.constants import *
-from ceviche.fdfd import compute_derivative_matrices
+from ceviche.fdfd import compute_derivative_matrices, E_to_H
 
 def get_modes(eps_cross, omega, dL, npml, m=1, filtering=True):
     """ Solve for the modes of a waveguide cross section 
@@ -36,9 +36,9 @@ def get_modes(eps_cross, omega, dL, npml, m=1, filtering=True):
     vals, vecs = solver_eigs(A, m, guess_value=4*n_max)
 
     if filtering:
-        filter_re = lambda vals: np.real(vals) > 1.0
-        filter_im = lambda vals: np.abs(np.imag(vals)) <= 1e-12
-        filters = [filter_re, filter_im]
+        filter_re = lambda vals: np.real(vals) > 0.0
+        # filter_im = lambda vals: np.abs(np.imag(vals)) <= 1e-12
+        filters = [filter_re]
         vals, vecs = filter_modes(vals, vecs, filters=filters)
 
     if vals.size == 0:
@@ -101,6 +101,24 @@ def normalize_modes(vectors):
 
     return vectors / np.sqrt(powers)
 
+def Ez_to_H(Ez, omega, dL, npml):
+    """ Converts the Ez output of mode solver to Hx and Hy components
+    """
+
+    N = Ez.size
+    matrices = compute_derivative_matrices(omega, (N, 1), [npml, 0], dL=dL)
+    Dxf, Dxb, Dyf, Dyb = matrices
+
+    # save to a dictionary for convenience passing to primitives
+    info_dict = {}
+    info_dict['Dxf'] = Dxf
+    info_dict['Dxb'] = Dxb
+    info_dict['Dyf'] = Dyf
+    info_dict['Dyb'] = Dyb   
+
+    Hx, Hy = E_to_H(Ez, info_dict)
+
+    return Hx, Hy
 
 if __name__ == '__main__':
 

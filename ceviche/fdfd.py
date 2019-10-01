@@ -518,7 +518,7 @@ def b_TFSF(fdfd, inside_mask, theta):
     lambda0 = 2 * np.pi * C_0 / fdfd.omega
     f_src = compute_f(theta, lambda0, fdfd.dL,  inside.shape)
 
-    Q = compute_Q(inside_mask)
+    Q = compute_Q(inside_mask) / fdfd.omega # why this omega??
     A = fdfd.make_A(fdfd.eps_r.copy().flatten())
 
     quack = (Q.dot(A) - A.dot(Q))
