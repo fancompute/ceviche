@@ -21,15 +21,15 @@ PLOT = False
 wavelength = 2e-6                      # free space wavelength
 omega = 2 * np.pi * C_0 / wavelength   # angular frequency
 beta = .5                              # speed of electron / speed of light
-dL = wavelength / 50.0                # grid size (m)
+dL = wavelength / 50.0                 # grid size (m)
 
-Nx, Ny = 450, int(beta * wavelength / dL)
+Nx, Ny = 350, int(beta * wavelength / dL)
 
-eps_max = 3
+eps_max = 4
 eps_r = np.ones((Nx, Ny))
 source = np.zeros((Nx, Ny))
-source[30, :] = 10
-source[-30-1, :] = -10
+source[30, :] = 1
+# source[-30-1, :] = -10  # for dual side drive
 npml = [20, 0]
 spc = 100
 gap = 20
@@ -87,14 +87,14 @@ def accel_gradient(eps_arr):
     Ex, Ey, Hz = F.solve(source)
 
     # compute the gradient and normalize if you want
-    G = npa.sum(Ey * eta / Ny) / Emax(Ex, Ey, eps_r)
-    return -np.abs(G)
+    G = npa.sum(Ey * eta / Ny)
+    return -np.abs(G) # / Emax(Ex, Ey, eps_r)
 
 # define the gradient for autograd
 grad_g = jacobian(accel_gradient)
 
 # optimization
-NIter = 200000
+NIter = 200
 bounds_eps = [(1, eps_max) if design_region.flatten()[i] == 1 else (1,1) for i in range(eps_r.size)]
 minimize(accel_gradient, eps_r.flatten(), args=(), method='L-BFGS-B', jac=grad_g,
     bounds=bounds_eps, tol=None, callback=None,
@@ -119,12 +119,17 @@ def stack(arr, num_periods=1):
 num_periods = 4
 
 # plot the final permittivity
-plt.imshow(imarr(stack(F.eps_r, num_periods=num_periods)), cmap='nipy_spectral')
+eps_disp = imarr(stack(get_value(F.eps_r), num_periods=num_periods))
+
+plt.imshow(np.real(eps_disp), cmap='nipy_spectral')
 plt.colorbar()
 plt.show()
 
 # plot the accelerating fields
-Ex, Ey, Hz = F.solve(source)
+fields = F.solve(source)
+
+[Ex, Ey, Hz] = [get_value(f) for f in fields]
+
 plt.imshow(imarr(np.real(stack(Ey, num_periods=num_periods)))  / E0 , cmap='RdBu')
 plt.title('E_y / E0 (<-)')
 plt.xlabel('y')
