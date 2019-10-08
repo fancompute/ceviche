@@ -16,12 +16,21 @@ AVG = False  # whether to do grid averaging (under development, gradients dont m
 class fdfd():
     """ Base class for FDFD simulation """
 
-    def __init__(self, omega, dL, eps_r, npml):
-        """ initialize with a given structure and source """
+    def __init__(self, omega, dL, eps_r, npml, bloch_x=0.0, bloch_y=0.0):
+        """ initialize with a given structure and source 
+                omega: angular frequency (rad/s)
+                dL: grid cell size (m)
+                eps_r: array containing relative permittivity
+                npml: list of number of PML grid cells in [x, y]
+                bloch_{x,y} phase difference across {x,y} boundaries for bloch periodic boundary conditions (default = 0 = periodic)
+        """
 
         self.omega = omega
         self.dL = dL
         self.npml = npml
+
+        self.bloch_x = bloch_x
+        self.bloch_y = bloch_y
 
         self.info_dict = {'omega': self.omega}
 
@@ -33,7 +42,7 @@ class fdfd():
     def setup_derivatives(self):
 
         # Creates all of the operators needed for later
-        info_dict = compute_derivative_matrices(self.omega, self.shape, self.npml, self.dL)
+        info_dict = compute_derivative_matrices(self.omega, self.shape, self.npml, self.dL, bloch_x=self.bloch_x, bloch_y=self.bloch_y)
         self.Dxf, self.Dxb, self.Dyf, self.Dyb = info_dict
 
         # save to a dictionary for convenience passing to primitives
@@ -92,8 +101,8 @@ class fdfd():
 
 class fdfd_linear(fdfd):
 
-    def __init__(self, omega, L0, eps_r, npml):
-        super().__init__(omega, L0, eps_r, npml)
+    def __init__(self, omega, L0, eps_r, npml, bloch_x=0.0, bloch_y=0.0):
+        super().__init__(omega, L0, eps_r, npml, bloch_x=bloch_x, bloch_y=bloch_y)
 
     @fdfd.eps_r.setter
     def eps_r(self, new_eps):
@@ -107,8 +116,8 @@ class fdfd_linear(fdfd):
 
 class fdfd_nonlinear(fdfd):
 
-    def __init__(self, omega, L0, eps_r, npml):
-        super().__init__(omega, L0, eps_r, npml)
+    def __init__(self, omega, L0, eps_r, npml, bloch_x=0.0, bloch_y=0.0):
+        super().__init__(omega, L0, eps_r, npml, bloch_x=bloch_x, bloch_y=bloch_y)
 
     @fdfd.eps_r.setter
     def eps_r(self, new_eps):
@@ -133,8 +142,8 @@ class fdfd_nonlinear(fdfd):
 class fdfd_hz(fdfd_linear):
     """ FDFD class for linear Hz polarization """
 
-    def __init__(self, omega, L0, eps_r, npml):
-        super().__init__(omega, L0, eps_r, npml)
+    def __init__(self, omega, L0, eps_r, npml, bloch_x=0.0, bloch_y=0.0):
+        super().__init__(omega, L0, eps_r, npml, bloch_x=bloch_x, bloch_y=bloch_y)
 
     def make_A(self, eps_vec_zz):
         return make_A_Hz(self.info_dict, eps_vec_zz)
@@ -148,9 +157,9 @@ class fdfd_hz(fdfd_linear):
 class fdfd_ez(fdfd_linear):
     """ FDFD class for linear Ez polarization """
 
-    def __init__(self, omega, L0, eps_r, npml):
+    def __init__(self, omega, L0, eps_r, npml, bloch_x=0.0, bloch_y=0.0):
         assert not callable(eps_r), "for linear problems, eps_r must be a static array"
-        super().__init__(omega, L0, eps_r, npml)
+        super().__init__(omega, L0, eps_r, npml, bloch_x=bloch_x, bloch_y=bloch_y)
 
     def make_A(self, eps_vec_zz):
         return make_A_Ez(self.info_dict, eps_vec_zz)
@@ -164,9 +173,9 @@ class fdfd_ez(fdfd_linear):
 class fdfd_ez_nl(fdfd_nonlinear):
     """ FDFD class for nonlinear Ez polarization """
 
-    def __init__(self, omega, L0, eps_fn, npml):
+    def __init__(self, omega, L0, eps_fn, npml, bloch_x=0.0, bloch_y=0.0):
         assert callable(eps_fn), "for nonlinear problems, eps_r must be a function of Ez"
-        super().__init__(omega, L0, eps_fn, npml)
+        super().__init__(omega, L0, eps_fn, npml, bloch_x=bloch_x, bloch_y=bloch_y)
 
     def make_A(self, eps_fn):
         return lambda Ez: make_A_Ez(self.info_dict, eps_vec(Ez))
@@ -565,16 +574,16 @@ def compute_f(theta, lambda0, dL, shape):
 
 """=========================== HELPER FUNCTIONS ==========================="""
 
-def compute_derivative_matrices(omega, shape, npml, dL):
+def compute_derivative_matrices(omega, shape, npml, dL, bloch_x=0.0, bloch_y=0.0):
 
     # make the S-matrices for PML
     (Sxf, Sxb, Syf, Syb) = S_create(omega, shape, npml, dL)
 
     # Construct derivate matrices without PML
-    Dxf_0 = createDws('x', 'f', dL, shape)
-    Dxb_0 = createDws('x', 'b', dL, shape)
-    Dyf_0 = createDws('y', 'f', dL, shape)
-    Dyb_0 = createDws('y', 'b', dL, shape)
+    Dxf_0 = createDws('x', 'f', dL, shape, bloch_x=bloch_x, bloch_y=bloch_y)
+    Dxb_0 = createDws('x', 'b', dL, shape, bloch_x=bloch_x, bloch_y=bloch_y)
+    Dyf_0 = createDws('y', 'f', dL, shape, bloch_x=bloch_x, bloch_y=bloch_y)
+    Dyb_0 = createDws('y', 'b', dL, shape, bloch_x=bloch_x, bloch_y=bloch_y)
 
     # apply PML to derivative matrices
     Dxf = Sxf.dot(Dxf_0)
@@ -630,7 +639,7 @@ def S_create(omega, shape, npml, dL):
     return Sx_f, Sx_b, Sy_f, Sy_b
 
 
-def createDws(w, s, dL, shape):
+def createDws(w, s, dL, shape, bloch_x=0.0, bloch_y=0.0):
     """ creates the derivative matrices
             NOTE: python uses C ordering rather than Fortran ordering. Therefore the
             derivative operators are constructed slightly differently than in MATLAB
@@ -640,21 +649,25 @@ def createDws(w, s, dL, shape):
 
     if w is 'x':
         if Nx > 1:
+            phasor_x = np.exp(1j * bloch_x)   
             if s is 'f':
-                dxf = sp.diags([-1, 1, 1], [0, 1, -Nx+1], shape=(Nx, Nx))
+                # dxf = sp.diags([-1, 1, 1], [0, 1, -Nx+1], shape=(Nx, Nx))
+                dxf = sp.diags([-1, 1, phasor_x], [0, 1, -Nx+1], shape=(Nx, Nx), dtype=np.complex128)
                 Dws = 1 / dL * sp.kron(dxf, sp.eye(Ny))
             else:
-                dxb = sp.diags([1, -1, -1], [0, -1, Nx-1], shape=(Nx, Nx))
+                # dxb = sp.diags([1, -1, -1], [0, -1, Nx-1], shape=(Nx, Nx))
+                dxb = sp.diags([1, -1, -np.conj(phasor_x)], [0, -1, Nx-1], shape=(Nx, Nx), dtype=np.complex128)
                 Dws = 1 / dL * sp.kron(dxb, sp.eye(Ny))
         else:
-            Dws = sp.eye(Ny)            
+            Dws = sp.eye(Ny)
     if w is 'y':
         if Ny > 1:
+            phasor_y = np.exp(1j * bloch_y)               
             if s is 'f':
-                dyf = sp.diags([-1, 1, 1], [0, 1, -Ny+1], shape=(Ny, Ny))
+                dyf = sp.diags([-1, 1, phasor_y], [0, 1, -Ny+1], shape=(Ny, Ny))
                 Dws = 1 / dL * sp.kron(sp.eye(Nx), dyf)
             else:
-                dyb = sp.diags([1, -1, -1], [0, -1, Ny-1], shape=(Ny, Ny))
+                dyb = sp.diags([1, -1, -np.conj(phasor_y)], [0, -1, Ny-1], shape=(Ny, Ny))
                 Dws = 1 / dL * sp.kron(sp.eye(Nx), dyb)
         else:
             Dws = sp.eye(Nx)
