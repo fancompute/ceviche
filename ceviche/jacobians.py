@@ -32,8 +32,10 @@ def jacobian_forward(fun, x):
     vals, grads = zip(*val_grad)
     ans = np.zeros((list(vals)[0].size,))  # fake answer so that dont have to compute it twice
     m, n = _jac_shape(x, ans)
+    # print(grads)
+    # print(x)
+    # print(ans)
     return np.reshape(np.stack(grads), (m, n)).T
-
 
 @unary_to_nary
 def jacobian_numerical(fn, x, step_size=1e-7):
