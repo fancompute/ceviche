@@ -7,6 +7,7 @@ import matplotlib.pylab as plt
 from autograd.scipy.signal import convolve as conv
 from skimage.draw import circle
 
+import ceviche
 from ceviche import fdfd_ez, fdfd_ez_nl, jacobian
 from ceviche.optimizers import adam_optimize
 from ceviche.utils import imarr, get_value
