@@ -61,7 +61,7 @@ def insert_mode(omega, dx, x, y, epsr, target=None, npml=0, m=1, filtering=False
 
     epsr_cross = epsr[x, y]
     _, mode_field = get_modes(epsr_cross, omega, dx, npml, m=m, filtering=filtering)
-    target[x, y] = mode_field.squeeze()
+    target[x, y] = np.atleast_2d(mode_field)[:,m-1].squeeze()
 
     return target
 
