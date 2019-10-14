@@ -1,49 +1,49 @@
 import numpy as np
+import time
+from autograd.numpy.numpy_boxes import ArrayBox
 
-def minimize(objective, params, jac, method='LBFGS', options=None):
-    """ Lets write a master function here that someone can call and replace methods. """
-    pass
-
-
-def adam_minimize(objective, params, jac, step_size=1e-2, Nsteps=100, bounds=None, options={}):
+def adam_optimize(objective, params, jac, step_size=1e-2, Nsteps=100, bounds=None, direction='min', beta1=0.9, beta2=0.999, mask=None):
     """Performs Nsteps steps of ADAM minimization of function `objective` with gradient `jac`.
     The `bounds` are set abruptly by rejecting an update step out of bounds."""
     of_list = []
 
-    opt_keys = options.keys()
-
-    if 'beta1' in opt_keys:
-        beta1 = options['beta1']
-    else:
-        beta1 = 0.9
-
-    if 'beta2' in opt_keys:
-        beta2 = options['beta2']
-    else:
-        beta2 = 0.999
+    np.set_printoptions(formatter={'float': '{: 1.4f}'.format})
 
     for iteration in range(Nsteps):
 
-        of = objective(params)
-        of_list.append(of) 
-        grad = jac(params).ravel()
+        t_start = time.time()
+        if jac==True:
+            of, grad = objective(params)
+        else:
+            of = objective(params)
+            grad = jac(params)
+        t_elapsed = time.time() - t_start
 
-        if 'disp' in opt_keys:
-            if options['disp'] == True:
-                print("At iteration %d objective value is %f" %(iteration, of))
+        of_list.append(of._value if type(of) is ArrayBox else of) 
+
+        print("Epoch: %3d/%3d | Duration: %.2f secs | Value: %5e" %(iteration+1, Nsteps, t_elapsed, of_list[-1]))
 
         if iteration == 0:
             mopt = np.zeros(grad.shape)
             vopt = np.zeros(grad.shape)
 
         (grad_adam, mopt, vopt) = step_adam(grad, mopt, vopt, iteration, beta1, beta2)
+        
+        if mask is not None:
+            grad_adam = mask*grad_adam
 
-        params -= step_size*grad_adam # Note: minus cause we minimize
+        if direction == 'min':
+            params = params - step_size*grad_adam
+        elif direction == 'max':
+            params = params + step_size*grad_adam
+        else:
+            raise ValueError("The 'direction' parameter should be either 'min' or 'max'")
+
         if bounds:
             params[params < bounds[0]] = bounds[0]
             params[params > bounds[1]] = bounds[1]
 
-    return (of_list, params)
+    return (params, of_list)
 
 
 def step_adam(gradient, mopt_old, vopt_old, iteration, beta1, beta2, epsilon=1e-8):
