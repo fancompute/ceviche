@@ -7,6 +7,7 @@ import matplotlib.pylab as plt
 from autograd.scipy.signal import convolve as conv
 from skimage.draw import circle
 
+import ceviche
 from ceviche import fdfd_ez, fdfd_ez_nl, jacobian
 from ceviche.optimizers import adam_optimize
 from ceviche.utils import imarr, get_value
@@ -15,46 +16,6 @@ from ceviche.modes import get_modes
 import collections
 # Create a container for our slice coords to be used for sources and probes
 Slice = collections.namedtuple('Slice', 'x y')
-
-def plot_re(val, outline=None, ax=None, cbar=False, cmap='RdBu'):
-    """Plots the real part of 'val', optionally overlaying an outline of 'outline'
-    """
-
-    if ax is None:
-        fig, ax = plt.subplots(1, 1, constrained_layout=True)
-    
-    vmax = np.abs(val).max()
-    h = ax.imshow(np.real(val.T), cmap=cmap, origin='lower left', vmin=-vmax, vmax=vmax)
-    
-    if outline is not None:
-        ax.contour(outline.T,1,colors='k')
-    
-    ax.set_ylabel('y')
-    ax.set_xlabel('x')
-    if cbar:
-        plt.colorbar(h, ax=ax)
-    
-    return ax
-
-def plot_abs(val, outline=None, ax=None, cbar=False, cmap='magma'):
-    """Plots the absolute value of 'val', optionally overlaying an outline of 'outline'
-    """
-    
-    if ax is None:
-        fig, ax = plt.subplots(1, 1, constrained_layout=True)      
-    
-    vmax = np.abs(val).max()
-    h = ax.imshow(np.abs(val.T), cmap=cmap, origin='lower left', vmin=0, vmax=vmax)
-    
-    if outline is not None:
-        ax.contour(outline.T,1,colors='w')
-    
-    ax.set_ylabel('y')
-    ax.set_xlabel('x')
-    if cbar:
-        plt.colorbar(h, ax=ax)
-    
-    return ax
 
 def init_domain(Nx, Ny, Npml, space=10, wg_width=10, space_slice=5):
     """Initializes the domain and design region
@@ -172,11 +133,11 @@ for output_slice in output_slices:
 simulation = fdfd_ez(omega, dx, epsr, [Npml, Npml])
 Hx, Hy, Ez = simulation.solve(source)
 fig, ax =plt.subplots(1, 2, constrained_layout=True, figsize=(6,3))
-plot_re(Ez, outline=epsr, ax=ax[0], cbar=False)
+ceviche.viz.real(Ez, outline=epsr, ax=ax[0], cbar=False)
 ax[0].plot(input_slice.x*np.ones(len(input_slice.y)), input_slice.y, 'g-')
 for output_slice in output_slices:
     ax[0].plot(output_slice.x*np.ones(len(output_slice.y)), output_slice.y, 'r-')
-plot_abs(epsr, ax=ax[1], cmap='Greys');
+ceviche.viz.abs(epsr, ax=ax[1], cmap='Greys');
 plt.show()
 
 # Define optimization objective
@@ -201,9 +162,9 @@ epsr = epsr_min + (epsr_max-epsr_min)*operator_proj(make_rho(rho_optimum, design
 simulation = fdfd_ez(omega, dx, epsr, [Npml, Npml])
 Hx, Hy, Ez = simulation.solve(source)
 fig, ax =plt.subplots(1, 2, constrained_layout=True, figsize=(6,3))
-plot_re(Ez, outline=epsr, ax=ax[0], cbar=False)
+ceviche.viz.real(Ez, outline=epsr, ax=ax[0], cbar=False)
 ax[0].plot(input_slice.x*np.ones(len(input_slice.y)), input_slice.y, 'g-')
 for output_slice in output_slices:
     ax[0].plot(output_slice.x*np.ones(len(output_slice.y)), output_slice.y, 'r-')
-plot_abs(epsr, ax=ax[1], cmap='Greys');
+ceviche.viz.abs(epsr, ax=ax[1], cmap='Greys');
 plt.show()
