@@ -49,6 +49,23 @@ def get_modes(eps_cross, omega, dL, npml, m=1, filtering=True):
     return vals, vecs
 
 
+def insert_mode(omega, dx, x, y, epsr, target=None, npml=0, m=1, filtering=False):
+    """Solve for the modes in a cross section of epsr at the location defined by 'x' and 'y'
+    
+    The mode is inserted into the 'target' array if it is suppled, if the target array is not
+    supplied, then a target array is created with the same shape as epsr, and the mode is
+    inserted into it.
+    """
+    if target is None:
+        target = np.zeros(epsr.shape, dtype=np.complex)
+
+    epsr_cross = epsr[x, y]
+    _, mode_field = get_modes(epsr_cross, omega, dx, npml, m=m, filtering=filtering)
+    target[x, y] = mode_field.squeeze()
+
+    return target
+
+
 def solver_eigs(A, Neigs, guess_value=1.0):
     """ solves for `Neigs` eigenmodes of A 
             A:            sparse linear operator describing modes
