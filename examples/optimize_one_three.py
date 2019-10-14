@@ -7,11 +7,10 @@ import matplotlib.pylab as plt
 from autograd.scipy.signal import convolve as conv
 from skimage.draw import circle
 
-import ceviche
 from ceviche import fdfd_ez, fdfd_ez_nl, jacobian
 from ceviche.optimizers import adam_optimize
 from ceviche.utils import imarr, get_value
-from ceviche.modes import get_modes
+from ceviche.modes import insert_mode
 
 import collections
 # Create a container for our slice coords to be used for sources and probes
@@ -114,19 +113,12 @@ rho_init, design_region, input_slice, output_slices = init_domain(Nx, Ny, Npml, 
 epsr = epsr_min + (epsr_max-epsr_min) * make_rho(rho_init, design_region, radius=blur_radius)
 
 # Setup source
-source = np.zeros((Nx, Ny), dtype=np.complex)
-eps_cross = epsr[input_slice.x, input_slice.y]
-_, mode_in = get_modes(eps_cross, omega, dx, 0, m=1, filtering=False)
-source = np.zeros((Nx, Ny), dtype=np.complex)
-source[input_slice.x, input_slice.y] = mode_in.squeeze()
+source = insert_mode(omega, dx, input_slice.x, input_slice.y, epsr)
 
 # Setup probes
 probes = []
 for output_slice in output_slices:
-    wg_cross = epsr[output_slice.x, output_slice.y]
-    _, field = get_modes(wg_cross, omega, dx, 0, m=1, filtering=False)
-    probe = np.zeros((Nx, Ny), dtype=np.complex)
-    probe[output_slice.x, output_slice.y] = field.squeeze()
+    probe = insert_mode(omega, dx, output_slice.x, output_slice.y, epsr)
     probes.append(probe)
 
 # Simulate initial device
