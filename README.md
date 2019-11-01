@@ -1,6 +1,6 @@
 # ceviche [![Build Status](https://travis-ci.com/twhughes/ceviche.svg?token=ZCPktA3Ki2eYVXYnfbrz&branch=master)](https://travis-ci.com/twhughes/ceviche)
 
-Electromagnetic Simulation Tools + Automatic Differentiation.  Code for the arxiv preprint [Forward-Mode Differentiation of Maxwell's Equations](https://arxiv.org/abs/1908.10507).
+Electromagnetic Simulation Tools + Automatic Differentiation.  Code for the paper: [Forward-Mode Differentiation of Maxwell's Equations](https://pubs.acs.org/doi/abs/10.1021/acsphotonics.9b01238) ([arxiv preprint](https://arxiv.org/abs/1908.10507)).
 
 <img src="/img/horizontal-color.png" title="ceviche" alt="ceviche">
 
@@ -80,13 +80,7 @@ for _ in range(10):
 
 This becomes more powerful when you have several degrees of freedom, like in a topology optimization problem, or when your machine learning model involves running an FDFD or FDTD simulation.
 
-## Design Principle
-
-`ceviche` is designed with simplicity and flexibility in mind and is meant to serve as a base package for building your projects from.  Because of this -- with some exceptions -- it does not have simple interfaces for optimization, source or device creation, or visualization.  While those things may be added later, for now you will need to build them yourself.  Thankfully, because ceviche takes care of the hard parts, this can be relatively easy!
-
 For some inspiration, see the `examples` directory.
-
-For more user friendly features, check out our [`angler`](https://github.com/fancompute/angler) package.  We plan to merge the two packages at a later date to give these automatic differentiation capabilities to `angler`.
 
 ## Installation
 
