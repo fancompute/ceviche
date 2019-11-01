@@ -153,9 +153,11 @@ To run all of the gradient checking functions, run
 
 If you use this for your research or work, please cite
 
-    @misc{1908.10507,
-    Author = {Tyler W Hughes and Ian A D Williamson and Momchil Minkov and Shanhui Fan},
-    Title = {Forward-Mode Differentiation of Maxwell's Equations},
-    Year = {2019},
-    Eprint = {arXiv:1908.10507},
+    @article{hughes2019forward,
+      title={Forward-mode Differentiation of Maxwell's Equations},
+      author={Hughes, Tyler W and Williamson, Ian AD and Minkov, Momchil and Fan, Shanhui},
+      journal={ACS Photonics},
+      year={2019},
+      publisher={ACS Publications}
     }
+
