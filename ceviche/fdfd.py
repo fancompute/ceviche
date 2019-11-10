@@ -247,12 +247,12 @@ def make_A_Ez(info_dict, eps_vec_zz):
 
 def Ez_to_Hx(Ez, info_dict):
     """ Returns magnetic field `Hx` from electric field `Ez` """
-    Hx = - spdot(info_dict['Dyb'], Ez) / MU_0
+    Hx = - 1 / 1j / info_dict['omega'] * spdot(info_dict['Dyb'], Ez) / MU_0
     return Hx
 
 def Ez_to_Hy(Ez, info_dict):
     """ Returns magnetic field `Hy` from electric field `Ez` """
-    Hy =  spdot(info_dict['Dxb'], Ez) / MU_0
+    Hy =  1 / 1j / info_dict['omega'] * spdot(info_dict['Dxb'], Ez) / MU_0
     return Hy
 
 def E_to_H(Ez, info_dict, eps_vec=None):
@@ -266,18 +266,18 @@ def Hz_to_Ex(Hz, info_dict, eps_vec_zz, adjoint=False):
     # note: adjoint switch is because backprop thru this fn. has different form
     eps_vec_xx, eps_vec_yy = vec_zz_to_xy(info_dict, eps_vec_zz, grid_averaging=AVG) 
     if adjoint:
-        Ex =  spdot(info_dict['Dyf'].T, Hz) / eps_vec_zz / EPSILON_0
+        Ex =   1 / 1j / info_dict['omega'] * spdot(info_dict['Dyf'].T, Hz) / eps_vec_zz / EPSILON_0
     else:
-        Ex = -spdot(info_dict['Dyb'],   Hz) / eps_vec_xx / EPSILON_0
+        Ex = - 1 / 1j / info_dict['omega'] * spdot(info_dict['Dyb'],   Hz) / eps_vec_xx / EPSILON_0
     return Ex
 
 def Hz_to_Ey(Hz, info_dict, eps_vec_zz, adjoint=False):
     """ Returns electric field `Ey` from magnetic field `Hz` """
     eps_vec_xx, eps_vec_yy = vec_zz_to_xy(info_dict, eps_vec_zz, grid_averaging=AVG)
     if adjoint:
-        Ey = -spdot(info_dict['Dxf'].T, Hz) / eps_vec_zz / EPSILON_0
+        Ey = - 1 / 1j / info_dict['omega'] * spdot(info_dict['Dxf'].T, Hz) / eps_vec_zz / EPSILON_0
     else:        
-        Ey =  spdot(info_dict['Dxb'],   Hz) / eps_vec_yy / EPSILON_0
+        Ey =   1 / 1j / info_dict['omega'] * spdot(info_dict['Dxb'],   Hz) / eps_vec_yy / EPSILON_0
     return Ey
 
 def H_to_E(Hz, info_dict, eps_vec_zz, adjoint=False):
