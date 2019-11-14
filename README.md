@@ -1,4 +1,4 @@
-# ceviche [![Build Status](https://travis-ci.com/twhughes/ceviche.svg?token=ZCPktA3Ki2eYVXYnfbrz&branch=master)](https://travis-ci.com/twhughes/ceviche)
+# ceviche [![Build Status](https://travis-ci.com/twhughes/ceviche.svg?token=ZCPktA3Ki2eYVXYnfbrz&branch=master)](https://travis-ci.com/fancompute/ceviche)
 
 Electromagnetic Simulation Tools + Automatic Differentiation.  Code for the paper: [Forward-Mode Differentiation of Maxwell's Equations](https://pubs.acs.org/doi/abs/10.1021/acsphotonics.9b01238) ([arxiv preprint](https://arxiv.org/abs/1908.10507)).
 
