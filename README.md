@@ -4,7 +4,7 @@ Electromagnetic Simulation Tools + Automatic Differentiation.  Code for the pape
 
 <img src="/img/horizontal-color.png" title="ceviche" alt="ceviche">
 
-(logo by [@nagilmer](http://nadinegilmer.com/))
+(logo by [@ngilmer](http://nadinegilmer.com/))
 
 ## What is ceviche?
 
