@@ -96,8 +96,6 @@ But to install from a local copy, one can instead do
     pip install -e ceviche
     pip install -r ceviche/requirements.txt
 
-from the main directory.
-
 Alternatively, just download it:
 
     git clone https://github.com/twhughes/ceviche.git
