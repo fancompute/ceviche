@@ -2,7 +2,7 @@ import numpy as np
 import time
 from autograd.numpy.numpy_boxes import ArrayBox
 
-def adam_optimize(objective, params, jac, step_size=1e-2, Nsteps=100, bounds=None, direction='min', beta1=0.9, beta2=0.999, mask=None):
+def adam_optimize(objective, params, jac, step_size=1e-2, Nsteps=100, bounds=None, direction='min', beta1=0.9, beta2=0.999, callback=None):
     """Performs Nsteps steps of ADAM minimization of function `objective` with gradient `jac`.
     The `bounds` are set abruptly by rejecting an update step out of bounds."""
     of_list = []
@@ -10,6 +10,9 @@ def adam_optimize(objective, params, jac, step_size=1e-2, Nsteps=100, bounds=Non
     np.set_printoptions(formatter={'float': '{: 1.4f}'.format})
 
     for iteration in range(Nsteps):
+
+        if callback:
+            callback(iteration, of_list, params)
 
         t_start = time.time()
         if jac==True:
@@ -28,9 +31,6 @@ def adam_optimize(objective, params, jac, step_size=1e-2, Nsteps=100, bounds=Non
             vopt = np.zeros(grad.shape)
 
         (grad_adam, mopt, vopt) = step_adam(grad, mopt, vopt, iteration, beta1, beta2)
-        
-        if mask is not None:
-            grad_adam = mask*grad_adam
 
         if direction == 'min':
             params = params - step_size*grad_adam
