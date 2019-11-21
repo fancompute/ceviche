@@ -61,7 +61,7 @@ To get the differentiation, import `from ceviche import jacobian`.
 
 ### Examples
 
-There are many demos in the `examples` directory, which will give you a good sense of how to use the package.
+There are many demos in the `examples` directory, which will give you a good sense of how to use the package. There is also workshop material consiting of a series of notebooks available in a [separate repository](https://github.com/fancompute/workshop-invdesign).
 
 ### Tests
 
