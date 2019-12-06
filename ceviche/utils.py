@@ -12,13 +12,6 @@ except ImportError:
 import autograd.numpy as npa
 
 
-def eps_to_gds(eps: np.ndarray, threshold: float, gds_filename: str, cell_name: str='eps'):
-    cell = gy.Cell(cell_name)
-    for points in find_contours(eps, threshold):
-        cell.add(gy.Polygon(points))
-    gy.write_gds(f'{gds_filename}', [cell.name])
-
-
 def grid_center_to_xyz(Q_mid, averaging=True):
     """ Computes the interpolated value of the quantity Q_mid felt at the Ex, Ey, Ez positions of the Yee latice
         Returns these three components
@@ -341,7 +334,7 @@ def plot_spectral_power(series, dt, f_top=2e14):
     plt.ylabel('power (|signal|^2)')
     plt.show()
 
-""" ========================= LINEAR ALGEBRA ========================= """
+""" ============================ LINEAR ALGEBRA ========================= """
 
 
 def block_4(A, B, C, D):
@@ -353,3 +346,17 @@ def block_4(A, B, C, D):
     right = sp.vstack([B, D])
     return sp.hstack([left, right])    
 
+""" ========================= FABRICATION TOOLS ========================= """
+
+
+def eps_to_gds(eps: np.ndarray, threshold: float, gds_filename: str, cell_name: str='eps'):
+	""" Convert permittivity array into a GDS file 
+			eps: the numpy array of the relative permittivity.
+			threshold: eps above this number is material, else air
+			gds_filename: filename to write to
+			cell_name: what to call the gds cell.
+	"""
+    cell = gy.Cell(cell_name)
+    for points in find_contours(eps, threshold):
+        cell.add(gy.Polygon(points))
+    gy.write_gds(f'{gds_filename}', [cell.name])
