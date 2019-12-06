@@ -2,9 +2,21 @@ import numpy as np
 import scipy.sparse as sp
 import copy
 
+try:
+    import gdspy as gy
+except ImportError:
+    pass
+
 """ ==================== FDTD AND FDFD UTILITIES ==================== """
 
 import autograd.numpy as npa
+
+
+def eps_to_gds(eps: np.ndarray, threshold: float, gds_filename: str, cell_name: str='eps'):
+    cell = gy.Cell(cell_name)
+    for points in find_contours(eps, threshold):
+        cell.add(gy.Polygon(points))
+    gy.write_gds(f'{gds_filename}', [cell.name])
 
 
 def grid_center_to_xyz(Q_mid, averaging=True):
