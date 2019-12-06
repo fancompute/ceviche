@@ -350,12 +350,12 @@ def block_4(A, B, C, D):
 
 
 def eps_to_gds(eps: np.ndarray, threshold: float, gds_filename: str, cell_name: str='eps'):
-	""" Convert permittivity array into a GDS file 
-			eps: the numpy array of the relative permittivity.
-			threshold: eps above this number is material, else air
-			gds_filename: filename to write to
-			cell_name: what to call the gds cell.
-	"""
+    """ Convert permittivity array into a GDS file 
+            eps: the numpy array of the relative permittivity.
+            threshold: eps above this number is material, else air
+            gds_filename: filename to write to
+            cell_name: what to call the gds cell.
+    """
     cell = gy.Cell(cell_name)
     for points in find_contours(eps, threshold):
         cell.add(gy.Polygon(points))
