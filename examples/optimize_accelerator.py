@@ -18,27 +18,34 @@ from ceviche.utils import imarr, get_value
 PLOT = False
 
 # make parameters
-wavelength = 2e-6                      # free space wavelength
-omega = 2 * np.pi * C_0 / wavelength   # angular frequency
-beta = .5                              # speed of electron / speed of light
-dL = wavelength / 50.0                 # grid size (m)
+wavelength = 1973e-9                      # free space wavelength
+omega = 2 * np.pi * C_0 / wavelength      # angular frequency
+beta = .53                                # speed of electron / speed of light
+dL = wavelength / 150.0                   # grid size (m)
 
-Nx, Ny = 350, int(beta * wavelength / dL)
+spc = int(2 * wavelength  / dL)           # space between edge of domain and the structure (m)
+gap = int(500e-9 / dL)                    # gap size (m)
+mat_L = int(.5e-6 / dL)
 
-eps_max = 4
+eps_max = 3.6730**2                       # relative permittivity of material
+
+# sets the size of the domain
+Nx, Ny = 2 * spc + gap + 2 * mat_L, int(beta * wavelength / dL)
+
+# creates the source and initializes permittivity
 eps_r = np.ones((Nx, Ny))
-source = np.zeros((Nx, Ny))
+source = np.zeros((Nx, Ny))         # this is 'Mz' (magnetic current density)
 source[30, :] = 1
-# source[-30-1, :] = -10  # for dual side drive
-npml = [20, 0]
-spc = 100
-gap = 20
+source[-30-1, :] = -1               # dual side drive, uncomment for single side
 
 # make design region
 design_region = np.zeros((Nx, Ny))
 design_region[spc:Nx//2-gap//2, :] = 1
 design_region[Nx//2+gap//2:Nx-spc, :] = 1
-eps_r[design_region == 1] = eps_max
+eps_r[design_region == 1] = eps_max     # start with material in the design region
+
+# pml thicknesses
+npml = [20, 0]
 
 # make the accelration probe
 eta = np.zeros((Nx, Ny), dtype=np.complex128)
@@ -80,7 +87,7 @@ def Eavg(Ex, Ey):
     return npa.mean(E_mag)
 
 # defines the acceleration gradient as a function of the relative permittivity grid
-def accel_gradient(eps_arr):
+def accel_gradient(eps_arr, mode='avg'):
 
     # set the permittivity of the FDFD and solve the fields
     F.eps_r = eps_arr.reshape((Nx, Ny))
@@ -88,7 +95,13 @@ def accel_gradient(eps_arr):
 
     # compute the gradient and normalize if you want
     G = npa.sum(Ey * eta / Ny)
-    return -np.abs(G) # / Emax(Ex, Ey, eps_r)
+
+    if mode == 'max':
+        return -np.abs(G) / Emax(Ex, Ey, eps_r)
+    elif mode == 'avg':
+        return -np.abs(G) / Eavg(Ex, Ey)
+    else:        
+        return -np.abs(G / E0)
 
 # define the gradient for autograd
 grad_g = jacobian(accel_gradient)
@@ -136,3 +149,4 @@ plt.xlabel('y')
 plt.ylabel('x')
 plt.colorbar()
 plt.show()
+
