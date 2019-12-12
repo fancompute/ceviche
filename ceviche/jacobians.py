@@ -32,9 +32,10 @@ def jacobian_forward(fun, x):
     vals, grads = zip(*val_grad)
     ans = np.zeros((list(vals)[0].size,))  # fake answer so that dont have to compute it twice
     m, n = _jac_shape(x, ans)
-    # print(grads)
-    # print(x)
-    # print(ans)
+    if x.dtype == np.complex128:
+        grads_real = np.array(grads[::2])
+        grads_imag = np.array(grads[1::2])
+        grads = grads_real - 1j * grads_imag
     return np.reshape(np.stack(grads), (m, n)).T
 
 @unary_to_nary

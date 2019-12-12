@@ -53,6 +53,14 @@ def grad_sp_mult_x_reverse(ans, entries, indices, x):
 
 ag.extend.defvjp(sp_mult, grad_sp_mult_entries_reverse, None, grad_sp_mult_x_reverse)
 
+def grad_sp_mult_entries_forward(g, b, entries, indices, x):
+    return sp_mult(g, indices, x)
+
+def grad_sp_mult_x_forward(g, b, entries, indices, x):
+    return sp_mult(entries, indices, g)
+
+ag.extend.defjvp(sp_mult, grad_sp_mult_entries_forward, None, grad_sp_mult_x_forward)
+
 
 """ Sparse Matrix Solution  """
 
@@ -71,22 +79,12 @@ def sp_solve(entries, indices, b):
     A = make_sparse(entries, indices, N=x.size)
     return spl.spsolve(A, b)
 
-# def solve_coo_adjoint(a_entries, a_indices, b):
-#   return solve_coo(anp.conj(a_entries), a_indices[::-1], anp.conj(b))
-
-# def grad_solve_coo_entries_reverse(ans, a_entries, a_indices, b):
-#   def jvp(grad_ans):
-#     lambda_ = solve_coo_adjoint(a_entries, a_indices, grad_ans)
-#     i, j = a_indices
-#     return -lambda_[i] * anp.conj(ans[j])
-#   return jvp
-
 def grad_sp_solve_entries_reverse(ans, entries, indices, b):
     def vjp(v):
         indices_T = transpose_indices(indices)
-        adj = sp_solve(np.conj(entries), indices_T, np.conj(v))
+        adj = sp_solve(entries, indices_T, v)
         i, j = indices
-        return -np.conj(adj[i]) * ans[j]
+        return -adj[i] * ans[j]
     return vjp
 
 def grad_sp_solve_x_reverse(ans, entries, indices, b):
@@ -97,8 +95,14 @@ def grad_sp_solve_x_reverse(ans, entries, indices, b):
 
 ag.extend.defvjp(sp_solve, grad_sp_solve_entries_reverse, None, grad_sp_solve_x_reverse)
 
+def grad_sp_solve_entries_forward(g, x, entries, indices, b):
+    forward = sp_mult(g, indices, x)
+    return sp_solve(entries, indices, -forward)
 
+def grad_sp_solve_x_forward(g, x, entries, indices, b):
+    return sp_solve(entries, indices, g)
 
+ag.extend.defjvp(sp_solve, grad_sp_solve_entries_forward, None, grad_sp_solve_x_forward)
 
 
 if __name__ == '__main__':
@@ -201,6 +205,35 @@ if __name__ == '__main__':
     np.testing.assert_almost_equal(grad, grad_true, decimal=DECIMAL)
 
 
+    """ FORWARD MODE """
 
+    import ceviche
 
+    ## Mult entries Forward
+
+    grad_for = ceviche.jacobian(fn_mult_entries, mode='forward')(entries)[0]
+    grad_true = grad_num(fn_mult_entries, entries)
+
+    np.testing.assert_almost_equal(grad_for, grad_true, decimal=DECIMAL)
+
+    ## Mult x Forward
+
+    grad_for = ceviche.jacobian(fn_mult_x, mode='forward')(x)[0]
+    grad_true = grad_num(fn_mult_x, x)
+
+    np.testing.assert_almost_equal(grad_for, grad_true, decimal=DECIMAL)
+
+    ## Solve entries Forward
+
+    grad_for = ceviche.jacobian(fn_solve_entries, mode='forward')(entries)[0]
+    grad_true = grad_num(fn_solve_entries, entries)
+
+    np.testing.assert_almost_equal(grad_for, grad_true, decimal=DECIMAL)
+
+    ## Solve x Forward
+
+    grad_for = ceviche.jacobian(fn_solve_b, mode='forward')(b)[0]
+    grad_true = grad_num(fn_solve_b, b)
+
+    np.testing.assert_almost_equal(grad_for, grad_true, decimal=DECIMAL)
 
