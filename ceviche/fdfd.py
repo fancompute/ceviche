@@ -291,7 +291,6 @@ def H_to_E(Hz, info_dict, eps_vec_zz, adjoint=False):
 
 # Linear Ez
 
-@primitive
 def solve_Ez(info_dict, eps_vec_zz, source, iterative=False, method=DEFAULT_SOLVER):
     """ solve `Ez = A^-1 b` where A is constructed from the FDFD `info_dict`
         and 'eps_vec' is a (1D) vecay of the relative permittivity
@@ -301,49 +300,6 @@ def solve_Ez(info_dict, eps_vec_zz, source, iterative=False, method=DEFAULT_SOLV
     Ez = sparse_solve(A, b, iterative=iterative, method=method)
     return Ez
 
-# define the gradient of solve_Ez w.r.t. eps_vec (in Ez)
-def vjp_maker_solve_Ez(Ez, info_dict, eps_vec_zz, source, iterative=False, method=DEFAULT_SOLVER):
-    """ Gives vjp for solve_Ez with respect to eps_vec """    
-    # construct the system matrix again
-    A = make_A_Ez(info_dict, eps_vec_zz)
-    # vector-jacobian product function to return
-    def vjp(v):
-        # solve the adjoint problem and get those electric fields (note D info_dict are different and transposed)
-        Ez_aj = sparse_solve(A.T, -v, iterative=iterative, method=method)
-        # because we care about the diagonal elements, just element-wise multiply E and E_adj
-        # note: need np.real() for adjoint returns w.r.t. real quantities but not in forward mode
-        return EPSILON_0 * info_dict['omega']**2 * np.real(Ez_aj * Ez)
-    return vjp
-
-def vjp_maker_solve_Ez_source(Ez, info_dict, eps_vec_zz, source, iterative=False, method=DEFAULT_SOLVER):
-    """ Gives vjp for solve_Ez with respect to source """    
-    A = make_A_Ez(info_dict, eps_vec_zz)
-    def vjp(v):
-        return 1j * info_dict['omega'] * sparse_solve(A.T, v, iterative=iterative, method=method)
-    return vjp
-
-# define the gradient of solve_Ez w.r.t. eps_vec (in Ez)
-def jvp_solve_Ez(g, Ez, info_dict, eps_vec_zz, source, iterative=False, method=DEFAULT_SOLVER):
-    """ Gives jvp for solve_Ez with respect to eps_vec """    
-    # construct the system matrix again and the RHS of the gradient expersion
-    A = make_A_Ez(info_dict, eps_vec_zz)
-    u = Ez * -g
-    # solve the adjoint problem and get those electric fields (note D info_dict are different and transposed)
-    Ez_for = sparse_solve(A, u, iterative=iterative, method=method)
-    # because we care about the diagonal elements, just element-wise multiply E and E_adj
-    return EPSILON_0 * info_dict['omega']**2 * Ez_for
-
-def jvp_solve_Ez_source(g, Ez, info_dict, eps_vec_zz, source, iterative=False, method=DEFAULT_SOLVER):
-    """ Gives jvp for solve_Ez with respect to source """  
-    A = make_A_Ez(info_dict, eps_vec_zz)      
-    return 1j * info_dict['omega'] * sparse_solve(A, g, iterative=iterative, method=method)
-
-defvjp(solve_Ez, None, vjp_maker_solve_Ez, vjp_maker_solve_Ez_source)
-defjvp(solve_Ez, None, jvp_solve_Ez, jvp_solve_Ez_source)
-
-# Linear Hz
-
-@primitive
 def solve_Hz(info_dict, eps_vec_zz, source, iterative=False, method=DEFAULT_SOLVER):
     """ solve `Hz = A^-1 b` where A is constructed from the FDFD `info_dict`
         and 'eps_vec' is a (1D) vecay of the relative permittivity
@@ -354,66 +310,6 @@ def solve_Hz(info_dict, eps_vec_zz, source, iterative=False, method=DEFAULT_SOLV
     Hz = sparse_solve(A, b, iterative=iterative, method=method)
     return Hz
 
-def vjp_maker_solve_Hz(Hz, info_dict, eps_vec_zz, source, iterative=False, method=DEFAULT_SOLVER):
-    """ Gives vjp for solve_Hz with respect to eps_vec """    
-    # get the forward electric fields
-    Ex, Ey = H_to_E(Hz, info_dict, eps_vec_zz, adjoint=False)
-
-    # construct the system matrix again
-    A = make_A_Hz(info_dict, eps_vec_zz)
-
-    # vector-jacobian product function to return
-    def vjp(v):
-        # solve the adjoint problem and get those electric fields (note D info_dict are different and transposed)
-        Hz_aj = sparse_solve(A.T, -v, iterative=iterative, method=method)
-        Ex_aj, Ey_aj = H_to_E(Hz_aj, info_dict, eps_vec_zz, adjoint=True)
-        # because we care about the diagonal elements, just element-wise multiply E and E_adj        
-
-        # _, Ex_aj = vec_zz_to_xy(info_dict, Ex_aj, grid_averaging=AVG)
-        # Ey_aj, _ = vec_zz_to_xy(info_dict, Ey_aj, grid_averaging=AVG)
-
-        return EPSILON_0 * np.real(Ex_aj * Ex + Ey_aj * Ey)
-    # return this function for autograd to link-later
-    return vjp
-
-def vjp_maker_solve_Hz_source(Hz, info_dict, eps_vec_zz, source, iterative=False, method=DEFAULT_SOLVER):
-    """ Gives vjp for solve_Hz with respect to source """    
-    A = make_A_Hz(info_dict, eps_vec_zz)
-    def vjp(v):
-        return 1j * info_dict['omega'] * sparse_solve(A.T, v, iterative=iterative, method=method)
-    return vjp
-
-# define the gradient of solve_Hz w.r.t. eps_vec (in Hz)
-def jvp_solve_Hz(g, Hz, info_dict, eps_vec_zz, source, iterative=False, method=DEFAULT_SOLVER):
-    """ Gives jvp for solve_Hz with respect to eps_vec """    
-    # construct the system matrix again and the RHS of the gradient expersion
-    A = make_A_Hz(info_dict, eps_vec_zz)
-    ux = spdot(info_dict['Dxb'], Hz)
-    uy = spdot(info_dict['Dyb'], Hz)
-    # do grid averaging
-    N = eps_vec_zz.size
-    eps_vec_xx, eps_vec_yy = vec_zz_to_xy(info_dict, eps_vec_zz, grid_averaging=AVG)    
-    diag_xx = sp.spdiags(1 / eps_vec_xx, [0], N, N)
-    diag_yy = sp.spdiags(1 / eps_vec_yy, [0], N, N)
-    # the g gets multiplied in at the middle of the expression
-    ux = ux * diag_xx * g * diag_xx
-    uy = uy * diag_yy * g * diag_yy
-    ux = spdot(info_dict['Dxf'], ux)
-    uy = spdot(info_dict['Dyf'], uy)
-    # add the x and y components and multiply by A_inv on the left
-    u = (ux + uy)
-    Hz_for = sparse_solve(A, u, iterative=iterative, method=method)
-    return 1 / EPSILON_0 * Hz_for
-
-def jvp_solve_Hz_source(g, Hz, info_dict, eps_vec, source, iterative=False, method=DEFAULT_SOLVER):
-    """ Gives jvp for solve_Hz with respect to source """    
-    A = make_A_Hz(info_dict, eps_vec)      
-    return 1j * info_dict['omega'] * sparse_solve(A, g, iterative=iterative, method=method)
-
-defvjp(solve_Hz, None, vjp_maker_solve_Hz, vjp_maker_solve_Hz_source)
-defjvp(solve_Hz, None, jvp_solve_Hz, jvp_solve_Hz_source)
-
-# Nonlinear Ez
 
 """=========================== SPECIAL SOLVE =========================="""
 
