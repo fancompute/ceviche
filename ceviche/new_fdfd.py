@@ -68,14 +68,14 @@ def solve_coo(a_entries, a_indices, b):
 def solve_coo_adjoint(a_entries, a_indices, b):
   return solve_coo(anp.conj(a_entries), a_indices[::-1], anp.conj(b))
 
-def grad_solve_coo_entries(ans, a_entries, a_indices, b):
+def grad_solve_coo_entries_reverse(ans, a_entries, a_indices, b):
   def jvp(grad_ans):
     lambda_ = solve_coo_adjoint(a_entries, a_indices, grad_ans)
     i, j = a_indices
     return -lambda_[i] * anp.conj(ans[j])
   return jvp
 
-def grad_solve_coo_entries_FMD(input_grad, ans, a_entries, a_indices, b):
+def grad_solve_coo_entries_forward(input_grad, ans, a_entries, a_indices, b):
   one_entries = np.ones(a_entries.shape)
   inner_field = 1
 
@@ -91,7 +91,7 @@ autograd.extend.defjvp(
     solve_coo, grad_solve_coo_entries_FMD, _grad_undefined, _grad_undefined)
 
 def rand_compl(N):
-    return anp.random.random((N,))# + 1j * anp.random.random((N,))
+    return anp.random.random((N,)) + 1j * anp.random.random((N,))
 
 if __name__ == '__main__':
 
@@ -114,11 +114,11 @@ if __name__ == '__main__':
         indices = anp.hstack([background_indices, indices_der])
         # x = solve_coo(entries, indices, b)
         x = mult_coo(entries, indices, b)
-        return anp.abs(x)
+        return anp.square(x)
 
     x0 = get_fields(entries_der)
     print('xo = ', x0)
-    dx_de = jacobian(get_fields, mode='forward')(entries_der)
+    dx_de = jacobian(get_fields, mode='reverse')(entries_der)
     print('dx_de = ', dx_de)
 
     grad_num = anp.zeros((N,N), dtype=anp.complex128)
