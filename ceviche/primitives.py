@@ -64,6 +64,16 @@ def grad_num(fn, arg, delta=1e-6):
         grad[i] += (fi - f0) / (1j * delta)
     return grad
 
+def get_entries_indices(csr_matrix):
+    # takes sparse matrix and returns the entries and indeces in form compatible with 'make_sparse'
+    shape = (N, _) = csr_matrix.shape
+    entries = csr_matrix.data
+    indices_flat = csr_matrix.indices
+    print('indices flat', indices_flat.shape)
+    indices = np.unravel_index(indices_flat, shape=shape)
+    return entries, np.array(indices)
+
+
 """ PRIMITIVES DEFINED BELOW:
         naming convention for gradient functions:
            "def grad_{function_name}_{argument_name}_{mode}"
@@ -141,6 +151,58 @@ def grad_sp_mult_x_forward(g, b, entries, indices, x):
     return sp_mult(entries, indices, g)
 
 ag.extend.defjvp(sp_mult, grad_sp_mult_entries_forward, None, grad_sp_mult_x_forward)
+
+""" Primitives for Sparse Matrix-Sparse Matrix Multiplication """
+
+@ag.primitive
+def spsp_mult(entries_a, indices_a, entries_b, indices_b, N):
+    """ Multiply a sparse matrix (A) by a sparse matrix (B)
+    Args:
+      entries_a: numpy array with shape (num_non_zeros,) giving values for non-zero
+        matrix entries into A.
+      indices_a: numpy array with shape (2, num_non_zeros) giving x and y indices for
+        non-zero matrix entries into A.
+      entries_b: numpy array with shape (num_non_zeros,) giving values for non-zero
+        matrix entries into B.
+      indices_b: numpy array with shape (2, num_non_zeros) giving x and y indices for
+        non-zero matrix entries into B.
+      N: all matrices are assumed of shape (N, N) (need to specify because no dense vector supplied)
+    Returns:
+      entries_c: numpy array with shape (num_non_zeros,) giving values for non-zero
+        matrix entries into the result C.
+      indices_c: numpy array with shape (2, num_non_zeros) giving x and y indices for
+        non-zero matrix entries into the result C.      
+    """
+    A = make_sparse(entries_a, indices_a, N=N)
+    B = make_sparse(entries_b, indices_b, N=N)
+    C = A.dot(B)
+    print('C shape', C.shape)
+    entries_c, indices_c = get_entries_indices(C)
+    return entries_c, indices_c
+
+def grad_spsp_mult_entries_a_reverse(ans, entries_a, indices_a, entries_b, indices_b, N):
+    entries_c, indices_c = ans
+    indices_a_T = transpose_indices(indices_a)
+    indices_b_T = transpose_indices(indices_b)
+    def vjp(v):
+        entries_v, indices_v = v
+        print('v shape', indices_v.shape)
+        out = spsp_mult(entries_b, indices_b_T, entries_v, indices_v, N)
+        # print(make_sparse(entries_b, indices_b_T, N).shape)
+        # print(make_sparse(entries_v, indices_v, N).shape)
+        entries_out, indices_out = out
+        # print(make_sparse(entries_out, indices_out, N).shape)
+        print(entries_out.shape)
+        print(indices_out.shape)
+        return out
+    return vjp
+
+ag.extend.defvjp(spsp_mult, grad_spsp_mult_entries_a_reverse, None, None)
+
+def grad_spsp_mult_entries_forward(g, b, entries, indices, x):
+    return sp_mult(g, indices, x)
+
+ag.extend.defjvp(spsp_mult, grad_spsp_mult_entries_forward, None, None)
 
 
 """ Primitives for Sparse Matrix-Vector Solve """
@@ -230,6 +292,12 @@ if __name__ == '__main__':
         x = sp_solve(entries_const, indices_const, b)
         return out_fn(x)
 
+    def fn_spsp_entries(entries):
+        # sparse matrix multiplication (Ax = b) as a function of matrix entries 'A(entries)'
+        entries_c, indices_c = spsp_mult(entries, indices_const, entries_const, indices_const, N=N)
+        b = sp_mult(entries_c, indices_c, x)
+        return out_fn(b)
+
     """ REVERSE MODE TESTS """
 
     ## Testing Gradients of 'Mult Entries Reverse-mode'
@@ -298,3 +366,17 @@ if __name__ == '__main__':
     grad_true = grad_num(fn_solve_b, b)
 
     np.testing.assert_almost_equal(grad_for, grad_true, decimal=DECIMAL)
+
+
+    """ SPARSE-SPARSE MULTIPLICATION """
+
+    ## Testing Gradients of 'Multiply entries Reverse-mode'
+
+    z = fn_spsp_entries(entries)
+    print(z)
+    grad_rev = ceviche.jacobian(fn_spsp_entries, mode='reverse')(entries)[0]
+    grad_true = grad_num(fn_spsp_entries, entries)
+
+    np.testing.assert_almost_equal(grad_for, grad_true, decimal=DECIMAL)
+
+
