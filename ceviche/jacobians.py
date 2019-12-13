@@ -7,13 +7,6 @@ from autograd.extend import vspace
 from .utils import get_value, get_shape, get_value_arr, float_2_array
 
 
-def _jac_shape(x, ans):
-    """ computes the shape of the jacobian where function has input x and output ans """
-    m = float_2_array(x).size
-    n = float_2_array(ans).size
-    return (m, n)
-
-
 @unary_to_nary
 def jacobian_reverse(fun, x):
     """ Compute jacobian of fun with respect to x using reverse mode differentiation"""
@@ -32,11 +25,12 @@ def jacobian_forward(fun, x):
     vals, grads = zip(*val_grad)
     ans = np.zeros((list(vals)[0].size,))  # fake answer so that dont have to compute it twice
     m, n = _jac_shape(x, ans)
-    if x.dtype == np.complex128:
+    if _iscomplex(x):
         grads_real = np.array(grads[::2])
         grads_imag = np.array(grads[1::2])
         grads = grads_real - 1j * grads_imag
     return np.reshape(np.stack(grads), (m, n)).T
+
 
 @unary_to_nary
 def jacobian_numerical(fn, x, step_size=1e-7):
@@ -71,6 +65,21 @@ def jacobian(fun, argnum=0, mode='reverse', step_size=1e-6):
         return jacobian_numerical(fun, argnum, step_size=step_size)
     else:
         raise ValueError("'mode' kwarg must be either 'reverse' or 'forward' or 'numerical', given {}".format(mode))
+
+
+def _jac_shape(x, ans):
+    """ computes the shape of the jacobian where function has input x and output ans """
+    m = float_2_array(x).size
+    n = float_2_array(ans).size
+    return (m, n)
+
+def _iscomplex(x):
+    if isinstance(x, np.ndarray):
+        if x.dtype == np.complex128:
+            return True
+    if isinstance(x, complex):
+        return True
+    return False
 
 
 if __name__ == '__main__':

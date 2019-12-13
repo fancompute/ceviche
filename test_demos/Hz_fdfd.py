@@ -12,7 +12,7 @@ if __name__ == '__main__':
             A = D1 * diag(1/epsilon) * D2 + ...
     """
 
-    Nx, Ny = 100, 100
+    Nx, Ny = 300, 300
     N = Nx * Ny
 
     # current source for this problem

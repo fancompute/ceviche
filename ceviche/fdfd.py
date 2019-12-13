@@ -1,16 +1,8 @@
 import autograd.numpy as npa
 import scipy.sparse as sp
-import scipy.sparse.linalg as spl
-import copy
-import warnings
-
-from autograd.extend import primitive, defvjp, defjvp
 
 from .constants import *
-from .jacobians import jacobian
 from .primitives import sp_solve, sp_mult, get_entries_indices
-
-AVG = False  # whether to do grid averaging (under development, gradients dont match exactly yet.)
 
 class fdfd():
     """ Base class for FDFD simulation """
@@ -88,6 +80,21 @@ class fdfd():
         self.Nx, self.Ny = self.shape
         self.N = self.Nx * self.Ny
 
+    def _Ez_to_Hx(self, Ez_vec):
+        """ Returns magnetic field `Hx` from electric field `Ez` """
+        Hx = 1 / MU_0 * sp_mult(self.Dyb_entries, self.Dyf_indices, Ez_vec)
+        return Hx
+
+    def _Ez_to_Hy(self, Ez_vec):
+        """ Returns magnetic field `Hy` from electric field `Ez` """
+        Hy = 1 / MU_0 * sp_mult(self.Dxb_entries, self.Dxf_indices, Ez_vec)
+        return Hy
+
+    def _E_to_H(self, Ez_vec):
+        Hx_vec = self._Ez_to_Hx(Ez_vec)
+        Hy_vec = self._Ez_to_Hy(Ez_vec)
+        return Hx_vec, Hy_vec
+
 """ These are the fdfd classes that you'll actually want to use """
 
 class fdfd_ez(fdfd):
@@ -113,25 +120,10 @@ class fdfd_ez(fdfd):
 
         return A_entries, A_indices
 
-    def solve_fn(self, A_entries, A_indices, source_vec):
-        Ez_vec = sp_solve(A_entries, A_indices, source_vec)
+    def solve_fn(self, A_entries, A_indices, Jz_vec):
+        Ez_vec = sp_solve(A_entries, A_indices, Jz_vec)
         Hx_vec, Hy_vec = self._E_to_H(Ez_vec)
         return Hx_vec, Hy_vec, Ez_vec
-
-    def _Ez_to_Hx(self, Ez_vec):
-        """ Returns magnetic field `Hx` from electric field `Ez` """
-        Hx = 1 / MU_0 * sp_mult(self.Dyb_entries, self.Dyf_indices, Ez_vec)
-        return Hx
-
-    def _Ez_to_Hy(self, Ez_vec):
-        """ Returns magnetic field `Hy` from electric field `Ez` """
-        Hy = 1 / MU_0 * sp_mult(self.Dxb_entries, self.Dxf_indices, Ez_vec)
-        return Hy
-
-    def _E_to_H(self, Ez_vec):
-        Hx_vec = self._Ez_to_Hx(Ez_vec)
-        Hy_vec = self._Ez_to_Hy(Ez_vec)
-        return Hx_vec, Hy_vec
 
 class fdfd_hz(fdfd):
     """ FDFD class for linear Ez polarization """
@@ -139,7 +131,16 @@ class fdfd_hz(fdfd):
     def __init__(self, omega, L0, eps_r, npml, bloch_x=0.0, bloch_y=0.0):
         super().__init__(omega, L0, eps_r, npml, bloch_x=bloch_x, bloch_y=bloch_y)
 
+    def _grid_average(self, eps_vec):
+        eps_grid = self._vec_to_grid(eps_vec)
+        eps_grid_xx = 1 / 2 * (eps_grid + npa.roll(eps_grid, axis=1, shift=1))
+        eps_grid_yy = 1 / 2 * (eps_grid + npa.roll(eps_grid, axis=0, shift=1))
+        eps_vec_xx = eps_grid_xx.flatten()
+        eps_vec_yy = eps_grid_yy.flatten()
+        return eps_vec_xx, eps_vec_yy
+
     def make_A(self, eps_vec):
+        # solving for [ex, ey] in this formalism: http://www.jpier.org/PIERB/pierb36/11.11092006.pdf
 
         # notation: C = [[C11, C12], [C21, C22]
         C11 =  1 / MU_0 * self.Dyf.dot(self.Dyb)
@@ -163,6 +164,7 @@ class fdfd_hz(fdfd):
         indices_c = npa.hstack((indices_c11, indices_c12, indices_c21, indices_c22))
 
         # indices into the diagonal of a sparse matrix
+        eps_vec_xx, eps_vec_yy = self._grid_average(eps_vec)
         diag_entries = EPSILON_0 * self.omega**2 * npa.hstack((eps_vec, eps_vec))
         diag_indices = npa.vstack((npa.arange(2 * self.N), npa.arange(2 * self.N)))
 
@@ -171,12 +173,13 @@ class fdfd_hz(fdfd):
         A_indices = npa.hstack((diag_indices, indices_c))
         return A_entries, A_indices
 
-    def solve_fn(self, A_entries, A_indices, source_vec):
-        source_full = npa.hstack((source_vec, source_vec))  # not correct, will fix later
+    def solve_fn(self, A_entries, A_indices, Mz_vec):
+        Jx_vec, Jy_vec = self._E_to_H(Mz_vec)
+        source_full = npa.hstack((Jx_vec, Jy_vec))
         E_vec = sp_solve(A_entries, A_indices, source_full)
         Ex_vec = E_vec[:self.N]
         Ey_vec = E_vec[self.N:]
-        Hz_vec = npa.zeros((self.N, ))
+        Hz_vec = sp_mult(self.Dxb_entries, self.Dxb_indices, Ey_vec) - sp_mult(self.Dyb_entries, self.Dyb_indices, Ex_vec)
         return Ex_vec, Ey_vec, Hz_vec
 
 

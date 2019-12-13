@@ -4,6 +4,8 @@ import scipy.sparse.linalg as spl
 import autograd.numpy as npa
 import numpy as np
 
+from ceviche.solvers import solve_linear
+
 """ Helper Functions.  These may go in utils.py or somewhere else later. """
 
 def make_sparse(entries, indices, N):
@@ -228,7 +230,8 @@ def sp_solve(entries, indices, b):
       1d numpy array corresponding to the solution of A * x = b.
     """
     A = make_sparse(entries, indices, N=b.size)
-    return spl.spsolve(A, b)
+    # calls a customizable solving function from ceviche.solvers
+    return solve_linear(A, b)
 
 def grad_sp_solve_entries_reverse(ans, entries, indices, b):
     indices_T = transpose_indices(indices)
