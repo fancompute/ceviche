@@ -1,4 +1,4 @@
-import autograd.numpy as np
+import autograd.numpy as npa
 import scipy.sparse as sp
 import scipy.sparse.linalg as spl
 import copy
@@ -7,9 +7,8 @@ import warnings
 from autograd.extend import primitive, defvjp, defjvp
 
 from .constants import *
-from .solvers import sparse_solve, DEFAULT_SOLVER
-from .utils import spdot, block_4, grid_center_to_xyz, vec_zz_to_xy
 from .jacobians import jacobian
+from .primitives import sp_solve, sp_mult, get_entries_indices
 
 AVG = False  # whether to do grid averaging (under development, gradients dont match exactly yet.)
 
@@ -32,32 +31,20 @@ class fdfd():
         self.bloch_x = bloch_x
         self.bloch_y = bloch_y
 
-        self.info_dict = {'omega': self.omega}
-
         self.eps_r = eps_r
+        self.shape = eps_r.shape
 
         self.setup_derivatives()
-        self.A = self.make_A(self.eps_vec_zz)
 
     def setup_derivatives(self):
 
         # Creates all of the operators needed for later
-        info_dict = compute_derivative_matrices(self.omega, self.shape, self.npml, self.dL, bloch_x=self.bloch_x, bloch_y=self.bloch_y)
-        self.Dxf, self.Dxb, self.Dyf, self.Dyb = info_dict
-
-        # save to a dictionary for convenience passing to primitives
-        self.info_dict['Dxf'] = self.Dxf
-        self.info_dict['Dxb'] = self.Dxb
-        self.info_dict['Dyf'] = self.Dyf
-        self.info_dict['Dyb'] = self.Dyb
-
-    @staticmethod
-    def get_shape(arr_or_fn):
-        """ Returns the shape of arr_or_fn (which can be array or function returning array) """
-        if callable(arr_or_fn):
-            return arr_or_fn(0).shape
-        else:
-            return arr_or_fn.shape
+        derivs = compute_derivative_matrices(self.omega, self.shape, self.npml, self.dL, bloch_x=self.bloch_x, bloch_y=self.bloch_y)
+        self.Dxf, self.Dxb, self.Dyf, self.Dyb = derivs
+        self.Dxf_entries, self.Dxf_indices = get_entries_indices(self.Dxf)
+        self.Dxb_entries, self.Dxb_indices = get_entries_indices(self.Dxb)
+        self.Dyf_entries, self.Dyf_indices = get_entries_indices(self.Dyf)
+        self.Dyb_entries, self.Dyb_indices = get_entries_indices(self.Dyb)
 
     @property
     def eps_r(self):
@@ -66,126 +53,85 @@ class fdfd():
 
     @eps_r.setter
     def eps_r(self, new_eps):
-        raise NotImplementedError("need to implement setter method for eps_r")
+        """ Defines some attributes when eps_r is set. """
+        self.shape = new_eps.shape
+        self._eps_r = new_eps
 
     def make_A(self, eps_r):
         raise NotImplementedError("need to make a make_A() method")
 
-    def solve_fn(self, eps_vec, source_vec, iterative=False, method=DEFAULT_SOLVER):
-        raise NotImplementedError("need to implement a solve function")
-
     def z_to_xy(self, Fz_vec, eps_vec):
         raise NotImplementedError("need to implement a z -> {x, y} field conversion function")
 
-    def solve(self, source, iterative=False, method=DEFAULT_SOLVER):
+    def solve(self, source):
         """ Generic solve function """
 
-        # make source a vector
+        # flatten the permittivity and source grids
         source_vec = source.flatten()
+        eps_vec = self.eps_r.flatten()
 
-        # solve the z component of the fields
-        Fz_vec = self.solve_fn(self.eps_vec_zz, source_vec, iterative=iterative, method=method)
+        # create the A matrix for this polarization
+        A_entries, A_indices = self.make_A(eps_vec)
 
-        # get the x and y vectors, put into tuple
-        Fx_vec, Fy_vec = self.z_to_xy(Fz_vec, self.eps_vec_zz)
+        # solve the z component of the fields using A and the source
+        Fz_vec = sp_solve(A_entries, A_indices, source_vec)
+
+        # get the x and y vectors and put all components into tuple
+        Fx_vec, Fy_vec = self.z_to_xy(Fz_vec, eps_vec)
+
+        # put all field components into a tuple, convert to grid shape and return them all
         field_vectors = (Fx_vec, Fy_vec, Fz_vec)
-
-        # convert all fields to grid and return tuple of them
         Fs = map(self._vec_to_grid, field_vectors)
         return tuple(Fs)
 
     def _vec_to_grid(self, vec):
-        return np.reshape(vec, self.shape)
+        # converts a vector quantity into an array of the shape of the FDFD simulation
+        return npa.reshape(vec, self.shape)
 
-""" base classes for linear and nonlinear fdfd problems """
-
-class fdfd_linear(fdfd):
-
-    def __init__(self, omega, L0, eps_r, npml, bloch_x=0.0, bloch_y=0.0):
-        super().__init__(omega, L0, eps_r, npml, bloch_x=bloch_x, bloch_y=bloch_y)
-
-    @fdfd.eps_r.setter
-    def eps_r(self, new_eps):
-        """ Defines some attributes when eps_r is set. """
-        assert not callable(new_eps), "for linear problems, eps_r must be a static array"        
-        new_eps = new_eps + 0.0 * (1 + 1j)    # make it complex
-        self.shape = self.Nx, self.Ny = new_eps.shape
-        self.info_dict['shape'] = self.shape
-        self.eps_vec_zz = new_eps.flatten()
-        self._eps_r = new_eps
-
-class fdfd_nonlinear(fdfd):
-
-    def __init__(self, omega, L0, eps_r, npml, bloch_x=0.0, bloch_y=0.0):
-        super().__init__(omega, L0, eps_r, npml, bloch_x=bloch_x, bloch_y=bloch_y)
-
-    @fdfd.eps_r.setter
-    def eps_r(self, new_eps):
-        """ Defines some attributes when eps_r is set. """
-        assert callable(new_eps), "for nonlinear problems, eps_r must be a static array"        
-        self.shape = self.Nx, self.Ny = new_eps(0).shape
-        self.info_dict['shape'] = self.shape
-        try:
-            # try autogradding the epsilon function with field of 0
-            # this comes with a warning, ignore it
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore")
-                jacobian(new_eps)(np.zeros(self.shape))
-        except:
-            raise ValueError("The supplied eps_r function is NOT autograd-compatable, make sure you defined it using autograd.numpy functions!")
-        new_eps_complex = lambda Ez: new_eps(Ez) + 0.0 * (1 + 1j)
-        self.eps_vec_zz = lambda Ez: new_eps_complex(Ez.reshape(self.shape)).flatten()
-        self.__eps_r = new_eps_complex
 
 """ These are the fdfd classes that you'll actually want to use """
 
-class fdfd_hz(fdfd_linear):
-    """ FDFD class for linear Hz polarization """
-
-    def __init__(self, omega, L0, eps_r, npml, bloch_x=0.0, bloch_y=0.0):
-        super().__init__(omega, L0, eps_r, npml, bloch_x=bloch_x, bloch_y=bloch_y)
-
-    def make_A(self, eps_vec_zz):
-        return make_A_Hz(self.info_dict, eps_vec_zz)
-
-    def solve_fn(self, eps_vec, source_vec, iterative=False, method=DEFAULT_SOLVER):
-        return solve_Hz(self.info_dict, eps_vec, source_vec, iterative=iterative, method=method)
-
-    def z_to_xy(self, Fz_vec, eps_vec):
-        return H_to_E(Fz_vec, self.info_dict, eps_vec)
-
-class fdfd_ez(fdfd_linear):
+class fdfd_ez(fdfd):
     """ FDFD class for linear Ez polarization """
 
     def __init__(self, omega, L0, eps_r, npml, bloch_x=0.0, bloch_y=0.0):
-        assert not callable(eps_r), "for linear problems, eps_r must be a static array"
         super().__init__(omega, L0, eps_r, npml, bloch_x=bloch_x, bloch_y=bloch_y)
 
-    def make_A(self, eps_vec_zz):
-        return make_A_Ez(self.info_dict, eps_vec_zz)
+    def make_A(self, eps_vec):
 
-    def solve_fn(self, eps_vec_zz, source_vec, iterative=False, method=DEFAULT_SOLVER):
-        return solve_Ez(self.info_dict, eps_vec_zz, source_vec, iterative=False, method=DEFAULT_SOLVER)
+        N = eps_vec.size
 
-    def z_to_xy(self, Fz_vec, eps_vec):
-        return E_to_H(Fz_vec, self.info_dict, None)
+        C = 1 / MU_0 * self.Dxf.dot(self.Dxb) \
+          + 1 / MU_0 * self.Dyf.dot(self.Dyb)
+        c_entries, c_indices = get_entries_indices(C)
 
-class fdfd_ez_nl(fdfd_nonlinear):
-    """ FDFD class for nonlinear Ez polarization """
+        # indices into the diagonal of a sparse matrix
+        diag_entries = EPSILON_0 * self.omega**2 * eps_vec
+        diag_indices = npa.vstack((npa.arange(N), npa.arange(N)))
 
-    def __init__(self, omega, L0, eps_fn, npml, bloch_x=0.0, bloch_y=0.0):
-        assert callable(eps_fn), "for nonlinear problems, eps_r must be a function of Ez"
-        super().__init__(omega, L0, eps_fn, npml, bloch_x=bloch_x, bloch_y=bloch_y)
+        A_entries = npa.hstack((diag_entries, c_entries))
+        A_indices = npa.hstack((diag_indices, c_indices))
 
-    def make_A(self, eps_fn):
-        return lambda Ez: make_A_Ez(self.info_dict, eps_vec(Ez))
+        return A_entries, A_indices
 
-    def solve_fn(self, eps_fn, source_vec, iterative=False, method=DEFAULT_SOLVER):
-        return solve_Ez_nl(self.info_dict, eps_fn, source_vec, iterative=False, method=DEFAULT_SOLVER)
+    def _Ez_to_Hx(self, Ez_vec):
+        """ Returns magnetic field `Hx` from electric field `Ez` """
+        Hx = 1 / MU_0 * sp_mult(self.Dyb_entries, self.Dyf_indices, Ez_vec)
+        return Hx
 
-    def z_to_xy(self, Fz_vec, eps_fn):
-        return E_to_H(Fz_vec, self.info_dict, None)
+    def _Ez_to_Hy(self, Ez_vec):
+        """ Returns magnetic field `Hy` from electric field `Ez` """
+        Hy = 1 / MU_0 * sp_mult(self.Dxb_entries, self.Dxf_indices, Ez_vec)
+        return Hy
 
+    def _E_to_H(self, Ez_vec):
+        """ More convenient function to return both Hx and Hy from Ez """
+        Hx_vec = self._Ez_to_Hx(Ez_vec)
+        Hy_vec = self._Ez_to_Hy(Ez_vec)
+        return Hx_vec, Hy_vec
+
+    def z_to_xy(self, Ez_vec, eps_vec):
+        return self._E_to_H(Ez_vec)
 
 """ This section is the meat and bones of the FDFD.
     It defines the basic operations needed for FDFD and also their derivatives
@@ -222,183 +168,168 @@ class fdfd_ez_nl(fdfd_nonlinear):
 
 """======================== SYSTEM MATRIX CREATION ========================"""
 
-# NEED TO DO GRID AVERAGING HERE NEXT!
-def make_A_Hz(info_dict, eps_vec_zz):
-    """ constructs the system matrix for `Hz` polarization """
-    N = eps_vec_zz.size
-    eps_vec_xx, eps_vec_yy = vec_zz_to_xy(info_dict, eps_vec_zz, grid_averaging=AVG)
-    diag_xx = 1 / EPSILON_0 * sp.spdiags(1/eps_vec_xx, [0], N, N)
-    diag_yy = 1 / EPSILON_0 * sp.spdiags(1/eps_vec_yy, [0], N, N)
-    A = spdot(info_dict['Dxf'], spdot(info_dict['Dxb'].T, diag_xx).T) \
-      + spdot(info_dict['Dyf'], spdot(info_dict['Dyb'].T, diag_yy).T) \
-      + info_dict['omega']**2 * MU_0 * sp.eye(N)
-    return A
+# # NEED TO DO GRID AVERAGING HERE NEXT!
+# def make_A_Hz(info_dict, eps_vec_zz):
+#     """ constructs the system matrix for `Hz` polarization """
+#     N = eps_vec_zz.size
+#     eps_vec_xx, eps_vec_yy = vec_zz_to_xy(info_dict, eps_vec_zz, grid_averaging=AVG)
+#     diag_xx = 1 / EPSILON_0 * sp.spdiags(1/eps_vec_xx, [0], N, N)
+#     diag_yy = 1 / EPSILON_0 * sp.spdiags(1/eps_vec_yy, [0], N, N)
+#     A = spdot(info_dict['Dxf'], spdot(info_dict['Dxb'].T, diag_xx).T) \
+#       + spdot(info_dict['Dyf'], spdot(info_dict['Dyb'].T, diag_yy).T) \
+#       + info_dict['omega']**2 * MU_0 * sp.eye(N)
+#     return A
 
-def make_A_Ez(info_dict, eps_vec_zz):
-    """ constructs the system matrix for `Ez` polarization """
-    N = eps_vec_zz.size
-    diag_zz = EPSILON_0 * sp.spdiags(eps_vec_zz, [0], N, N)
-    A = 1 / MU_0 * info_dict['Dxf'].dot(info_dict['Dxb']) \
-      + 1 / MU_0 * info_dict['Dyf'].dot(info_dict['Dyb']) \
-      + info_dict['omega']**2 * diag_zz
-    return A
+# def make_A_Ez(info_dict, eps_vec_zz):
+#     """ constructs the system matrix for `Ez` polarization """
+#     N = eps_vec_zz.size
+#     diag_zz = EPSILON_0 * sp.spdiags(eps_vec_zz, [0], N, N)
+#     A = 1 / MU_0 * info_dict['Dxf'].dot(info_dict['Dxb']) \
+#       + 1 / MU_0 * info_dict['Dyf'].dot(info_dict['Dyb']) \
+#       + info_dict['omega']**2 * diag_zz
+#     return A
 
-"""========================== FIELD CONVERSIONS ==========================="""
-
-def Ez_to_Hx(Ez, info_dict):
-    """ Returns magnetic field `Hx` from electric field `Ez` """
-    Hx = - spdot(info_dict['Dyb'], Ez) / MU_0
-    return Hx
-
-def Ez_to_Hy(Ez, info_dict):
-    """ Returns magnetic field `Hy` from electric field `Ez` """
-    Hy =  spdot(info_dict['Dxb'], Ez) / MU_0
-    return Hy
-
-def E_to_H(Ez, info_dict, eps_vec=None):
-    """ More convenient function to return both Hx and Hy from Ez """
-    Hx = Ez_to_Hx(Ez, info_dict)
-    Hy = Ez_to_Hy(Ez, info_dict)
-    return Hx, Hy
-
-def Hz_to_Ex(Hz, info_dict, eps_vec_zz, adjoint=False):
-    """ Returns electric field `Ex` from magnetic field `Hz` """
-    # note: adjoint switch is because backprop thru this fn. has different form
-    eps_vec_xx, eps_vec_yy = vec_zz_to_xy(info_dict, eps_vec_zz, grid_averaging=AVG) 
-    if adjoint:
-        Ex =  spdot(info_dict['Dyf'].T, Hz) / eps_vec_zz / EPSILON_0
-    else:
-        Ex = -spdot(info_dict['Dyb'],   Hz) / eps_vec_xx / EPSILON_0
-    return Ex
-
-def Hz_to_Ey(Hz, info_dict, eps_vec_zz, adjoint=False):
-    """ Returns electric field `Ey` from magnetic field `Hz` """
-    eps_vec_xx, eps_vec_yy = vec_zz_to_xy(info_dict, eps_vec_zz, grid_averaging=AVG)
-    if adjoint:
-        Ey = -spdot(info_dict['Dxf'].T, Hz) / eps_vec_zz / EPSILON_0
-    else:        
-        Ey =  spdot(info_dict['Dxb'],   Hz) / eps_vec_yy / EPSILON_0
-    return Ey
-
-def H_to_E(Hz, info_dict, eps_vec_zz, adjoint=False):
-    """ More convenient function to return both Ex and Ey from Hz """
-    eps_vec_xx, eps_vec_yy = vec_zz_to_xy(info_dict, eps_vec_zz, grid_averaging=AVG)    
-    Ex = Hz_to_Ex(Hz, info_dict, eps_vec_zz, adjoint=adjoint)
-    Ey = Hz_to_Ey(Hz, info_dict, eps_vec_zz, adjoint=adjoint)
-    return Ex, Ey
-
-"""======================== SOLVING FOR THE FIELDS ========================"""
-
-# Linear Ez
-
-def solve_Ez(info_dict, eps_vec_zz, source, iterative=False, method=DEFAULT_SOLVER):
-    """ solve `Ez = A^-1 b` where A is constructed from the FDFD `info_dict`
-        and 'eps_vec' is a (1D) vecay of the relative permittivity
-    """
-    A = make_A_Ez(info_dict, eps_vec_zz)
-    b = 1j * info_dict['omega'] * source
-    Ez = sparse_solve(A, b, iterative=iterative, method=method)
-    return Ez
-
-def solve_Hz(info_dict, eps_vec_zz, source, iterative=False, method=DEFAULT_SOLVER):
-    """ solve `Hz = A^-1 b` where A is constructed from the FDFD `info_dict`
-        and 'eps_vec' is a (1D) vecay of the relative permittivity
-    """
-
-    A = make_A_Hz(info_dict, eps_vec_zz)
-    b = 1j * info_dict['omega'] * source    
-    Hz = sparse_solve(A, b, iterative=iterative, method=method)
-    return Hz
+# """========================== FIELD CONVERSIONS ==========================="""
 
 
-"""=========================== SPECIAL SOLVE =========================="""
+# def Hz_to_Ex(Hz, info_dict, eps_vec_zz, adjoint=False):
+#     """ Returns electric field `Ex` from magnetic field `Hz` """
+#     # note: adjoint switch is because backprop thru this fn. has different form
+#     eps_vec_xx, eps_vec_yy = vec_zz_to_xy(info_dict, eps_vec_zz, grid_averaging=AVG) 
+#     if adjoint:
+#         Ex =  spdot(info_dict['Dyf'].T, Hz) / eps_vec_zz / EPSILON_0
+#     else:
+#         Ex = -spdot(info_dict['Dyb'],   Hz) / eps_vec_xx / EPSILON_0
+#     return Ex
 
-from numpy.linalg import norm
-from .utils import get_value
+# def Hz_to_Ey(Hz, info_dict, eps_vec_zz, adjoint=False):
+#     """ Returns electric field `Ey` from magnetic field `Hz` """
+#     eps_vec_xx, eps_vec_yy = vec_zz_to_xy(info_dict, eps_vec_zz, grid_averaging=AVG)
+#     if adjoint:
+#         Ey = -spdot(info_dict['Dxf'].T, Hz) / eps_vec_zz / EPSILON_0
+#     else:        
+#         Ey =  spdot(info_dict['Dxb'],   Hz) / eps_vec_yy / EPSILON_0
+#     return Ey
 
-@primitive
-def special_solve(info_dict, eps, b, iterative=False, method=DEFAULT_SOLVER):
-    A = make_A_Ez(info_dict, eps)
-    return sparse_solve(A, b, iterative=iterative, method=method)
+# def H_to_E(Hz, info_dict, eps_vec_zz, adjoint=False):
+#     """ More convenient function to return both Ex and Ey from Hz """
+#     eps_vec_xx, eps_vec_yy = vec_zz_to_xy(info_dict, eps_vec_zz, grid_averaging=AVG)    
+#     Ex = Hz_to_Ex(Hz, info_dict, eps_vec_zz, adjoint=adjoint)
+#     Ey = Hz_to_Ey(Hz, info_dict, eps_vec_zz, adjoint=adjoint)
+#     return Ex, Ey
 
-def special_solve_T(info_dict, eps, b, iterative=False, method=DEFAULT_SOLVER):
-    A = make_A_Ez(info_dict, eps)
-    return sparse_solve(A.T, b, iterative=iterative, method=method)
+# """======================== SOLVING FOR THE FIELDS ========================"""
 
-def vjp_special_solve(x, info_dict, eps, b, iterative=False, method=DEFAULT_SOLVER):
-    def vjp(v):
-        x_aj = special_solve_T(info_dict, eps, -v, iterative=iterative, method=method)
-        return info_dict['omega']**2 * EPSILON_0 * x * x_aj
-    return vjp
+# # Linear Ez
 
-defvjp(special_solve, None, vjp_special_solve, None)
+# def solve_Ez(info_dict, eps_vec_zz, source, iterative=False, method=DEFAULT_SOLVER):
+#     """ solve `Ez = A^-1 b` where A is constructed from the FDFD `info_dict`
+#         and 'eps_vec' is a (1D) vecay of the relative permittivity
+#     """
+#     A = make_A_Ez(info_dict, eps_vec_zz)
+#     b = 1j * info_dict['omega'] * source
+#     Ez = sparse_solve(A, b, iterative=iterative, method=method)
+#     return Ez
 
-def solve_nonlinear(info_dict, eps_fn, b, iterative=False, method=DEFAULT_SOLVER, verbose=False, atol=1e-10, max_iters=10):
-    """ Solve Ax=b for x where A is a function of x using direct substitution """
+# def solve_Hz(info_dict, eps_vec_zz, source, iterative=False, method=DEFAULT_SOLVER):
+#     """ solve `Hz = A^-1 b` where A is constructed from the FDFD `info_dict`
+#         and 'eps_vec' is a (1D) vecay of the relative permittivity
+#     """
 
-    def relative_residual(eps, x, b):
-        """ computes relative residual: ||Ax - b|| / ||b|| """
-        A = make_A_Ez(info_dict, eps)
-        res = norm(A.dot(x) - b)
-        return res / norm(b)
+#     A = make_A_Hz(info_dict, eps_vec_zz)
+#     b = 1j * info_dict['omega'] * source    
+#     Hz = sparse_solve(A, b, iterative=iterative, method=method)
+#     return Hz
 
-    #note, uncommenting first one 'unhooks' this function from autograd, uses vjp of solve_Ez_nl
-    # eps_fn_static = lambda E: get_value(eps_fn(E))
-    #note, uncommenting second one uses vjps defined for special solve
-    eps_fn_static = lambda E: eps_fn(E)
 
-    vec_0 = np.zeros(b.shape)
-    eps_0 = eps_fn_static(vec_0)
+# """=========================== SPECIAL SOLVE =========================="""
 
-    E_i = special_solve(info_dict, eps_0, b)
+# from numpy.linalg import norm
+# from .utils import get_value
 
-    for i in range(max_iters):
+# @primitive
+# def special_solve(info_dict, eps, b, iterative=False, method=DEFAULT_SOLVER):
+#     A = make_A_Ez(info_dict, eps)
+#     return sparse_solve(A, b, iterative=iterative, method=method)
 
-        eps_i = eps_fn_static(E_i)
-        rel_res = relative_residual(get_value(eps_i), get_value(E_i), b)
+# def special_solve_T(info_dict, eps, b, iterative=False, method=DEFAULT_SOLVER):
+#     A = make_A_Ez(info_dict, eps)
+#     return sparse_solve(A.T, b, iterative=iterative, method=method)
 
-        if verbose:
-            print('i = {}, relative residual = {}'.format(i, rel_res))
+# def vjp_special_solve(x, info_dict, eps, b, iterative=False, method=DEFAULT_SOLVER):
+#     def vjp(v):
+#         x_aj = special_solve_T(info_dict, eps, -v, iterative=iterative, method=method)
+#         return info_dict['omega']**2 * EPSILON_0 * x * x_aj
+#     return vjp
 
-        if rel_res < atol:
-            break
+# defvjp(special_solve, None, vjp_special_solve, None)
+
+# def solve_nonlinear(info_dict, eps_fn, b, iterative=False, method=DEFAULT_SOLVER, verbose=False, atol=1e-10, max_iters=10):
+#     """ Solve Ax=b for x where A is a function of x using direct substitution """
+
+#     def relative_residual(eps, x, b):
+#         """ computes relative residual: ||Ax - b|| / ||b|| """
+#         A = make_A_Ez(info_dict, eps)
+#         res = norm(A.dot(x) - b)
+#         return res / norm(b)
+
+#     #note, uncommenting first one 'unhooks' this function from autograd, uses vjp of solve_Ez_nl
+#     # eps_fn_static = lambda E: get_value(eps_fn(E))
+#     #note, uncommenting second one uses vjps defined for special solve
+#     eps_fn_static = lambda E: eps_fn(E)
+
+#     vec_0 = npa.zeros(b.shape)
+#     eps_0 = eps_fn_static(vec_0)
+
+#     E_i = special_solve(info_dict, eps_0, b)
+
+#     for i in range(max_iters):
+
+#         eps_i = eps_fn_static(E_i)
+#         rel_res = relative_residual(get_value(eps_i), get_value(E_i), b)
+
+#         if verbose:
+#             print('i = {}, relative residual = {}'.format(i, rel_res))
+
+#         if rel_res < atol:
+#             break
         
-        E_i = special_solve(info_dict, eps_i, b)
+#         E_i = special_solve(info_dict, eps_i, b)
 
-    return E_i
+#     return E_i
 
-@primitive
-def solve_Ez_nl(info_dict, eps_fn, source, iterative=False, method=DEFAULT_SOLVER):
+# @primitive
+# def solve_Ez_nl(info_dict, eps_fn, source, iterative=False, method=DEFAULT_SOLVER):
 
-    b = 1j * info_dict['omega'] * source
-    Ez = solve_nonlinear(info_dict, eps_fn, b)
-    return Ez
+#     b = 1j * info_dict['omega'] * source
+#     Ez = solve_nonlinear(info_dict, eps_fn, b)
+#     return Ez
 
-# To do: write our simpler adjoint formalism for converged solutions here
+# # To do: write our simpler adjoint formalism for converged solutions here
 
-def vjp_maker_solve_Ez_nl_eps(Ez, info_dict, eps_fn, source, iterative=False, method=DEFAULT_SOLVER):
+# def vjp_maker_solve_Ez_nl_eps(Ez, info_dict, eps_fn, source, iterative=False, method=DEFAULT_SOLVER):
 
-    print('why does this vjp never get called??')
-    # eps_eval = get_value(eps_fn(Ez))
-    # A = make_A_Ez(info_dict, eps_eval)
-    # zero = sp.csr_matrix(info_dict['shape'], dtype=np.complex128)
-    # A_block = block_4(A, zero, zero, A)
-    # b = 1j * info_dict['omega'] * source
-    # f = spdot(A, Ez) - b
+#     print('why does this vjp never get called??')
+#     # eps_eval = get_value(eps_fn(Ez))
+#     # A = make_A_Ez(info_dict, eps_eval)
+#     # zero = sp.csr_matrix(info_dict['shape'], dtype=npa.complex128)
+#     # A_block = block_4(A, zero, zero, A)
+#     # b = 1j * info_dict['omega'] * source
+#     # f = spdot(A, Ez) - b
 
-    def vjp(v):
-        # just some random function for testing
-        return v
+#     def vjp(v):
+#         # just some random function for testing
+#         return v
 
-    return vjp
+#     return vjp
 
-def vjp_maker_solve_Ez_nl_b(Ez, info_dict, eps_fn, source, iterative=False, method=DEFAULT_SOLVER):
-    def vjp(v):
-        # just some random function for testing
-        return v
-    return vjp
+# def vjp_maker_solve_Ez_nl_b(Ez, info_dict, eps_fn, source, iterative=False, method=DEFAULT_SOLVER):
+#     def vjp(v):
+#         # just some random function for testing
+#         return v
+#     return vjp
 
-defvjp(solve_Ez_nl, None, vjp_maker_solve_Ez_nl_eps, vjp_maker_solve_Ez_nl_b)
+# defvjp(solve_Ez_nl, None, vjp_maker_solve_Ez_nl_eps, vjp_maker_solve_Ez_nl_b)
 
 
 """============================= SOURCE / TFSF ============================"""
@@ -420,7 +351,7 @@ def b_TFSF(fdfd, inside_mask, theta):
     see slide 32 of https://empossible.net/wp-content/uploads/2019/08/Lecture-4d-FDFD-Formulation.pdf                                                       
     """
 
-    lambda0 = 2 * np.pi * C_0 / fdfd.omega
+    lambda0 = 2 * npa.pi * C_0 / fdfd.omega
     f_src = compute_f(theta, lambda0, fdfd.dL,  inside.shape)
 
     Q = compute_Q(inside_mask) / fdfd.omega # why this omega??
@@ -447,24 +378,24 @@ def compute_f(theta, lambda0, dL, shape):
     """ Compute the 'vacuum' field vector """
 
     # get plane wave k vector components (in units of grid cells)
-    k0 = 2 * np.pi / lambda0 * dL
-    kx =  k0 * np.sin(theta)
-    ky = -k0 * np.cos(theta)  # negative because downwards
+    k0 = 2 * npa.pi / lambda0 * dL
+    kx =  k0 * npa.sin(theta)
+    ky = -k0 * npa.cos(theta)  # negative because downwards
 
     # array to write into
-    f_src = np.zeros(shape, dtype=np.complex128)
+    f_src = npa.zeros(shape, dtype=npa.complex128)
 
     # get coordinates
     Nx, Ny = shape
-    xpoints = np.arange(Nx)
-    ypoints = np.arange(Ny)
-    xv, yv = np.meshgrid(xpoints, ypoints, indexing='ij')
+    xpoints = npa.arange(Nx)
+    ypoints = npa.arange(Ny)
+    xv, yv = npa.meshgrid(xpoints, ypoints, indexing='ij')
 
     # compute values and insert into array
-    x_PW = np.exp(1j * xpoints * kx)[:, None]
-    y_PW = np.exp(1j * ypoints * ky)[:, None]
+    x_PW = npa.exp(1j * xpoints * kx)[:, None]
+    y_PW = npa.exp(1j * ypoints * ky)[:, None]
 
-    f_src[xv, yv] = np.outer(x_PW, y_PW)
+    f_src[xv, yv] = npa.outer(x_PW, y_PW)
 
     return f_src.flatten()
 
@@ -507,10 +438,10 @@ def S_create(omega, shape, npml, dL):
     s_vector_y_b = create_sfactor('b', omega, dL, Ny, Ny_pml)
 
     # Fill the 2D space with layers of appropriate s-factors
-    Sx_f_2D = np.zeros(shape, dtype=np.complex128)
-    Sx_b_2D = np.zeros(shape, dtype=np.complex128)
-    Sy_f_2D = np.zeros(shape, dtype=np.complex128)
-    Sy_b_2D = np.zeros(shape, dtype=np.complex128)
+    Sx_f_2D = npa.zeros(shape, dtype=npa.complex128)
+    Sx_b_2D = npa.zeros(shape, dtype=npa.complex128)
+    Sy_f_2D = npa.zeros(shape, dtype=npa.complex128)
+    Sy_b_2D = npa.zeros(shape, dtype=npa.complex128)
 
     for i in range(0, Ny):
         Sx_f_2D[:, i] = 1 / s_vector_x_f
@@ -545,25 +476,25 @@ def createDws(w, s, dL, shape, bloch_x=0.0, bloch_y=0.0):
 
     if w is 'x':
         if Nx > 1:
-            phasor_x = np.exp(1j * bloch_x)   
+            phasor_x = npa.exp(1j * bloch_x)   
             if s is 'f':
                 # dxf = sp.diags([-1, 1, 1], [0, 1, -Nx+1], shape=(Nx, Nx))
-                dxf = sp.diags([-1, 1, phasor_x], [0, 1, -Nx+1], shape=(Nx, Nx), dtype=np.complex128)
+                dxf = sp.diags([-1, 1, phasor_x], [0, 1, -Nx+1], shape=(Nx, Nx), dtype=npa.complex128)
                 Dws = 1 / dL * sp.kron(dxf, sp.eye(Ny))
             else:
                 # dxb = sp.diags([1, -1, -1], [0, -1, Nx-1], shape=(Nx, Nx))
-                dxb = sp.diags([1, -1, -np.conj(phasor_x)], [0, -1, Nx-1], shape=(Nx, Nx), dtype=np.complex128)
+                dxb = sp.diags([1, -1, -npa.conj(phasor_x)], [0, -1, Nx-1], shape=(Nx, Nx), dtype=npa.complex128)
                 Dws = 1 / dL * sp.kron(dxb, sp.eye(Ny))
         else:
             Dws = sp.eye(Ny)
     if w is 'y':
         if Ny > 1:
-            phasor_y = np.exp(1j * bloch_y)               
+            phasor_y = npa.exp(1j * bloch_y)               
             if s is 'f':
                 dyf = sp.diags([-1, 1, phasor_y], [0, 1, -Ny+1], shape=(Ny, Ny))
                 Dws = 1 / dL * sp.kron(sp.eye(Nx), dyf)
             else:
-                dyb = sp.diags([1, -1, -np.conj(phasor_y)], [0, -1, Ny-1], shape=(Ny, Ny))
+                dyb = sp.diags([1, -1, -npa.conj(phasor_y)], [0, -1, Ny-1], shape=(Ny, Ny))
                 Dws = 1 / dL * sp.kron(sp.eye(Nx), dyb)
         else:
             Dws = sp.eye(Nx)
@@ -584,7 +515,7 @@ def S(l, dw, omega):
 def create_sfactor(s, omega, dL, N, N_pml):
     # used to help construct the S matrices for the PML creation
 
-    sfactor_vecay = np.ones(N, dtype=np.complex128)
+    sfactor_vecay = npa.ones(N, dtype=npa.complex128)
     if N_pml < 1:
         return sfactor_vecay
 
@@ -602,3 +533,4 @@ def create_sfactor(s, omega, dL, N, N_pml):
             elif i > N - N_pml:
                 sfactor_vecay[i] = S(dL * (i - (N - N_pml) - 1), dw, omega)
     return sfactor_vecay
+
