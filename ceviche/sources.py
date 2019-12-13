@@ -1,5 +1,6 @@
+import autograd.numpy as npa
 
-"""============================= SOURCE / TFSF ============================"""
+""" Source functions go here.  For now it's just TFSF """
 
 def b_TFSF(fdfd, inside_mask, theta):
     """ Returns a source vector for FDFD that will implement TFSF 

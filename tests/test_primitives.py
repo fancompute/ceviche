@@ -5,7 +5,6 @@ import matplotlib.pylab as plt
 from ceviche.primitives import *
 from ceviche.constants import *
 
-
 import ceviche    # use the ceviche wrapper for autograd derivatives
 DECIMAL = 3       # number of decimals to check to
 
