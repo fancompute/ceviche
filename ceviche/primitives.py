@@ -133,8 +133,8 @@ def sp_mult(entries, indices, x):
     return A.dot(x)
 
 def grad_sp_mult_entries_reverse(ans, entries, indices, x):
+    i, j = indices
     def vjp(v):
-        i, j = indices
         return v[i] * x[j]
     return vjp
 
@@ -230,8 +230,8 @@ def grad_sp_solve_entries_reverse(ans, entries, indices, b):
     indices_T = transpose_indices(indices)
     i, j = indices
     def vjp(v):
-        adj = sp_solve(entries, indices_T, v)
-        return -adj[i] * ans[j]
+        adj = sp_solve(entries, indices_T, -v)
+        return adj[i] * ans[j]
     return vjp
 
 def grad_sp_solve_x_reverse(ans, entries, indices, b):
@@ -243,8 +243,8 @@ def grad_sp_solve_x_reverse(ans, entries, indices, b):
 ag.extend.defvjp(sp_solve, grad_sp_solve_entries_reverse, None, grad_sp_solve_x_reverse)
 
 def grad_sp_solve_entries_forward(g, x, entries, indices, b):
-    forward = sp_mult(g, indices, x)
-    return sp_solve(entries, indices, -forward)
+    forward = sp_mult(g, indices, -x)
+    return sp_solve(entries, indices, forward)
 
 def grad_sp_solve_x_forward(g, x, entries, indices, b):
     return sp_solve(entries, indices, g)
@@ -307,37 +307,37 @@ if __name__ == '__main__':
 
     entries = make_rand_complex(M)
 
-    # grad = ceviche.jacobian(fn_mult_entries, mode='reverse')(entries)[0]
-    # grad_true = grad_num(fn_mult_entries, entries)
+    grad = ceviche.jacobian(fn_mult_entries, mode='reverse')(entries)[0]
+    grad_true = grad_num(fn_mult_entries, entries)
 
-    # np.testing.assert_almost_equal(grad, grad_true, decimal=DECIMAL)
+    np.testing.assert_almost_equal(grad, grad_true, decimal=DECIMAL)
 
-    # ## Testing Gradients of 'Mult x Reverse-mode'
+    ## Testing Gradients of 'Mult x Reverse-mode'
 
-    # x = make_rand_complex(N)
+    x = make_rand_complex(N)
 
-    # grad = ceviche.jacobian(fn_mult_x, mode='reverse')(x)[0]
-    # grad_true = grad_num(fn_mult_x, x)
+    grad = ceviche.jacobian(fn_mult_x, mode='reverse')(x)[0]
+    grad_true = grad_num(fn_mult_x, x)
 
-    # np.testing.assert_almost_equal(grad, grad_true, decimal=DECIMAL)
+    np.testing.assert_almost_equal(grad, grad_true, decimal=DECIMAL)
 
-    # ## Testing Gradients of 'Solve x Reverse-mode'
+    ## Testing Gradients of 'Solve x Reverse-mode'
 
-    # entries = make_rand_complex(M)
+    entries = make_rand_complex(M)
 
-    # grad = ceviche.jacobian(fn_solve_entries, mode='reverse')(entries)[0]
-    # grad_true = grad_num(fn_solve_entries, entries)
+    grad = ceviche.jacobian(fn_solve_entries, mode='reverse')(entries)[0]
+    grad_true = grad_num(fn_solve_entries, entries)
 
-    # np.testing.assert_almost_equal(grad, grad_true, decimal=DECIMAL)
+    np.testing.assert_almost_equal(grad, grad_true, decimal=DECIMAL)
 
-    # ## Testing Gradients of 'Solve x Reverse-mode'
+    ## Testing Gradients of 'Solve x Reverse-mode'
 
-    # b = make_rand_complex(N)
+    b = make_rand_complex(N)
 
-    # grad = ceviche.jacobian(fn_solve_b, mode='reverse')(b)[0]
-    # grad_true = grad_num(fn_solve_b, b)
+    grad = ceviche.jacobian(fn_solve_b, mode='reverse')(b)[0]
+    grad_true = grad_num(fn_solve_b, b)
 
-    # np.testing.assert_almost_equal(grad, grad_true, decimal=DECIMAL)
+    np.testing.assert_almost_equal(grad, grad_true, decimal=DECIMAL)
 
 
    ## Testing Gradients of 'Multiply entries Reverse-mode'
@@ -347,40 +347,41 @@ if __name__ == '__main__':
     grad_rev = ceviche.jacobian(fn_spsp_entries, mode='reverse')(entries)[0]
     grad_true = grad_num(fn_spsp_entries, entries)
 
+    # doesnt pass yet
     np.testing.assert_almost_equal(grad_rev, grad_true, decimal=DECIMAL)
 
 
     # """ FORWARD MODE TESTS """
 
-    # ## Testing Gradients of 'Mult entries Forward-mode'
+    ## Testing Gradients of 'Mult entries Forward-mode'
 
-    # grad_for = ceviche.jacobian(fn_mult_entries, mode='forward')(entries)[0]
-    # grad_true = grad_num(fn_mult_entries, entries)
+    grad_for = ceviche.jacobian(fn_mult_entries, mode='forward')(entries)[0]
+    grad_true = grad_num(fn_mult_entries, entries)
 
-    # np.testing.assert_almost_equal(grad_for, grad_true, decimal=DECIMAL)
+    np.testing.assert_almost_equal(grad_for, grad_true, decimal=DECIMAL)
 
-    # ## Testing Gradients of 'Mult x Forward-mode'
+    ## Testing Gradients of 'Mult x Forward-mode'
 
-    # grad_for = ceviche.jacobian(fn_mult_x, mode='forward')(x)[0]
-    # grad_true = grad_num(fn_mult_x, x)
+    grad_for = ceviche.jacobian(fn_mult_x, mode='forward')(x)[0]
+    grad_true = grad_num(fn_mult_x, x)
 
-    # np.testing.assert_almost_equal(grad_for, grad_true, decimal=DECIMAL)
+    np.testing.assert_almost_equal(grad_for, grad_true, decimal=DECIMAL)
 
-    # ## Testing Gradients of 'Solve entries Forward-mode'
+    ## Testing Gradients of 'Solve entries Forward-mode'
 
-    # grad_for = ceviche.jacobian(fn_solve_entries, mode='forward')(entries)[0]
-    # grad_true = grad_num(fn_solve_entries, entries)
+    grad_for = ceviche.jacobian(fn_solve_entries, mode='forward')(entries)[0]
+    grad_true = grad_num(fn_solve_entries, entries)
 
-    # np.testing.assert_almost_equal(grad_for, grad_true, decimal=DECIMAL)
+    np.testing.assert_almost_equal(grad_for, grad_true, decimal=DECIMAL)
 
-    # ## Testing Gradients of 'Solve x Forward-mode'
+    ## Testing Gradients of 'Solve x Forward-mode'
 
-    # grad_for = ceviche.jacobian(fn_solve_b, mode='forward')(b)[0]
-    # grad_true = grad_num(fn_solve_b, b)
+    grad_for = ceviche.jacobian(fn_solve_b, mode='forward')(b)[0]
+    grad_true = grad_num(fn_solve_b, b)
 
-    # np.testing.assert_almost_equal(grad_for, grad_true, decimal=DECIMAL)
+    np.testing.assert_almost_equal(grad_for, grad_true, decimal=DECIMAL)
 
-    ## Testing Gradients of 'Sparse-Sparse Multiply entries Forward-mode'
+    # Testing Gradients of 'Sparse-Sparse Multiply entries Forward-mode'
 
     z = fn_spsp_entries(entries)
 
