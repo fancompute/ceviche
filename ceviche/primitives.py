@@ -48,20 +48,23 @@ def make_rand_sparse(N, M):
     entries, indices = make_rand_entries_indices(N, M)
     return make_sparse(entries, indices, N)
 
+def der_num(fn, arg, index, delta):
+    # numerical derivative of `fn(arg)` with respect to `index` into arg and numerical step size `delta`
+    arg_i_for  = arg.copy()
+    arg_i_back = arg.copy()
+    arg_i_for[index] += delta / 2
+    arg_i_back[index] -= delta / 2
+    df_darg = (fn(arg_i_for) - fn(arg_i_back)) / delta
+    return df_darg
+
 def grad_num(fn, arg, delta=1e-6):
     # take a (complex) numerical derivative of function 'fn' with argument 'arg' with step size 'delta'
     N = arg.size
     grad = np.zeros((N,), dtype=np.complex128)
     f0 = fn(arg)
     for i in range(N):
-        arg_i = arg.copy()
-        arg_i[i] += delta
-        fi = fn(arg_i)
-        grad[i] += (fi - f0) / delta
-        arg_i = arg.copy()
-        arg_i[i] += 1j * delta
-        fi = fn(arg_i)
-        grad[i] += (fi - f0) / (1j * delta)
+        grad[i] = der_num(fn, arg, i, delta)        # real part
+        grad[i] += der_num(fn, arg, i, 1j * delta)  # imaginary part
     return grad
 
 def get_entries_indices(csr_matrix):
@@ -122,12 +125,12 @@ def sp_mult(entries, indices, x):
     """ Multiply a sparse matrix (A) by a dense vector (x)
     Args:
       entries: numpy array with shape (num_non_zeros,) giving values for non-zero
-        matrix entries.
+        matrix entries into A.
       indices: numpy array with shape (2, num_non_zeros) giving x and y indices for
-        non-zero matrix entries.
+        non-zero matrix entries into A.
       x: 1d numpy array specifying the vector to multiply by.
     Returns:
-      1d numpy array corresponding to the solution of A * x = b.
+      1d numpy array corresponding to the result (b) of A * x = b.
     """
     A = make_sparse(entries, indices, N=x.size)
     return A.dot(x)
