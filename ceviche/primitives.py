@@ -105,7 +105,8 @@ def get_entries_indices(csr_matrix):
         'jvp' defines the jacobian-vector product for forward mode (FMD)
         a jvp_maker function takes as arguments
             1. the forward propagating vector (g)
-            2. the rest of the original arguments in the @primitive
+            2. the output of the @primitive
+            3. the rest of the original arguments in the @primitive
         and returns
             (d{function} / d{argument_i}) @ g
 
