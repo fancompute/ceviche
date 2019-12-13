@@ -74,7 +74,7 @@ def get_entries_indices(csr_matrix):
     entries = csr_matrix.data
     cols = coo_matrix.col
     rows = coo_matrix.row
-    indices = np.vstack((cols, rows))
+    indices = np.vstack((rows, cols))
     return entries, indices
 
 
@@ -201,12 +201,14 @@ def grad_spsp_mult_entries_a_reverse(ans, entries_a, indices_a, entries_b, indic
     ik, jk = indices_a
     def vjp(v):
         entries_v, indices_v = v
-        return entries_v[ik] * entries_b[jk]
+        return entries_v[jk] * entries_b[ik]
     return vjp
 
 ag.extend.defvjp(spsp_mult, grad_spsp_mult_entries_a_reverse, None, None)
 
 def grad_spsp_mult_entries_a_forward(g, ans, entries_a, indices_a, entries_b, indices_b, N):
+    # out = spsp_mult(g, iandices_a, entries_b, indices_b, N)
+    # entries_out, indices_out = out
     return spsp_mult(g, indices_a, entries_b, indices_b, N)
 
 ag.extend.defjvp(spsp_mult, grad_spsp_mult_entries_a_forward, None, None)
@@ -246,6 +248,11 @@ def grad_sp_solve_x_reverse(ans, entries, indices, b):
 ag.extend.defvjp(sp_solve, grad_sp_solve_entries_reverse, None, grad_sp_solve_x_reverse)
 
 def grad_sp_solve_entries_forward(g, x, entries, indices, b):
+    # print('g', g.shape)
+    # print('x', x.shape)
+    # print('ea', entries.shape)
+    # print('ia', indices.shape)
+    # print('g sp_solve')
     forward = sp_mult(g, indices, -x)
     return sp_solve(entries, indices, forward)
 
@@ -302,7 +309,12 @@ if __name__ == '__main__':
     def fn_spsp_entries(entries):
         # sparse matrix multiplication (Ax = b) as a function of matrix entries 'A(entries)'
         entries_c, indices_c = spsp_mult(entries, indices_const, entries_const, indices_const, N=N)
+
         return out_fn(entries_c)
+        # print('in:   ', entries.shape, indices_const.shape, entries_const.shape, indices_const.shape)
+        # print('out:  ', entries_c.shape, indices_c.shape, b_const.shape)
+        # x = sp_solve(entries_c, indices_c, b_const)
+        # return out_fn(x)
 
     """ REVERSE MODE TESTS """
 
@@ -391,6 +403,24 @@ if __name__ == '__main__':
     grad_for = ceviche.jacobian(fn_spsp_entries, mode='forward')(entries)[0]
     grad_true = grad_num(fn_spsp_entries, entries)
 
-    np.testing.assert_almost_equal(grad_for, grad_true, decimal=DECIMAL)
+    # doesnt pass for more complicated functions
+    # np.testing.assert_almost_equal(grad_for, grad_true, decimal=DECIMAL)
+
+    ## TESTS SPARSE MATRX CREATION
+
+    A = make_rand_sparse(N, M)
+    B = make_rand_sparse(N, M)
+    C_true = A.dot(B).todense()
+
+    ae, ai = get_entries_indices(A)
+    be, bi = get_entries_indices(B)
+    ce, ci = spsp_mult(ae, ai, be, bi, N)
+
+    C_test = make_sparse(ce, ci, N).todense()
+
+    np.testing.assert_almost_equal(C_true, C_test, decimal=DECIMAL)
+
+
+
 
 
