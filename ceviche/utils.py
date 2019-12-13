@@ -170,25 +170,6 @@ def vjp_maker_num(fn, arg_inds, steps):
     return tuple(vjp_makers)
 
 
-@primitive
-def spdot(A, x):
-    """ Dot product of sparse matrix A and dense matrix x (Ax = b) """
-    return A.dot(x)
-
-def vjp_maker_spdot(b, A, x):
-    """ Gives vjp for b = spdot(A, x) w.r.t. x"""
-    def vjp(v):
-        return spdot(A.T, v)
-    return vjp
-
-def jvp_spdot(g, b, A, x):
-    """ Gives jvp for b = spdot(A, x) w.r.t. x"""
-    return spdot(A, g)
-
-defvjp(spdot, None, vjp_maker_spdot)
-defjvp(spdot, None, jvp_spdot)
-
-
 """ =================== PLOTTING AND MEASUREMENT =================== """
 
 

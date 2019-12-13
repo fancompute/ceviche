@@ -1,21 +1,10 @@
 import autograd.numpy as np
 import scipy.sparse.linalg as spl
-import scipy.optimize as opt
-import logging
-
-import numpy as npo    #numpy original
-
-
-from numpy.linalg import norm
-from .utils import spdot
-
-from autograd.extend import primitive, defvjp
 
 # try to import MKL but just use scipy sparse solve if not
 try:
     from pyMKL import pardisoSolver
     HAS_MKL = True
-    HAS_MKL = False
     print('using MKL for direct solvers')
 except:
     HAS_MKL = False
@@ -72,10 +61,10 @@ def _solve_iterative(A, b, iterative_method=DEFAULT_ITERATIVE_METHOD):
 
     x, info = solver_fn(A, b, atol=ATOL)
 
-    if info > 0:
-        raise ValueError("tried {} iterations and did not converge".format(info))
-    elif info < 0:
-        raise ValueError("iterative solver threw error")
+    # if info > 0:
+    #     raise ValueError("tried {} iterations and did not converge".format(info))
+    # elif info < 0:
+        # raise ValueError("iterative solver threw error")
 
     return x
 
@@ -91,6 +80,7 @@ if __name__ == '__main__':
     from numpy.random import random as random
     import numpy as np
     from time import time
+    import ceviche
 
     N = 200       # dimension of the x, and b vectors
     density = 0.3  # sparsity of the dense matrix
@@ -108,17 +98,17 @@ if __name__ == '__main__':
 
     # ITERATIVE SOLVES
 
-    for method in ITERATIVE_METHODS.keys():
+    for iterative_method in ITERATIVE_METHODS.keys():
         t0 = time()
-        x = _solve_iterative(A, b, method=method)
+        x = _solve_iterative(A, b, iterative_method=iterative_method)
         t1 = time()
-        print('\titerative solver ({}):\n\t\ttook {} seconds'.format(method, t1 - t0))
+        print('\titerative solver ({}):\n\t\ttook {} seconds'.format(iterative_method, t1 - t0))
 
     print('\n')
 
     print('WITH FDFD MATRICES:\n')
 
-    m, n = 400, 100
+    m, n = 200, 100
     print('\tfor dimensions = {}\n'.format((m, n)))
     eps_r = np.random.random((m, n)) + 1
     b = np.random.random((m * n, )) - 0.5
@@ -134,7 +124,8 @@ if __name__ == '__main__':
     omega0 = 2 * np.pi * C_0 / lambda0
 
     F = fdfd(omega0, dl, eps_r, [10, 0])
-    A = F.A
+    entries_a, indices_a = F.make_A(eps_r.flatten())
+    A = ceviche.primitives.make_sparse(entries_a, indices_a, m*n)
 
     # DIRECT SOLVE
     t0 = time()
@@ -144,8 +135,8 @@ if __name__ == '__main__':
 
     # ITERATIVE SOLVES
 
-    for method in ITERATIVE_METHODS.keys():
+    for iterative_method in ITERATIVE_METHODS.keys():
         t0 = time()
-        x = _solve_iterative(A, b, method=method)
+        x = _solve_iterative(A, b, iterative_method=iterative_method)
         t1 = time()
-        print('\titerative solver ({}):\n\t\ttook {} seconds'.format(method, t1 - t0))
+        print('\titerative solver ({}):\n\t\ttook {} seconds'.format(iterative_method, t1 - t0))
