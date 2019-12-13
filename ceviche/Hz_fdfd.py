@@ -3,7 +3,7 @@ import scipy.sparse as sp
 
 from ceviche.primitives import sp_mult, sp_solve, make_rand_entries_indices, make_rand, make_rand_complex, grad_num
 from ceviche.jacobians import jacobian
-from ceviche.fdfd import fdfd_ez
+from ceviche.fdfd import fdfd_hz
 
 if __name__ == '__main__':
 
@@ -12,7 +12,7 @@ if __name__ == '__main__':
             A = D1 * diag(1/epsilon) * D2 + ...
     """
 
-    Nx, Ny = 300, 300
+    Nx, Ny = 100, 100
     N = Nx * Ny
 
     # current source for this problem
@@ -24,7 +24,7 @@ if __name__ == '__main__':
         eps_vec = 1 + npa.square(parameters)
         eps_r = eps_vec.reshape((Nx, Ny))
 
-        F = fdfd_ez(omega=1e14, L0=1e-6, eps_r=eps_r, npml=[0, 0])
+        F = fdfd_hz(omega=1e14, L0=1e-6, eps_r=eps_r, npml=[0, 0])
         Ez, Hx, Hy = F.solve(source)
 
         return npa.abs(npa.sum(Ez)) + npa.abs(npa.sum(Hx)) + npa.abs(npa.sum(Hy))
