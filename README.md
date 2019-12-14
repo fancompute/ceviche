@@ -77,7 +77,8 @@ to run a specific one.  Some of these tests involve visual inspection of the fie
 
 To run all of the gradient checking functions, run 
 
-    bash tests/test_all_gradients.sh
+    chmod +x tests/test_all_gradients.sh
+    ./tests/test_all_gradients.sh
 
 ## Citation
 
