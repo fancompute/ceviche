@@ -4,6 +4,8 @@ import scipy.sparse as sp
 from .constants import *
 from .primitives import sp_solve, sp_mult, get_entries_indices
 
+# notataion is similar to that used in: http://www.jpier.org/PIERB/pierb36/11.11092006.pdf
+
 class fdfd():
     """ Base class for FDFD simulation """
 
@@ -42,13 +44,15 @@ class fdfd():
 
     """ classes inherited from fdfd() must implement their own versions of these functions for `fdfd.solve()` to work """
 
-    def make_A(self, eps_r):
+    def _make_A(self, eps_r):
         """ This method needs to return the indices and elements into the system matrix """        
-        raise NotImplementedError("need to make a make_A() method")
+        raise NotImplementedError("need to make a _make_A() method")
 
-    def solve_fn(self, A_entries, A_indices, source_vec):
+    def _solve_fn(self, entries_a, indices_a, source_vec):
         """ This method needs to return the x, y, and z field components """        
         raise NotImplementedError("need to implement function to solve for field components")
+
+    """ You call this to solve for the electromagnetic fields """
 
     def solve(self, source_z):
         """ Outward facing function (what gets called by user) that takes a source grid and returns the field components """
@@ -58,10 +62,10 @@ class fdfd():
         eps_vec = self._grid_to_vec(self.eps_r)
 
         # create the A matrix for this polarization
-        A_entries, A_indices = self.make_A(eps_vec)
+        entries_a, indices_a = self._make_A(eps_vec)
 
         # solve field componets usng A and the source
-        Fx_vec, Fy_vec, Fz_vec = self.solve_fn(eps_vec, A_entries, A_indices, source_vec)
+        Fx_vec, Fy_vec, Fz_vec = self._solve_fn(eps_vec, entries_a, indices_a, source_vec)
 
         # put all field components into a tuple, convert to grid shape and return them all
         Fx = self._vec_to_grid(Fx_vec)
@@ -82,25 +86,23 @@ class fdfd():
         self.Dxf, self.Dxb, self.Dyf, self.Dyb = derivs
 
         # store the entries and elements
-        self.Dxf_entries, self.Dxf_indices = get_entries_indices(self.Dxf)
-        self.Dxb_entries, self.Dxb_indices = get_entries_indices(self.Dxb)
-        self.Dyf_entries, self.Dyf_indices = get_entries_indices(self.Dyf)
-        self.Dyb_entries, self.Dyb_indices = get_entries_indices(self.Dyb)
+        self.entries_Dxf, self.indices_Dxf = get_entries_indices(self.Dxf)
+        self.entries_Dxb, self.indices_Dxb = get_entries_indices(self.Dxb)
+        self.entries_Dyf, self.indices_Dyf = get_entries_indices(self.Dyf)
+        self.entries_Dyb, self.indices_Dyb = get_entries_indices(self.Dyb)
 
         # stores some convenience functions for multiplying derivative matrices by a vector `vec`
-        self.mult_Dxf = lambda vec: sp_mult(self.Dxf_entries, self.Dxf_indices, vec)
-        self.mult_Dxb = lambda vec: sp_mult(self.Dxb_entries, self.Dxb_indices, vec)
-        self.mult_Dyf = lambda vec: sp_mult(self.Dyf_entries, self.Dyf_indices, vec)
-        self.mult_Dyb = lambda vec: sp_mult(self.Dyb_entries, self.Dyb_indices, vec)
+        self.mult_Dxf = lambda vec: sp_mult(self.entries_Dxf, self.indices_Dxf, vec)
+        self.mult_Dxb = lambda vec: sp_mult(self.entries_Dxb, self.indices_Dxb, vec)
+        self.mult_Dyf = lambda vec: sp_mult(self.entries_Dyf, self.indices_Dyf, vec)
+        self.mult_Dyb = lambda vec: sp_mult(self.entries_Dyb, self.indices_Dyb, vec)
 
     def _vec_to_grid(self, vec):
         """ converts a vector quantity into an array of the shape of the FDFD simulation """
         return npa.reshape(vec, self.shape)
 
     def _grid_to_vec(self, grid):
-        """ converts a grid of the shape of the FDFD simulation to a flat vector 
-               note:  `_vec_to_grid( _grid_to_vec ( grid ) )` should equal `grid`
-        """
+        """ converts a grid of the shape of the FDFD simulation to a flat vector """
         return grid.flatten()
 
     def _save_shape(self, grid):
@@ -147,12 +149,6 @@ class fdfd():
         Ey_vec = self._Hz_to_Ey(Hz_vec, eps_vec_yy)
         return Ex_vec, Ey_vec
 
-""" like fdfd() but specific to 2D problems """
-
-class fdfd_2D(fdfd):
-    def __init__(self, omega, L0, eps_r, npml, bloch_x=0.0, bloch_y=0.0):
-        super().__init__(omega, L0, eps_r, npml, bloch_x=bloch_x, bloch_y=bloch_y)
-
 """ These are the fdfd classes that you'll actually want to use """
 
 class fdfd_ez(fdfd):
@@ -161,25 +157,25 @@ class fdfd_ez(fdfd):
     def __init__(self, omega, L0, eps_r, npml, bloch_x=0.0, bloch_y=0.0):
         super().__init__(omega, L0, eps_r, npml, bloch_x=bloch_x, bloch_y=bloch_y)
 
-    def make_A(self, eps_vec):
+    def _make_A(self, eps_vec):
 
         N = eps_vec.size
 
         C = - 1 / MU_0 * self.Dxf.dot(self.Dxb) \
             - 1 / MU_0 * self.Dyf.dot(self.Dyb)
-        c_entries, c_indices = get_entries_indices(C)
+        entries_c, indices_c = get_entries_indices(C)
 
         # indices into the diagonal of a sparse matrix
-        diag_entries = - EPSILON_0 * self.omega**2 * eps_vec
-        diag_indices = npa.vstack((npa.arange(N), npa.arange(N)))
+        entries_diag = - EPSILON_0 * self.omega**2 * eps_vec
+        indices_diag = npa.vstack((npa.arange(N), npa.arange(N)))
 
-        A_entries = npa.hstack((diag_entries, c_entries))
-        A_indices = npa.hstack((diag_indices, c_indices))
+        entries_a = npa.hstack((entries_diag, entries_c))
+        indices_a = npa.hstack((indices_diag, indices_c))
 
-        return A_entries, A_indices
+        return entries_a, indices_a
 
-    def solve_fn(self, eps_vec, A_entries, A_indices, Jz_vec):
-        Ez_vec = sp_solve(A_entries, A_indices, Jz_vec)
+    def _solve_fn(self, eps_vec, entries_a, indices_a, Jz_vec):
+        Ez_vec = sp_solve(entries_a, indices_a, Jz_vec)
         Hx_vec, Hy_vec = self._Ez_to_Hx_Hy(Ez_vec)
         return Hx_vec, Hy_vec, Ez_vec
 
@@ -197,10 +193,9 @@ class fdfd_hz(fdfd):
         eps_vec_yy = self._grid_to_vec(eps_grid_yy)
         return eps_vec_xx, eps_vec_yy
 
-    def make_A(self, eps_vec):
-        # solving for [ex, ey] in this formalism: http://www.jpier.org/PIERB/pierb36/11.11092006.pdf
+    def _make_A(self, eps_vec):
 
-        # notation: C = [[C11, C12], [C21, C22]
+        # notation: C = [[C11, C12], [C21, C22]]
         C11 = -1 / MU_0 * self.Dyf.dot(self.Dyb) 
         C22 = -1 / MU_0 * self.Dxf.dot(self.Dxb)
         C12 =  1 / MU_0 * self.Dyf.dot(self.Dxb)
@@ -214,8 +209,8 @@ class fdfd_hz(fdfd):
 
         # shift the indices into each of the 4 quadrants
         indices_c22 += self.N       # shift into bottom right quadrant
-        indices_c12[1,:] += self.N  # shift into bottom right quadrant
-        indices_c21[0,:] += self.N
+        indices_c12[1,:] += self.N  # shift into top right quadrant
+        indices_c21[0,:] += self.N  # shift into bottom left quadrant
 
         # get full matrix entries and indices
         entries_c = npa.hstack((entries_c11, entries_c12, entries_c21, entries_c22))
@@ -223,15 +218,15 @@ class fdfd_hz(fdfd):
 
         # indices into the diagonal of a sparse matrix
         eps_vec_xx, eps_vec_yy = self._grid_average(eps_vec)
-        diag_entries = - EPSILON_0 * self.omega**2 * npa.hstack((eps_vec_xx, eps_vec_yy))
-        diag_indices = npa.vstack((npa.arange(2 * self.N), npa.arange(2 * self.N)))
+        entries_diag = - EPSILON_0 * self.omega**2 * npa.hstack((eps_vec_xx, eps_vec_yy))
+        indices_diag = npa.vstack((npa.arange(2 * self.N), npa.arange(2 * self.N)))
 
         # put together the big A and return entries and indices
-        A_entries = npa.hstack((diag_entries, entries_c))
-        A_indices = npa.hstack((diag_indices, indices_c))
-        return A_entries, A_indices
+        entries_a = npa.hstack((entries_diag, entries_c))
+        indices_a = npa.hstack((indices_diag, indices_c))
+        return entries_a, indices_a
 
-    def solve_fn(self, eps_vec, A_entries, A_indices, Mz_vec):
+    def _solve_fn(self, eps_vec, entries_a, indices_a, Mz_vec):
 
         # convert the Mz current into Jx, Jy
         eps_vec_xx, eps_vec_yy = self._grid_average(eps_vec)
@@ -239,7 +234,7 @@ class fdfd_hz(fdfd):
 
         # lump the current sources together and solve for electric field
         source_J_vec = npa.hstack((Jx_vec, Jy_vec))
-        E_vec = sp_solve(A_entries, A_indices, source_J_vec)
+        E_vec = sp_solve(entries_a, indices_a, source_J_vec)
 
         # strip out the x and y components of E and find the Hz component
         Ex_vec = E_vec[:self.N]
