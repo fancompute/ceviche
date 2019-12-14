@@ -5,7 +5,7 @@ import scipy.sparse.linalg as spl
 from copy import deepcopy
 
 from ceviche.constants import *
-from ceviche.fdfd import compute_derivative_matrices, E_to_H
+from ceviche.fdfd import compute_derivative_matrices#, Ez_to_Hx_Hy
 
 def get_modes(eps_cross, omega, dL, npml, m=1, filtering=True):
     """ Solve for the modes of a waveguide cross section 
@@ -133,7 +133,7 @@ def Ez_to_H(Ez, omega, dL, npml):
     info_dict['Dyf'] = Dyf
     info_dict['Dyb'] = Dyb   
 
-    Hx, Hy = E_to_H(Ez, info_dict)
+    Hx, Hy = Ez_to_Hx_Hy(Ez)
 
     return Hx, Hy
 
