@@ -160,6 +160,7 @@ def sp_mult(entries, indices, x):
     A = make_sparse(entries, indices, N=x.size)
     return A.dot(x)
 
+# # old one
 # def grad_sp_mult_entries_reverse(ans, entries, indices, x):
 #     i, j = indices
 #     def vjp(v):
@@ -167,17 +168,18 @@ def sp_mult(entries, indices, x):
 #     return vjp
 
 def grad_sp_mult_entries_reverse(b, entries, indices, x):
-    entries_1 = np.ones(entries.shape)
-    num_k = entries.size
-    ik, jk = indices
-    indices_BT = np.vstack((np.arange(num_k), jk))
-    BT = make_sparse_MxN(entries_1, indices_BT, shape=(num_k, x.size))
-    BTx = BT.dot(x)
+    entries_a1 = np.ones(entries.shape)
+    Ma = entries.size
+    a_ik, a_jk = indices
+    indices_D_jka = np.vstack((np.arange(Ma), a_jk))
+    indices_D_ika = np.vstack((np.arange(Ma), a_ik))
+    D_jka = make_sparse_MxN(entries_a1, indices_D_jka, shape=(Ma, x.size))
+    D_ika = make_sparse_MxN(entries_a1, indices_D_ika, shape=(Ma, x.size))
+
+    D_jka_x = D_jka.dot(x)
     def vjp(v):
-        indices_AT = np.vstack((np.arange(num_k), ik))
-        AT = make_sparse_MxN(entries_1, indices_AT, shape=(num_k, v.size))
-        ATv = AT.dot(v)
-        return BTx * ATv
+        D_ika_v = D_ika.dot(v)
+        return D_jka_x * D_ika_v
     return vjp
 
 def grad_sp_mult_x_reverse(b, entries, indices, x):
@@ -269,25 +271,49 @@ def spsp_mult(entries_a, indices_a, entries_x, indices_x, N):
     return entries_b, indices_b
 
 def grad_spsp_mult_entries_a_reverse(b_out, entries_a, indices_a, entries_x, indices_x, N):
-    entries_1 = np.ones(entries_a.shape)
-    num_k = entries_a.size
-    ik, jk = indices_a
-    indices_BT = np.vstack((np.arange(num_k), jk))
-    BT = make_sparse_MxN(entries_1, indices_BT, shape=(num_k, N))
+
+    # too complicated to explain...
+    _, indices_b = b_out
+    a_ik, a_jk = indices_a
+    b_ik, b_jk = indices_b
+
+    entries_a1 = np.ones(entries_a.shape)
+    entries_b1 = np.ones(b_ik.shape)
+
+    Ma = entries_a.size
+    Mb = entries_b1.size
+
+    indices_D_ika = np.vstack((np.arange(Ma), a_ik))
+    indices_D_jka = np.vstack((np.arange(Ma), a_jk))
+    D_ika = make_sparse_MxN(entries_a1, indices_D_ika, shape=(Ma, N))
+    D_jka = make_sparse_MxN(entries_a1, indices_D_jka, shape=(Ma, N))
+
+    indices_D_ikb = np.vstack((np.arange(Mb), b_ik))
+    indices_D_jkb = np.vstack((np.arange(Mb), b_jk))
+    D_ikb = make_sparse_MxN(entries_b1, indices_D_ikb, shape=(Mb, N))
+    D_jkb = make_sparse_MxN(entries_b1, indices_D_jkb, shape=(Mb, N))
+
     X = make_sparse(entries_x, indices_x, N)
-    BTX = BT.dot(X)
-    def vjp(V):
-        indices_AT = np.vstack((np.arange(num_k), ik))
-        AT = make_sparse_MxN(entries_1, indices_AT, shape=(num_k, N))
-        entries_v, indices_v = V
-        indices_v = np.vstack((np.arange(N), np.arange(N)))
-        print(entries_v, indices_v)
-        V = sp.diags(entries_v, shape=(N,N))
-        print(V.todense())
-        ATV = AT.dot(V)
-        ATV_BTX = BTX.T.multiply(ATV.T)
-        print(ATV_BTX)        
-        return ATV_BTX.sum(axis=0)
+
+    indices_D_ika = np.vstack((np.arange(Ma), a_ik))
+    indices_D_jka = np.vstack((np.arange(Ma), a_jk))
+    D_ika = make_sparse_MxN(entries_a1, indices_D_ika, shape=(Ma, N))
+    D_jka = make_sparse_MxN(entries_a1, indices_D_jka, shape=(Ma, N))
+
+    indices_D_ikb = np.vstack((np.arange(Mb), b_ik))
+    indices_D_jkb = np.vstack((np.arange(Mb), b_jk))
+    D_ikb = make_sparse_MxN(entries_b1, indices_D_ikb, shape=(Mb, N))
+    D_jkb = make_sparse_MxN(entries_b1, indices_D_jkb, shape=(Mb, N))
+
+    D_jka_X = D_jka.dot(X)   
+
+    def vjp(v):
+        entries_v, _ = v
+        V = make_sparse(entries_v, indices_b, N)
+        D_ika_V = D_ika.dot(V)
+        combined = D_ika_V.multiply(D_jka_X)
+        return combined.sum(axis=1)
+
     return vjp
 
 
@@ -425,7 +451,7 @@ if __name__ == '__main__':
     ## Setup
 
     N = 4        # size of matrix dimensions.  matrix shape = (N, N)
-    M = N**2- 1     # number of non-zeros (make it dense for numerical stability)
+    M = N**2 - 1     # number of non-zeros (make it dense for numerical stability)
 
     # these are the default values used within the test functions
     indices_const = make_rand_indeces(N, M)
@@ -440,7 +466,6 @@ if __name__ == '__main__':
     def fn_spsp_entries(entries):
         # sparse matrix multiplication (Ax = b) as a function of matrix entries 'A(entries)'
         entries_c, indices_c = spsp_mult(entries, indices_const, entries_const, indices_const, N=N)
-        # return out_fn(entries_c)
         x = sp_solve(entries_c, indices_c, b_const)
         return out_fn(x)
 
