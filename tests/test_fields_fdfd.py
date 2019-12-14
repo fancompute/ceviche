@@ -24,8 +24,10 @@ class TestFields_FDFD(unittest.TestCase):
 
         F = fdfd_hz(self.omega, self.dL, self.eps_r, self.npml)
         Ex, Ey, Hz = F.solve(self.source)
-        Hz_max = np.max(np.abs(Hz))        
-        plt.imshow(np.real(Hz), cmap='RdBu', vmin=-Hz_max/5, vmax=Hz_max/5)
+        plot_component = Ex
+        field_max = np.max(np.abs(plot_component))
+        print(field_max)
+        plt.imshow(np.real(plot_component), cmap='RdBu', vmin=-field_max/10, vmax=field_max/10)
         plt.show()
 
     def test_Ez(self):
@@ -33,8 +35,9 @@ class TestFields_FDFD(unittest.TestCase):
 
         F = fdfd_ez(self.omega, self.dL, self.eps_r, self.npml)
         Hx, Hy, Ez = F.solve(self.source)
-        Ez_max = np.max(np.abs(Ez))
-        plt.imshow(np.real(Ez), cmap='RdBu', vmin=-Ez_max/5, vmax=Ez_max/5)
+        plot_component = Ez
+        field_max = np.max(np.abs(plot_component))
+        plt.imshow(np.real(plot_component), cmap='RdBu', vmin=-field_max/5, vmax=field_max/5)
         plt.show()
 
 if __name__ == '__main__':
