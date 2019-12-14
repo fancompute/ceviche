@@ -148,11 +148,10 @@ def create_S_matrices(omega, shape, npml, dL):
     Sy_f_2D = np.zeros(shape, dtype=np.complex128)
     Sy_b_2D = np.zeros(shape, dtype=np.complex128)
 
-    # what does this code do?
+    # insert the cross sections into the S-grids (could be done more elegantly)
     for i in range(0, Ny):
         Sx_f_2D[:, i] = 1 / s_vector_x_f
         Sx_b_2D[:, i] = 1 / s_vector_x_b
-
     for i in range(0, Nx):
         Sy_f_2D[i, :] = 1 / s_vector_y_f
         Sy_b_2D[i, :] = 1 / s_vector_y_b
