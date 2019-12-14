@@ -20,9 +20,19 @@ This allows you to write code to solve your E&M problem, and then use automatic 
 
 As a result, you can do gradient-based optimization, sensitivity analysis, or plug your E&M solver into a machine learning model without the tedius process of deriving your derivatives analytically.
 
-### A simple example
+### Tutorials
 
-Let's saw we inject light at position `source` and measure its intensity at `probe`.
+There is a comprehensive ceviche tutorial available at [this link](https://github.com/fancompute/workshop-invdesign) with several ipython notebook examples:
+1. [Running FDFD simulations in ceviche.](https://github.com/fancompute/workshop-invdesign/blob/master/01_First_simulation.ipynb)
+2. [Performing inverse design of a mode converter.](https://github.com/fancompute/workshop-invdesign/blob/master/02_Invdes_intro.ipynb)
+3. [Adding fabrication constraints and device parameterizations.](https://github.com/fancompute/workshop-invdesign/blob/master/03_Invdes_parameterization.ipynb)
+4. [Inverse design of a wavelength-division multiplexer and advanced topics.](https://github.com/fancompute/workshop-invdesign/blob/master/04_Invdes_wdm_scheduling.ipynb)
+
+There are also a few examples in the `examples/*` directory.
+
+### What can it do?  An Example
+
+Let's saw we have a simulation where we inject a current source at position `source` and measure the electric field intensity at `probe`.
 
 Between these two points, there's a box at location `pos_box` with permittivity `eps`.
 
@@ -56,37 +66,29 @@ def intensity(eps):
     return = np.sum(I * probe)
 ```
 
-Then, finding the derivative of the intensity is as easy as calling one function and evaluating at the current permittivity
+Then, we can easily take the derivative of the intensity with respect to `eps` using a ceviche function
 
 
 ```python
 
 # use autograd to differentiate `intensity` function
-grad_fn = jacobian(intensity)
+grad_fn = ceviche.jacobian(intensity)
 
 # then, evaluate it at the current value of `eps`
 dI_deps = grad_fn(eps_curr)
 
 ```
 
-Note that we didnt have to derive anything by hand for this specific situation!
+The beauty is that ceviche lets you compute this derivative without having to do any calculations by hand!  Using automatic differentiation, each step of the calculated is recorded and its derivative information is already known.  This lets us take derivatives of arbitrary complex code, where the output depends in some way on the electromagnetic simulation.
 
-Armed with this capability, we can now do things like gradient based optimization to maximize the intensity.
+Armed with this capability, we can now do things like performing gradient-based optimization (inverse design) to maximize the intensity.
 
 ```python
 for _ in range(10):
     eps_current += step_size * dI_deps_fn(eps_current)
 ```
 
-This becomes more powerful when you have several degrees of freedom, like in a topology optimization problem, or when your machine learning model involves running an FDFD or FDTD simulation.
-
-## Design Principle
-
-`ceviche` is designed with simplicity and flexibility in mind and is meant to serve as a base package for building your projects from.  Because of this -- with some exceptions -- it does not have simple interfaces for optimization, source or device creation, or visualization.  While those things may be added later, for now you will need to build them yourself.  Thankfully, because ceviche takes care of the hard parts, this can be relatively easy!
-
-For some inspiration, see the `examples` directory.
-
-For more user friendly features, check out our [`angler`](https://github.com/fancompute/angler) package.  We plan to merge the two packages at a later date to give these automatic differentiation capabilities to `angler`.
+It's also worth noting that the mathematics behind this gradient implementation uses the 'adjoint method', which lets you take derivatives with several degrees of freedom.  This is perfect for inverse design problems, or training of machine learning models that involve running an FDFD or FDTD simulation.  If you're interested in the connection between adjoint methods and backpropagation in the context of photonics, check out our group's earlier work on the subject [link](https://www.osapublishing.org/optica/abstract.cfm?uri=optica-5-7-864#articleMetrics).
 
 ## Installation
 
@@ -147,7 +149,8 @@ to run a specific one.  Some of these tests involve visual inspection of the fie
 
 To run all of the gradient checking functions, run 
 
-    bash tests/test_all_gradients.sh
+    chmod + test/test_all_gradients.sh
+    ./tests/test_all_gradients.sh
 
 ## Citation
 
