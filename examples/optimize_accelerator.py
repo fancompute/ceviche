@@ -88,7 +88,7 @@ def accel_gradient(eps_arr):
 
     # compute the gradient and normalize if you want
     G = npa.sum(Ey * eta / Ny)
-    return -np.abs(G) # / Emax(Ex, Ey, eps_r)
+    return -np.abs(G) / Eavg(Ex, Ey)
 
 # define the gradient for autograd
 grad_g = jacobian(accel_gradient)

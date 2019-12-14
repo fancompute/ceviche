@@ -1,6 +1,9 @@
 import autograd.numpy as np
 import scipy.sparse.linalg as spl
 
+
+""" This file stores the various linear system solvers you can use for FDFD """
+
 # try to import MKL but just use scipy sparse solve if not
 try:
     from pyMKL import pardisoSolver
@@ -8,12 +11,12 @@ try:
     print('using MKL for direct solvers')
 except:
     HAS_MKL = False
+    print('using scipy.sparse for direct solvers.  Note: using MKL will make things significantly faster.')
 
+# default iterative method to use
+# for reference on the methods available, see:  https://docs.scipy.org/doc/scipy/reference/sparse.linalg.html
 DEFAULT_ITERATIVE_METHOD = 'bicg'
-
-
-# for reference https://docs.scipy.org/doc/scipy/reference/sparse.linalg.html
-
+ATOL = 1e-8    #when to stop iterative solve
 
 """ ========================== SOLVER FUNCTIONS ========================== """
 
@@ -45,12 +48,10 @@ ITERATIVE_METHODS = {
     'cgs': spl.cgs,
     'gmres': spl.gmres,
     'lgmres': spl.lgmres,
-    # 'minres': spl.minres,  # requires a symmetric matrix
+    # 'minres': spl.minres,  # dont use, requires a symmetric matrix
     'qmr': spl.qmr,
     'gcrotmk': spl.gcrotmk
 }
-
-ATOL = 1e-8
 
 def _solve_iterative(A, b, iterative_method=DEFAULT_ITERATIVE_METHOD):
     """ Iterative solver """
@@ -60,16 +61,9 @@ def _solve_iterative(A, b, iterative_method=DEFAULT_ITERATIVE_METHOD):
         raise ValueError("iterative method {} not found.\n supported methods are:\n {}".format(iterative_method, ITERATIVE_METHODS))
 
     x, info = solver_fn(A, b, atol=ATOL)
-
-    # if info > 0:
-    #     raise ValueError("tried {} iterations and did not converge".format(info))
-    # elif info < 0:
-        # raise ValueError("iterative solver threw error")
-
     return x
 
 """ ============================ SPEED TESTS ============================= """
-
 
 # to run speed tests use `python -W ignore ceviche/solvers.py` to suppress warnings
 

@@ -1,5 +1,9 @@
 import numpy as np
 
+""" Different optimizers for the inverse design.  Work in progress.
+        Can we just use a wrapper for adam?
+"""
+
 def minimize(objective, params, jac, method='LBFGS', options=None):
     """ Lets write a master function here that someone can call and replace methods. """
     pass

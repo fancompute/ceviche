@@ -5,7 +5,7 @@ from copy import copy, deepcopy
 
 from .constants import *
 from .utils import reshape_to_ND, grid_center_to_xyz, grid_xyz_to_center
-
+from .derivatives import curl_E, curl_H
 
 class fdtd():
 
@@ -221,45 +221,6 @@ class fdtd():
         courant_stability = dL_avg / C_0
         self.dt = courant_stability * stability_factor
 
-    # @staticmethod
-    # def _grid_center_to_xyz(Q_mid, averaging=True):
-    #     """ Computes the interpolated value of the quantity Q_mid felt at the Ex, Ey, Ez positions of the Yee latice
-    #         Returns these three components
-    #     """
-
-    #     # initialize
-    #     Q_xx = copy(Q_mid)
-    #     Q_yy = copy(Q_mid)
-    #     Q_zz = copy(Q_mid)
-
-    #     # if averaging, set the respective xx, yy, zz components to the midpoint in the Yee lattice.
-    #     if averaging:
-
-    #         # get the value from the middle of the next cell over
-    #         Q_x_r = npa.roll(Q_mid, shift=1, axis=0)
-    #         Q_y_r = npa.roll(Q_mid, shift=1, axis=1)
-    #         Q_z_r = npa.roll(Q_mid, shift=1, axis=2)
-
-    #         # average with the two middle values
-    #         Q_xx = (Q_mid + Q_x_r)/2
-    #         Q_yy = (Q_mid + Q_y_r)/2
-    #         Q_zz = (Q_mid + Q_z_r)/2
-
-    #     return Q_xx, Q_yy, Q_zz
-
-    # @staticmethod
-    # def _grid_xyz_to_center(Q_xx, Q_yy, Q_zz):
-    #     """ Computes the interpolated value of the quantitys Q_xx, Q_yy, Q_zz at the center of Yee latice
-    #         Returns these three components
-    #     """
-
-    #     # compute the averages
-    #     Q_xx_avg = (Q_xx.astype('float') + npa.roll(Q_xx, shift=1, axis=0))/2
-    #     Q_yy_avg = (Q_yy.astype('float') + npa.roll(Q_yy, shift=1, axis=1))/2
-    #     Q_zz_avg = (Q_zz.astype('float') + npa.roll(Q_zz, shift=1, axis=2))/2
-
-    #     return Q_xx_avg, Q_yy_avg, Q_zz_avg
-
     def _compute_sigmas(self):
         """ Computes sigma tensors for PML """
 
@@ -353,23 +314,3 @@ class fdtd():
         self.mEx1 = (1 / self.eps_xx)
         self.mEy1 = (1 / self.eps_yy)
         self.mEz1 = (1 / self.eps_zz)
-
-
-""" ========================== DERIVATIVE OPERATORS ====================== """
-
-def curl_E(axis, Ex, Ey, Ez, dL):
-    if axis == 0:
-        return (npa.roll(Ez, shift=-1, axis=1) - Ez) / dL - (npa.roll(Ey, shift=-1, axis=2) - Ey) / dL
-    elif axis == 1:
-        return (npa.roll(Ex, shift=-1, axis=2) - Ex) / dL - (npa.roll(Ez, shift=-1, axis=0) - Ez) / dL
-    elif axis == 2:
-        return (npa.roll(Ey, shift=-1, axis=0) - Ey) / dL - (npa.roll(Ex, shift=-1, axis=1) - Ex) / dL
-
-def curl_H(axis, Hx, Hy, Hz, dL):
-    if axis == 0:
-        return (Hz - npa.roll(Hz, shift=1, axis=1)) / dL - (Hy - npa.roll(Hy, shift=1, axis=2)) / dL
-    elif axis == 1:
-        return (Hx - npa.roll(Hx, shift=1, axis=2)) / dL - (Hz - npa.roll(Hz, shift=1, axis=0)) / dL
-    elif axis == 2:
-        return (Hy - npa.roll(Hy, shift=1, axis=0)) / dL - (Hx - npa.roll(Hx, shift=1, axis=1)) / dL
-

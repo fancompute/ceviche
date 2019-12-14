@@ -2,6 +2,8 @@ import numpy as np
 import scipy.sparse as sp
 import copy
 
+""" Some utility functions that are useful.  Needs to get cleaned up.  """
+
 """ ==================== FDTD AND FDFD UTILITIES ==================== """
 
 import autograd.numpy as npa

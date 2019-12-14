@@ -6,6 +6,14 @@ import numpy as np
 
 from ceviche.solvers import solve_linear
 
+""" This file defines the very lowest level sparse matrix primitives that allow autograd to
+be compatible with FDFD.  One needs to define the derivatives of Ax = b and x = A^-1 b for sparse A.
+
+This is done using the entries and indices of A, instead of the sparse matrix objects, since autograd doesn't
+know how to handle those as arguments to functions.
+"""
+
+
 """ Helper Functions.  These may go in utils.py or somewhere else later. """
 
 def make_sparse(entries, indices, N):

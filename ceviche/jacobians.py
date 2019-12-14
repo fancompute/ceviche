@@ -7,6 +7,25 @@ from autograd.extend import vspace
 from .utils import get_value, get_shape, get_value_arr, float_2_array
 
 
+"""
+This file provides wrappers to autograd that compute jacobians.  
+The only function you'll want to use in your code is `jacobian`, 
+where you can specify the mode of differentiation (reverse, forward, or numerical)
+"""
+
+def jacobian(fun, argnum=0, mode='reverse', step_size=1e-6):
+    """ Computes jacobian of `fun` with respect to argument number `argnum` using automatic differentiation """
+
+    if mode == 'reverse':
+        return jacobian_reverse(fun, argnum)
+    elif mode == 'forward':
+        return jacobian_forward(fun, argnum)
+    elif mode == 'numerical':
+        return jacobian_numerical(fun, argnum, step_size=step_size)
+    else:
+        raise ValueError("'mode' kwarg must be either 'reverse' or 'forward' or 'numerical', given {}".format(mode))
+
+
 @unary_to_nary
 def jacobian_reverse(fun, x):
     """ Compute jacobian of fun with respect to x using reverse mode differentiation"""
@@ -54,26 +73,15 @@ def jacobian_numerical(fn, x, step_size=1e-7):
     return jacobian
 
 
-def jacobian(fun, argnum=0, mode='reverse', step_size=1e-6):
-    """ Computes jacobian of `fun` with respect to argument number `argnum` using automatic differentiation """
-
-    if mode == 'reverse':
-        return jacobian_reverse(fun, argnum)
-    elif mode == 'forward':
-        return jacobian_forward(fun, argnum)
-    elif mode == 'numerical':
-        return jacobian_numerical(fun, argnum, step_size=step_size)
-    else:
-        raise ValueError("'mode' kwarg must be either 'reverse' or 'forward' or 'numerical', given {}".format(mode))
-
-
 def _jac_shape(x, ans):
     """ computes the shape of the jacobian where function has input x and output ans """
     m = float_2_array(x).size
     n = float_2_array(ans).size
     return (m, n)
 
+
 def _iscomplex(x):
+    """ Checks if x is complex-valued or not """
     if isinstance(x, np.ndarray):
         if x.dtype == np.complex128:
             return True
@@ -83,6 +91,8 @@ def _iscomplex(x):
 
 
 if __name__ == '__main__':
+
+    """ Some simple test """
 
     N = 3
     M = 2

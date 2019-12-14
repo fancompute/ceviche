@@ -1,6 +1,8 @@
 from numpy import sqrt
 
-""" Funamental Constants """
+"""
+This file contains constants that are used throghout the codebase
+"""
 
 EPSILON_0 = 8.85418782e-12        # vacuum permittivity
 MU_0 = 1.25663706e-6              # vacuum permeability
