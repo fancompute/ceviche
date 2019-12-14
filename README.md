@@ -28,6 +28,8 @@ There is a comprehensive ceviche tutorial available at [this link](https://githu
 3. [Adding fabrication constraints and device parameterizations.](https://github.com/fancompute/workshop-invdesign/blob/master/03_Invdes_parameterization.ipynb)
 4. [Inverse design of a wavelength-division multiplexer and advanced topics.](https://github.com/fancompute/workshop-invdesign/blob/master/04_Invdes_wdm_scheduling.ipynb)
 
+There are also a few examples in the `examples/*` directory.
+
 ### What can it do?  An Example
 
 Let's saw we have a simulation where we inject a current source at position `source` and measure the electric field intensity at `probe`.
@@ -86,7 +88,7 @@ for _ in range(10):
     eps_current += step_size * dI_deps_fn(eps_current)
 ```
 
-This becomes more powerful when you have several degrees of freedom, like in a topology optimization problem, or when your machine learning model involves running an FDFD or FDTD simulation.
+It's also worth noting that the mathematics behind this gradient implementation uses the 'adjoint method', which lets you take derivatives with several degrees of freedom.  This is perfect for inverse design problems, or training of machine learning models that involve running an FDFD or FDTD simulation.  If you're interested in the connection between adjoint methods and backpropagation in the context of photonics, check out our group's earlier work on the subject [link](https://www.osapublishing.org/optica/abstract.cfm?uri=optica-5-7-864#articleMetrics).
 
 ## Installation
 
