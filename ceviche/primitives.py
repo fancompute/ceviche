@@ -14,7 +14,8 @@ know how to handle those as arguments to functions.
 """
 
 
-""" Helper Functions.  These may go in utils.py or somewhere else later. """
+""" ========================== Helper Functions. ========================== """
+# (These may go in utils.py or somewhere else later)
 
 def make_sparse(entries, indices, N):
     """Construct a sparse csc matrix
@@ -88,7 +89,7 @@ def get_entries_indices(csr_matrix):
     return entries, indices
 
 
-""" PRIMITIVES DEFINED BELOW:
+""" GUIDE TO THE PRIMITIVES DEFINED BELOW:
         naming convention for gradient functions:
            "def grad_{function_name}_{argument_name}_{mode}"
         defines the derivative of `function_name` with respect to `argument_name` using `mode`-mode differentiation    
@@ -128,7 +129,7 @@ def get_entries_indices(csr_matrix):
     defjvp(function, arg1's jvp, arg2's jvp, ...)
 """
 
-""" Primitives for Sparse Matrix-Vector Multiplication """
+""" ========================== Sparse Matrix-Vector Multiplication =========================="""
 
 @ag.primitive
 def sp_mult(entries, indices, x):
@@ -167,63 +168,8 @@ def grad_sp_mult_x_forward(g, b, entries, indices, x):
 
 ag.extend.defjvp(sp_mult, grad_sp_mult_entries_forward, None, grad_sp_mult_x_forward)
 
-""" Primitives for Sparse Matrix-Sparse Matrix Multiplication """
 
-@ag.primitive
-def spsp_mult(entries_a, indices_a, entries_b, indices_b, N):
-    """ Multiply a sparse matrix (A) by a sparse matrix (B)
-    Args:
-      entries_a: numpy array with shape (num_non_zeros,) giving values for non-zero
-        matrix entries into A.
-      indices_a: numpy array with shape (2, num_non_zeros) giving x and y indices for
-        non-zero matrix entries into A.
-      entries_b: numpy array with shape (num_non_zeros,) giving values for non-zero
-        matrix entries into B.
-      indices_b: numpy array with shape (2, num_non_zeros) giving x and y indices for
-        non-zero matrix entries into B.
-      N: all matrices are assumed of shape (N, N) (need to specify because no dense vector supplied)
-    Returns:
-      entries_c: numpy array with shape (num_non_zeros,) giving values for non-zero
-        matrix entries into the result C.
-      indices_c: numpy array with shape (2, num_non_zeros) giving x and y indices for
-        non-zero matrix entries into the result C.      
-    """
-    A = make_sparse(entries_a, indices_a, N=N)
-    B = make_sparse(entries_b, indices_b, N=N)
-    C = A.dot(B)
-    entries_c, indices_c = get_entries_indices(C)
-    return entries_c, indices_c
-def grad_spsp_mult_entries_a_reverse(ans, entries_a, indices_a, entries_b, indices_b, N):
-    ik, jk = indices_a
-    def vjp(v):
-        entries_v, indices_v = v
-        V = make_sparse(entries_v, indices_v, N).todense()
-        B = make_sparse(entries_b, indices_b, N).todense()
-        V_z = V[ik, indices_v[1]]
-        B_z = B[jk, indices_b[1]]
-        V_B = np.multiply(B_z, V_z)
-        return V_B.flatten()
-    return vjp
-
-def grad_spsp_mult_entries_a_reverse(ans, entries_a, indices_a, entries_b, indices_b, N):
-    # why you no work?
-    ik, jk = indices_a
-    def vjp(v):
-        entries_v, indices_v = v
-        return entries_v[ik] * entries_b[jk]
-    return vjp
-
-ag.extend.defvjp(spsp_mult, grad_spsp_mult_entries_a_reverse, None, None)
-
-def grad_spsp_mult_entries_a_forward(g, ans, entries_a, indices_a, entries_b, indices_b, N):
-    # out = spsp_mult(g, iandices_a, entries_b, indices_b, N)
-    # entries_out, indices_out = out
-    return spsp_mult(g, indices_a, entries_b, indices_b, N)
-
-ag.extend.defjvp(spsp_mult, grad_spsp_mult_entries_a_forward, None, None)
-
-
-""" Primitives for Sparse Matrix-Vector Solve """
+""" ========================== Sparse Matrix-Vector Solve =========================="""
 
 @ag.primitive
 def sp_solve(entries, indices, b):
@@ -265,6 +211,176 @@ def grad_sp_solve_x_forward(g, x, entries, indices, b):
     return sp_solve(entries, indices, g)
 
 ag.extend.defjvp(sp_solve, grad_sp_solve_entries_forward, None, grad_sp_solve_x_forward)
+
+
+""" ==========================Sparse Matrix-Sparse Matrix Multiplication ========================== """
+
+@ag.primitive
+def spsp_mult(entries_a, indices_a, entries_b, indices_b, N):
+    """ Multiply a sparse matrix (A) by a sparse matrix (B)
+    Args:
+      entries_a: numpy array with shape (num_non_zeros,) giving values for non-zero
+        matrix entries into A.
+      indices_a: numpy array with shape (2, num_non_zeros) giving x and y indices for
+        non-zero matrix entries into A.
+      entries_b: numpy array with shape (num_non_zeros,) giving values for non-zero
+        matrix entries into B.
+      indices_b: numpy array with shape (2, num_non_zeros) giving x and y indices for
+        non-zero matrix entries into B.
+      N: all matrices are assumed of shape (N, N) (need to specify because no dense vector supplied)
+    Returns:
+      entries_c: numpy array with shape (num_non_zeros,) giving values for non-zero
+        matrix entries into the result C.
+      indices_c: numpy array with shape (2, num_non_zeros) giving x and y indices for
+        non-zero matrix entries into the result C.      
+    """
+    A = make_sparse(entries_a, indices_a, N=N)
+    B = make_sparse(entries_b, indices_b, N=N)
+    C = A.dot(B)
+    entries_c, indices_c = get_entries_indices(C)
+    return entries_c, indices_c
+
+def grad_spsp_mult_entries_a_reverse(ans, entries_a, indices_a, entries_b, indices_b, N):
+    ik, jk = indices_a
+    def vjp(v):
+        entries_v, indices_v = v
+        V = make_sparse(entries_v, indices_v, N).todense()
+        B = make_sparse(entries_b, indices_b, N).todense()
+        V_z = V[ik, indices_v[1]]
+        B_z = B[jk, indices_b[1]]
+        V_B = np.multiply(B_z, V_z)
+        return V_B.flatten()
+    return vjp
+
+def grad_spsp_mult_entries_a_reverse(ans, entries_a, indices_a, entries_b, indices_b, N):
+    # why you no work?
+    ik, jk = indices_a
+    def vjp(v):
+        entries_v, indices_v = v
+        return entries_v[ik] * entries_b[jk]
+    return vjp
+
+ag.extend.defvjp(spsp_mult, grad_spsp_mult_entries_a_reverse, None, None)
+
+def grad_spsp_mult_entries_a_forward(g, ans, entries_a, indices_a, entries_b, indices_b, N):
+    # out = spsp_mult(g, iandices_a, entries_b, indices_b, N)
+    # entries_out, indices_out = out
+    return spsp_mult(g, indices_a, entries_b, indices_b, N)
+
+ag.extend.defjvp(spsp_mult, grad_spsp_mult_entries_a_forward, None, None)
+
+
+""" ========================== Nonlinear Solve ========================== """
+
+def sp_solve_nl(parameters, a_indices, b, fn_nl):
+    """ 
+        parameters: entries into matrix A are function of parameters and solution x
+        a_indices: indices into sparse A matrix
+        b: source vector for A(xx = b
+        fn_nl: describes how the entries of a depend on the solution of A(x,p) @ x = b and the parameters  `a_entries = fn_nl(params, x)`
+    """
+
+    # do the actual nonlinear solve in `_solve_nl_problem` (using newton, picard, whatever)
+    # this tells you the final entries into A given the parameters and the nonlinear function.
+    a_entries = ceviche.solvers._solve_nl_problem(parameters, a_indices, fn_nl, a_entries0=None)  # optinally, give starting a_entries
+    x = sp_solve(a_entries, a_indices, b)  # the final solution to A(x) x = b
+    return x
+
+def grad_sp_solve_nl_parameters(x, parameters, a_indices, b, fn_nl):
+
+    """ 
+    We are finding the solution (x) to the nonlinear function:
+
+        f = A(x, p) @ x - b = 0
+
+    And need to define the vjp of the solution (x) with respect to the parameters (p)
+
+        vjp(v) = (dx / dp)^T @ v
+
+    To do this (see Eq. 5 of https://pubs-acs-org.stanford.idm.oclc.org/doi/pdf/10.1021/acsphotonics.8b01522)
+    we need to solve the following linear system:
+
+        [ df  / dx,  df  / dx*] [ dx  / dp ] = -[ df  / dp]
+        [ df* / dx,  df* / dx*] [ dx* / dp ]    [ df* / dp]
+    
+    Note that we need to explicitly make A a function of x and x* for complex x
+
+    In our case:
+
+        (df / dx)  = (dA / dx) @ x + A
+        (df / dx*) = (dA / dx*) @ x
+        (df / dp)  = (dA / dp) @ x
+
+    How do we put this into code?  Let
+
+        A(x, p) @ x -> Ax = sp_mult(entries_a(x, p), indices_a, x)
+
+    Since we already defined the primitive of sp_mult, we can just do:
+
+        (dA / dx) @ x -> ag.jacobian(Ax, 0)
+
+    Now how about the source term?
+
+        (dA / dp) @ x -> ag.jacobian(Ax, 1)
+
+    Note that this is a matrix, not a vector. 
+    We'll have to handle dA/dx* but this can probably be done, maybe with autograd directly.
+
+    Other than this, assuming entries_a(x, p) is fully autograd compatible, we can get these terms no problem!
+
+    Coming back to our problem, we actually need to compute:
+
+        (dx / dp)^T @ v
+
+    Because
+
+        (dx / dp) = -(df / dx)^{-1} @ (df / dp)
+
+    (ignoring the complex conjugate terms).  We can write this vjp as
+
+        (df / dp)^T @ (df / dx)^{-T} @ v
+
+    Since df / dp is a matrix, not a vector, its more efficient to do the mat_mul on the right first.
+    So we first solve
+
+        adjoint(v) = -(df / dx)^{-T} @ v
+                   => sp_solve(entries_a_big, transpose(indices_a_big), -v)
+
+    and then it's a simple matter of doing the matrix multiplication
+
+        vjp(v) = (df / dp)^T @ adjoint(v)
+               => sp_mult(entries_dfdp, transpose(indices_dfdp), adjoint)
+
+    and then return the result, making sure to strip the complex conjugate.
+
+        return vjp[:N]
+    """
+
+    def vjp(v):
+        raise NotImplementedError
+    return vjp
+
+def grad_sp_solve_nl_b(x, parameters, a_indices, b, fn_nl):
+
+    """ 
+    Computing the derivative w.r.t b is simpler
+
+        f = A(x) @ x - b(p) = 0
+
+    And now the terms we need are
+
+        df / dx  = (dA / dx) @ x + A
+        df / dx* = (dA / dx*) @ x
+        df / dp  = -(db / dp)
+
+    So it's basically the same problem with a differenct source term now.
+    """
+
+    def vjp(v):
+        raise NotImplementedError
+    return vjp
+
+ag.extend.defvjp(sp_solve_nl, grad_sp_solve_nl_parameters, None, grad_sp_solve_nl_b, None)
 
 
 if __name__ == '__main__':
