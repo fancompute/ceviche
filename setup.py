@@ -9,14 +9,14 @@ dependencies = [
         'numpy',
         'scipy',
         'matplotlib>=2.2.2',
-        'autograd',
+        'autograd>=1.3',
         'future',
         'pyMKL'
 ]
 
 setup(
     name='ceviche',
-    version='0.0.1',
+    version='0.1.0',
     description='Ceviche',
     long_description=readme,
     long_description_content_type="text/markdown",
