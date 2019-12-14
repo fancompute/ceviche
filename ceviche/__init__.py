@@ -1,8 +1,12 @@
 # used for setup.py
 name = "ceviche"
 
-__version__ = '0.0.1'
+__version__ = '0.0.2'
 
-from ceviche.jacobians import jacobian
-from ceviche.fdfd import fdfd_ez, fdfd_hz, fdfd
-from ceviche.fdtd import fdtd
+from .fdtd import fdtd
+from .fdfd import fdfd_ez, fdfd_hz, fdfd_ez_nl
+from .jacobians import jacobian
+
+from . import viz
+from . import modes
+from . import utils
