@@ -18,7 +18,7 @@ Both are written in `numpy` / `scipy` and are compatible with the [HIPS autograd
 
 This allows you to write code to solve your E&M problem, and then use automatic differentiation on your results.
 
-As a result, you can do gradient-based optimization, sensitivity analysis, or plug your E&M solver into a machine learning model without the tedius process of deriving your derivatives analytically.
+As a result, you can do gradient-based optimization, sensitivity analysis, or plug your E&M solver into a machine learning model without having to go through the tedious process of deriving your derivatives by hand.
 
 ### Tutorials
 
