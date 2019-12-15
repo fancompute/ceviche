@@ -214,8 +214,7 @@ def grad_spsp_mult_entries_a_reverse(b_out, entries_a, indices_a, entries_x, ind
         D_ika_V = D_ika.dot(V)
 
         # element-wise these two results together and sum over the second index to give the results in the basis of output entries
-        combined = D_ika_V.multiply(D_jka_X)
-        return npa.array(combined.sum(axis=1))
+        return (D_ika_V.dot(D_jka_X.T)).diagonal()
 
     return vjp
 
@@ -242,45 +241,18 @@ ag.extend.defvjp(spsp_mult, grad_spsp_mult_entries_a_reverse, None, grad_spsp_mu
 def grad_spsp_mult_entries_a_forward(g, b_out, entries_a, indices_a, entries_x, indices_x, N):
     """ Forward mode is not much better than reverse mode, but the same general logic aoplies:
         Convert to matrix form, do the calculation, convert back to entries.        
+            dA/de @ x @ g
     """
 
-    # get entries, elements, and sizes from the arguments.
-    entries_b, indices_b = b_out
-    ik_a, jk_a = indices_a
-    ik_b, jk_b = indices_b
-    Ma = entries_a.size
-    Mb = entries_b.size
     entries_a1 = npa.ones(entries_a.shape)
-    entries_b1 = npa.ones(entries_b.shape)
+    entries_be, indices_be = spsp_mult(entries_a1, indices_a, entries_x, indices_x, N)
+    print(indices_be.shape)
+    print(g.shape)
+    
+    return g * entries_be
 
-    # construct the 'D' matrices, relating the indices of the A and B matrices to their entries.
-    indices_D_ika = npa.vstack((npa.arange(Ma), ik_a))
-    indices_D_jka = npa.vstack((npa.arange(Ma), jk_a))
-    indices_D_ikb = npa.vstack((npa.arange(Mb), ik_b))
-    indices_D_jkb = npa.vstack((npa.arange(Mb), jk_b))    
-    D_ika = make_sparse(entries_a1, indices_D_ika, shape=(Ma, N))
-    D_jka = make_sparse(entries_a1, indices_D_jka, shape=(Ma, N))
-    D_ikb = make_sparse(entries_b1, indices_D_ikb, shape=(Mb, N))
-    D_jkb = make_sparse(entries_b1, indices_D_jkb, shape=(Mb, N))
-
-    # make the matrix XA using the entries of X and the indices of A^T
-    XA = make_sparse(entries_x, transpose_indices(indices_a), shape=(N, N))
-    # make the matrix G using the forward prop entries (g) and the indices of A.
-    GA = make_sparse(g, indices_a, shape=(N, N))
-
-    # convert these into the basis of the entries of B
-    DXA = D_jkb.dot(XA)
-    DGA = D_ikb.dot(GA)
-
-    # element-wise multiply, as before
-    combined_matrix = DXA.multiply(DGA)
-
-    # dot product the result with vector of 1s to sum over one index and convert to a list of entries.
-    combined_entries = npa.array(combined_matrix.dot(npa.ones((N,))))
-
-    # return the combined entries and indices of all zero (since the indices aren't affected by the initial entries, the gradient is 0)
-    indices_0 = npa.zeros((2, Mb))
-    return combined_entries, indices_0
+    # combined_entries = DXA.dot(DGA.T)
+    # combined_entries = combined_entries.diagonal()
 
 def grad_spsp_mult_entries_x_forward(g, b_out, entries_a, indices_a, entries_x, indices_x, N):
     """ Same trick as before: Reuse the previous VJP but for the transpose system """
