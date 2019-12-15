@@ -100,6 +100,23 @@ class TestPlaneWave(unittest.TestCase):
         np.testing.assert_almost_equal(grad_rev, grad_true, decimal=DECIMAL, err_msg=self.err_msg('fn_solve_b', 'reverse'))
         np.testing.assert_almost_equal(grad_for, grad_true, decimal=DECIMAL, err_msg=self.err_msg('fn_solve_b', 'forward'))
 
+    def test_spmut_entries(self):
+
+        def fn_spsp_entries(entries):
+            # sparse matrix - sparse matrix dot procut as function of entries into first matrix
+            entries_c, indices_c = spsp_mult(entries, self.indices_const, self.entries_const, self.indices_const, N=self.N)
+            x = sp_solve(entries_c, indices_c, self.b_const)
+            return self.out_fn(x)
+
+        entries = make_rand_complex(self.M)
+
+        grad_rev = ceviche.jacobian(fn_spsp_entries, mode='reverse')(entries)[0]
+        grad_for = ceviche.jacobian(fn_spsp_entries, mode='forward')(entries)[0]
+        grad_true = grad_num(fn_spsp_entries, entries)
+
+        np.testing.assert_almost_equal(grad_rev, grad_true, decimal=DECIMAL, err_msg=self.err_msg('fn_solve_entries', 'reverse'))
+        np.testing.assert_almost_equal(grad_for, grad_true, decimal=DECIMAL, err_msg=self.err_msg('fn_solve_entries', 'forward'))
+
+
 if __name__ == '__main__':
     unittest.main()
-

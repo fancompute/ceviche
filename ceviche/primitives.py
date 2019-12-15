@@ -160,27 +160,26 @@ def sp_mult(entries, indices, x):
     A = make_sparse(entries, indices, N=x.size)
     return A.dot(x)
 
-# # old one
-# def grad_sp_mult_entries_reverse(ans, entries, indices, x):
-#     i, j = indices
-#     def vjp(v):
-#         return v[i] * x[j]
-#     return vjp
-
-def grad_sp_mult_entries_reverse(b, entries, indices, x):
-    entries_a1 = np.ones(entries.shape)
-    Ma = entries.size
-    a_ik, a_jk = indices
-    indices_D_jka = np.vstack((np.arange(Ma), a_jk))
-    indices_D_ika = np.vstack((np.arange(Ma), a_ik))
-    D_jka = make_sparse_MxN(entries_a1, indices_D_jka, shape=(Ma, x.size))
-    D_ika = make_sparse_MxN(entries_a1, indices_D_ika, shape=(Ma, x.size))
-
-    D_jka_x = D_jka.dot(x)
+def grad_sp_mult_entries_reverse(ans, entries, indices, x):
+    i, j = indices
     def vjp(v):
-        D_ika_v = D_ika.dot(v)
-        return D_jka_x * D_ika_v
+        return v[i] * x[j]
     return vjp
+
+# def grad_sp_mult_entries_reverse(b, entries, indices, x):
+#     """ The complicated way that helped me derive the sparse-sparse primitives """
+#     entries_a1 = np.ones(entries.shape)
+#     Ma = entries.size
+#     a_ik, a_jk = indices
+#     indices_D_jka = np.vstack((np.arange(Ma), a_jk))
+#     indices_D_ika = np.vstack((np.arange(Ma), a_ik))
+#     D_jka = make_sparse_MxN(entries_a1, indices_D_jka, shape=(Ma, x.size))
+#     D_ika = make_sparse_MxN(entries_a1, indices_D_ika, shape=(Ma, x.size))
+#     D_jka_x = D_jka.dot(x)
+#     def vjp(v):
+#         D_ika_v = D_ika.dot(v)
+#         return D_jka_x * D_ika_v
+#     return vjp
 
 def grad_sp_mult_x_reverse(b, entries, indices, x):
     indices_T = transpose_indices(indices)
@@ -192,6 +191,20 @@ ag.extend.defvjp(sp_mult, grad_sp_mult_entries_reverse, None, grad_sp_mult_x_rev
 
 def grad_sp_mult_entries_forward(g, b, entries, indices, x):
     return sp_mult(g, indices, x)
+
+# def grad_sp_mult_entries_forward(g, b, entries, indices, x):
+#     """ The complicated way that helped me derive the sparse-sparse primitives """
+#     Ma = entries.size
+#     N = x.size
+#     a_ik, a_jk = indices
+#     entries_1 = np.ones(entries.shape)
+#     indices_D_ika = np.vstack((np.arange(Ma), a_ik))
+#     indices_D_jka = np.vstack((np.arange(Ma), a_jk))
+#     D_ika = make_sparse_MxN(entries_1, indices_D_ika, shape=(Ma, N))
+#     D_jka = make_sparse_MxN(entries_1, indices_D_jka, shape=(Ma, N))
+#     Dx = D_jka.dot(x)
+#     return g * Dx
+
 
 def grad_sp_mult_x_forward(g, b, entries, indices, x):
     return sp_mult(entries, indices, g)
@@ -305,7 +318,7 @@ def grad_spsp_mult_entries_a_reverse(b_out, entries_a, indices_a, entries_x, ind
     D_ikb = make_sparse_MxN(entries_b1, indices_D_ikb, shape=(Mb, N))
     D_jkb = make_sparse_MxN(entries_b1, indices_D_jkb, shape=(Mb, N))
 
-    D_jka_X = D_jka.dot(X)   
+    D_jka_X = D_jka.dot(X)
 
     def vjp(v):
         entries_v, _ = v
@@ -316,17 +329,52 @@ def grad_spsp_mult_entries_a_reverse(b_out, entries_a, indices_a, entries_x, ind
 
     return vjp
 
-
 ag.extend.defvjp(spsp_mult, grad_spsp_mult_entries_a_reverse, None, None)
 
-def grad_spsp_mult_entries_a_forward(g, out_b, entries_a, indices_a, entries_x, indices_x, N):
-    return spsp_mult(g, indices_a, entries_x, indices_x, N)
+def grad_spsp_mult_entries_a_forward(g, b_out, entries_a, indices_a, entries_x, indices_x, N):
 
-# def grad_sp_mult_x_forward(g, b, entries, indices, x):
-#     return sp_mult(entries, indices, g)
+    _, indices_b = b_out
+    a_ik, a_jk = indices_a
+    b_ik, b_jk = indices_b
+
+    entries_a1 = np.ones(entries_a.shape)
+    entries_b1 = np.ones(b_ik.shape)
+
+    Ma = entries_a.size
+    Mb = entries_b1.size
+
+    indices_D_ika = np.vstack((np.arange(Ma), a_ik))
+    indices_D_jka = np.vstack((np.arange(Ma), a_jk))
+    D_ika = make_sparse_MxN(entries_a1, indices_D_ika, shape=(Ma, N))
+    D_jka = make_sparse_MxN(entries_a1, indices_D_jka, shape=(Ma, N))
+
+    indices_D_ikb = np.vstack((np.arange(Mb), b_ik))
+    indices_D_jkb = np.vstack((np.arange(Mb), b_jk))
+    D_ikb = make_sparse_MxN(entries_b1, indices_D_ikb, shape=(Mb, N))
+    D_jkb = make_sparse_MxN(entries_b1, indices_D_jkb, shape=(Mb, N))
+
+    indices_D_ika = np.vstack((np.arange(Ma), a_ik))
+    indices_D_jka = np.vstack((np.arange(Ma), a_jk))
+    D_ika = make_sparse_MxN(entries_a1, indices_D_ika, shape=(Ma, N))
+    D_jka = make_sparse_MxN(entries_a1, indices_D_jka, shape=(Ma, N))
+
+    indices_D_ikb = np.vstack((np.arange(Mb), b_ik))
+    indices_D_jkb = np.vstack((np.arange(Mb), b_jk))
+    D_ikb = make_sparse_MxN(entries_b1, indices_D_ikb, shape=(Mb, N))
+    D_jkb = make_sparse_MxN(entries_b1, indices_D_jkb, shape=(Mb, N))
+
+    X = make_sparse(entries_x, transpose_indices(indices_a), N)
+    G = make_sparse(g, indices_a, N)
+
+    Dx = D_jkb.dot(X)
+    Dg = D_ikb.dot(G)
+
+    combined = Dx.multiply(Dg)
+    combined_flat = combined.dot(np.ones((N, )))
+
+    return combined_flat, np.zeros((2, Mb))
 
 ag.extend.defjvp(spsp_mult, grad_spsp_mult_entries_a_forward, None, None)
-
 
 """ ========================== Nonlinear Solve ========================== """
 
@@ -450,7 +498,7 @@ if __name__ == '__main__':
 
     ## Setup
 
-    N = 4        # size of matrix dimensions.  matrix shape = (N, N)
+    N = 5        # size of matrix dimensions.  matrix shape = (N, N)
     M = N**2 - 1     # number of non-zeros (make it dense for numerical stability)
 
     # these are the default values used within the test functions
@@ -478,12 +526,10 @@ if __name__ == '__main__':
 
     # Testing Gradients of 'Sparse-Sparse Multiply entries Forward-mode'
 
-    # grad_for = ceviche.jacobian(fn_spsp_entries, mode='forward')(entries)[0]
-    # grad_true = grad_num(fn_spsp_entries, entries)
+    grad_for = ceviche.jacobian(fn_spsp_entries, mode='forward')(entries)[0]
+    grad_true = grad_num(fn_spsp_entries, entries)
 
-    # print(grad_for, grad_true)
-    # doesnt pass for more complicated functions
-    # np.testing.assert_almost_equal(grad_for, grad_true, decimal=DECIMAL)
+    np.testing.assert_almost_equal(grad_for, grad_true, decimal=DECIMAL)
 
     ## TESTS SPARSE MATRX CREATION
 
