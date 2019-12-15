@@ -23,10 +23,10 @@ As a result, you can do gradient-based optimization, sensitivity analysis, or pl
 ### Tutorials
 
 There is a comprehensive ceviche tutorial available at [this link](https://github.com/fancompute/workshop-invdesign) with several ipython notebook examples:
-1. [Running FDFD simulations in ceviche.](https://github.com/fancompute/workshop-invdesign/blob/master/01_First_simulation.ipynb)
-2. [Performing inverse design of a mode converter.](https://github.com/fancompute/workshop-invdesign/blob/master/02_Invdes_intro.ipynb)
-3. [Adding fabrication constraints and device parameterizations.](https://github.com/fancompute/workshop-invdesign/blob/master/03_Invdes_parameterization.ipynb)
-4. [Inverse design of a wavelength-division multiplexer and advanced topics.](https://github.com/fancompute/workshop-invdesign/blob/master/04_Invdes_wdm_scheduling.ipynb)
+1. [Running FDFD simulations in ceviche.](https://nbviewer.jupyter.org/github/fancompute/workshop-invdesign/blob/master/01_First_simulation.ipynb)
+2. [Performing inverse design of a mode converter.](https://nbviewer.jupyter.org/github/fancompute/workshop-invdesign/blob/master/02_Invdes_intro.ipynb)
+3. [Adding fabrication constraints and device parameterizations.](https://nbviewer.jupyter.org/github/fancompute/workshop-invdesign/blob/master/03_Invdes_parameterization.ipynb)
+4. [Inverse design of a wavelength-division multiplexer and advanced topics.](https://nbviewer.jupyter.org/github/fancompute/workshop-invdesign/blob/master/04_Invdes_wdm_scheduling.ipynb)
 
 There are also a few examples in the `examples/*` directory.
 
