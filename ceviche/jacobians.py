@@ -1,4 +1,4 @@
-import autograd.numpy as np
+import autograd.numpy as npa
 
 from autograd.core import make_vjp, make_jvp
 from autograd.wrap_util import unary_to_nary
@@ -32,7 +32,7 @@ def jacobian_reverse(fun, x):
     vjp, ans = make_vjp(fun, x)
     grads = map(vjp, vspace(ans).standard_basis())
     m, n = _jac_shape(x, ans)
-    return np.reshape(np.stack(grads), (n, m))
+    return npa.reshape(npa.stack(grads), (n, m))
 
 
 @unary_to_nary
@@ -42,13 +42,13 @@ def jacobian_forward(fun, x):
     # ans = fun(x)
     val_grad = map(lambda b: jvp(b), vspace(x).standard_basis())
     vals, grads = zip(*val_grad)
-    ans = np.zeros((list(vals)[0].size,))  # fake answer so that dont have to compute it twice
+    ans = npa.zeros((list(vals)[0].size,))  # fake answer so that dont have to compute it twice
     m, n = _jac_shape(x, ans)
     if _iscomplex(x):
-        grads_real = np.array(grads[::2])
-        grads_imag = np.array(grads[1::2])
+        grads_real = npa.array(grads[::2])
+        grads_imag = npa.array(grads[1::2])
         grads = grads_real - 1j * grads_imag
-    return np.reshape(np.stack(grads), (m, n)).T
+    return npa.reshape(npa.stack(grads), (m, n)).T
 
 
 @unary_to_nary
@@ -60,7 +60,7 @@ def jacobian_numerical(fn, x, step_size=1e-7):
     m = in_array.size
     n = out_array.size
     shape = (n, m)
-    jacobian = np.zeros(shape)
+    jacobian = npa.zeros(shape)
 
     for i in range(m):
         input_i = in_array.copy()
@@ -82,8 +82,8 @@ def _jac_shape(x, ans):
 
 def _iscomplex(x):
     """ Checks if x is complex-valued or not """
-    if isinstance(x, np.ndarray):
-        if x.dtype == np.complex128:
+    if isinstance(x, npa.ndarray):
+        if x.dtype == npa.complex128:
             return True
     if isinstance(x, complex):
         return True
@@ -96,15 +96,15 @@ if __name__ == '__main__':
 
     N = 3
     M = 2
-    A = np.random.random((N,M))
-    B = np.random.random((N,M))
+    A = npa.random.random((N,M))
+    B = npa.random.random((N,M))
     print('A = \n', A)
 
     def fn(x, b):
         return A @ x + B @ b
 
-    x0 = np.random.random((M,))
-    b0 = np.random.random((M,))    
+    x0 = npa.random.random((M,))
+    b0 = npa.random.random((M,))    
     print('Jac_rev = \n', jacobian(fn, argnum=0, mode='reverse')(x0, b0))
     print('Jac_for = \n', jacobian(fn, argnum=0, mode='forward')(x0, b0))
     print('Jac_num = \n', jacobian(fn, argnum=0, mode='numerical')(x0, b0))

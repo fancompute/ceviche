@@ -215,7 +215,7 @@ def grad_spsp_mult_entries_a_reverse(b_out, entries_a, indices_a, entries_x, ind
 
         # element-wise these two results together and sum over the second index to give the results in the basis of output entries
         combined = D_ika_V.multiply(D_jka_X)
-        return combined.sum(axis=1)
+        return npa.array(combined.sum(axis=1))
 
     return vjp
 
@@ -276,7 +276,7 @@ def grad_spsp_mult_entries_a_forward(g, b_out, entries_a, indices_a, entries_x, 
     combined_matrix = DXA.multiply(DGA)
 
     # dot product the result with vector of 1s to sum over one index and convert to a list of entries.
-    combined_entries = combined_matrix.dot(npa.ones((N,)))
+    combined_entries = npa.array(combined_matrix.dot(npa.ones((N,))))
 
     # return the combined entries and indices of all zero (since the indices aren't affected by the initial entries, the gradient is 0)
     indices_0 = npa.zeros((2, Mb))

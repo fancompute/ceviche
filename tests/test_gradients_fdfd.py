@@ -92,6 +92,7 @@ class TestFDFD(unittest.TestCase):
                  + npa.sum(npa.square(npa.abs(Ex))) \
                  + npa.sum(npa.square(npa.abs(Ey)))
 
+
         grad_autograd_rev = jacobian(J_fdfd, mode='reverse')(self.eps_arr)
         grad_numerical = jacobian(J_fdfd, mode='numerical')(self.eps_arr)
 
@@ -102,7 +103,7 @@ class TestFDFD(unittest.TestCase):
 
         self.check_gradient_error(grad_numerical, grad_autograd_rev)
 
-    def test_Hz_forward(self):
+    def _test_Hz_forward(self):
 
         print('\ttesting forward-mode Hz in FDFD')
 
@@ -130,7 +131,7 @@ class TestFDFD(unittest.TestCase):
 
         self.check_gradient_error(grad_numerical, grad_autograd_for)
 
-    def test_Ez_reverse(self):
+    def _test_Ez_reverse(self):
 
         print('\ttesting reverse-mode Ez in FDFD')
 
@@ -160,7 +161,7 @@ class TestFDFD(unittest.TestCase):
 
         self.check_gradient_error(grad_numerical, grad_autograd_rev)
 
-    def test_Ez_forward(self):
+    def _test_Ez_forward(self):
 
         print('\ttesting forward-mode Ez in FDFD')
 
