@@ -192,20 +192,6 @@ ag.extend.defvjp(sp_mult, grad_sp_mult_entries_reverse, None, grad_sp_mult_x_rev
 def grad_sp_mult_entries_forward(g, b, entries, indices, x):
     return sp_mult(g, indices, x)
 
-# def grad_sp_mult_entries_forward(g, b, entries, indices, x):
-#     """ The complicated way that helped me derive the sparse-sparse primitives """
-#     Ma = entries.size
-#     N = x.size
-#     a_ik, a_jk = indices
-#     entries_1 = np.ones(entries.shape)
-#     indices_D_ika = np.vstack((np.arange(Ma), a_ik))
-#     indices_D_jka = np.vstack((np.arange(Ma), a_jk))
-#     D_ika = make_sparse_MxN(entries_1, indices_D_ika, shape=(Ma, N))
-#     D_jka = make_sparse_MxN(entries_1, indices_D_jka, shape=(Ma, N))
-#     Dx = D_jka.dot(x)
-#     return g * Dx
-
-
 def grad_sp_mult_x_forward(g, b, entries, indices, x):
     return sp_mult(entries, indices, g)
 
@@ -307,17 +293,6 @@ def grad_spsp_mult_entries_a_reverse(b_out, entries_a, indices_a, entries_x, ind
     D_jkb = make_sparse_MxN(entries_b1, indices_D_jkb, shape=(Mb, N))
 
     X = make_sparse(entries_x, indices_x, N)
-
-    indices_D_ika = np.vstack((np.arange(Ma), a_ik))
-    indices_D_jka = np.vstack((np.arange(Ma), a_jk))
-    D_ika = make_sparse_MxN(entries_a1, indices_D_ika, shape=(Ma, N))
-    D_jka = make_sparse_MxN(entries_a1, indices_D_jka, shape=(Ma, N))
-
-    indices_D_ikb = np.vstack((np.arange(Mb), b_ik))
-    indices_D_jkb = np.vstack((np.arange(Mb), b_jk))
-    D_ikb = make_sparse_MxN(entries_b1, indices_D_ikb, shape=(Mb, N))
-    D_jkb = make_sparse_MxN(entries_b1, indices_D_jkb, shape=(Mb, N))
-
     D_jka_X = D_jka.dot(X)
 
     def vjp(v):
@@ -329,7 +304,19 @@ def grad_spsp_mult_entries_a_reverse(b_out, entries_a, indices_a, entries_x, ind
 
     return vjp
 
-ag.extend.defvjp(spsp_mult, grad_spsp_mult_entries_a_reverse, None, None)
+def grad_spsp_mult_entries_x_reverse(b_out, entries_a, indices_a, entries_x, indices_x, N):
+
+    entries_b, indices_b = b_out
+    indices_aT = transpose_indices(indices_a)
+    indices_xT = transpose_indices(indices_x)
+    indices_bT = transpose_indices(indices_b)
+
+    b_T_out = entries_b, indices_bT
+    vjp_XT_AT = grad_spsp_mult_entries_a_reverse(b_T_out, entries_x, indices_xT, entries_a, indices_aT, N)
+
+    return lambda v: vjp_XT_AT(v)
+
+ag.extend.defvjp(spsp_mult, grad_spsp_mult_entries_a_reverse, None, grad_spsp_mult_entries_x_reverse, None, None)
 
 def grad_spsp_mult_entries_a_forward(g, b_out, entries_a, indices_a, entries_x, indices_x, N):
 
@@ -353,16 +340,6 @@ def grad_spsp_mult_entries_a_forward(g, b_out, entries_a, indices_a, entries_x, 
     D_ikb = make_sparse_MxN(entries_b1, indices_D_ikb, shape=(Mb, N))
     D_jkb = make_sparse_MxN(entries_b1, indices_D_jkb, shape=(Mb, N))
 
-    indices_D_ika = np.vstack((np.arange(Ma), a_ik))
-    indices_D_jka = np.vstack((np.arange(Ma), a_jk))
-    D_ika = make_sparse_MxN(entries_a1, indices_D_ika, shape=(Ma, N))
-    D_jka = make_sparse_MxN(entries_a1, indices_D_jka, shape=(Ma, N))
-
-    indices_D_ikb = np.vstack((np.arange(Mb), b_ik))
-    indices_D_jkb = np.vstack((np.arange(Mb), b_jk))
-    D_ikb = make_sparse_MxN(entries_b1, indices_D_ikb, shape=(Mb, N))
-    D_jkb = make_sparse_MxN(entries_b1, indices_D_jkb, shape=(Mb, N))
-
     X = make_sparse(entries_x, transpose_indices(indices_a), N)
     G = make_sparse(g, indices_a, N)
 
@@ -374,12 +351,23 @@ def grad_spsp_mult_entries_a_forward(g, b_out, entries_a, indices_a, entries_x, 
 
     return combined_flat, np.zeros((2, Mb))
 
-ag.extend.defjvp(spsp_mult, grad_spsp_mult_entries_a_forward, None, None)
+def grad_spsp_mult_entries_x_forward(g, b_out, entries_a, indices_a, entries_x, indices_x, N):
+
+    entries_b, indices_b = b_out
+    indices_aT = transpose_indices(indices_a)
+    indices_xT = transpose_indices(indices_x)
+    indices_bT = transpose_indices(indices_b)
+
+    b_T_out = entries_b, indices_bT
+    return grad_spsp_mult_entries_a_forward(g, b_T_out, entries_x, indices_xT, entries_a, indices_aT, N)
+
+ag.extend.defjvp(spsp_mult, grad_spsp_mult_entries_a_forward, None, grad_spsp_mult_entries_x_forward, None, None)
+
 
 """ ========================== Nonlinear Solve ========================== """
 
 def sp_solve_nl(parameters, a_indices, b, fn_nl):
-    """ 
+    """
         parameters: entries into matrix A are function of parameters and solution x
         a_indices: indices into sparse A matrix
         b: source vector for A(xx = b
@@ -513,7 +501,7 @@ if __name__ == '__main__':
 
     def fn_spsp_entries(entries):
         # sparse matrix multiplication (Ax = b) as a function of matrix entries 'A(entries)'
-        entries_c, indices_c = spsp_mult(entries, indices_const, entries_const, indices_const, N=N)
+        entries_c, indices_c = spsp_mult(entries_const, indices_const, entries, indices_const, N=N)
         x = sp_solve(entries_c, indices_c, b_const)
         return out_fn(x)
 
@@ -528,7 +516,6 @@ if __name__ == '__main__':
 
     grad_for = ceviche.jacobian(fn_spsp_entries, mode='forward')(entries)[0]
     grad_true = grad_num(fn_spsp_entries, entries)
-
     np.testing.assert_almost_equal(grad_for, grad_true, decimal=DECIMAL)
 
     ## TESTS SPARSE MATRX CREATION
