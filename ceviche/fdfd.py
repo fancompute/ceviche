@@ -2,8 +2,9 @@ import autograd.numpy as npa
 import scipy.sparse as sp
 
 from .constants import *
-from .primitives import sp_solve, sp_mult, get_entries_indices
+from .primitives import sp_solve, sp_mult#, get_entries_indices
 from .derivatives import compute_derivative_matrices
+from .utils import get_entries_indices
 
 # notataion is similar to that used in: http://www.jpier.org/PIERB/pierb36/11.11092006.pdf
 

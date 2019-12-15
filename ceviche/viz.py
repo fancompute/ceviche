@@ -1,6 +1,8 @@
 import numpy as np
 import matplotlib.pylab as plt
 
+""" Utilities for plotting and visualization """
+
 def real(val, outline=None, ax=None, cbar=False, cmap='RdBu', outline_alpha=0.5):
     """Plots the real part of 'val', optionally overlaying an outline of 'outline'
     """

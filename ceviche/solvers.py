@@ -1,44 +1,21 @@
-import autograd.numpy as np
+import numpy as np
 import scipy.sparse.linalg as spl
 
 
-""" This file stores the various linear system solvers you can use for FDFD """
+""" This file stores the various sparse linear system solvers you can use for FDFD """
 
 # try to import MKL but just use scipy sparse solve if not
 try:
     from pyMKL import pardisoSolver
     HAS_MKL = True
-    print('using MKL for direct solvers')
+    # print('using MKL for direct solvers')
 except:
     HAS_MKL = False
-    print('using scipy.sparse for direct solvers.  Note: using MKL will make things significantly faster.')
+    # print('using scipy.sparse for direct solvers.  Note: using MKL will make things significantly faster.')
 
 # default iterative method to use
 # for reference on the methods available, see:  https://docs.scipy.org/doc/scipy/reference/sparse.linalg.html
 DEFAULT_ITERATIVE_METHOD = 'bicg'
-ATOL = 1e-8    #when to stop iterative solve
-
-""" ========================== SOLVER FUNCTIONS ========================== """
-
-def solve_linear(A, b, iterative_method=False):
-    if iterative_method and iterative_method is not None:
-        # if iterative solver string is supplied, use that method
-        return _solve_iterative(A, b, iterative_method=iterative_method)
-    elif iterative_method and iterative_method is None:
-        return _solve_iterative(A, b, iterative_method=DEFAULT_ITERATIVE_METHOD)
-    else:
-        return _solve_direct(A, b)
-
-def _solve_direct(A, b):
-    """ Direct solver """
-    if HAS_MKL:
-        pSolve = pardisoSolver(A, mtype=13)
-        pSolve.factor()
-        x = pSolve.solve(b)
-        pSolve.clear()
-        return x
-    else:
-        return spl.spsolve(A, b)
 
 # dict of iterative methods supported (name: function)
 ITERATIVE_METHODS = {
@@ -48,20 +25,59 @@ ITERATIVE_METHODS = {
     'cgs': spl.cgs,
     'gmres': spl.gmres,
     'lgmres': spl.lgmres,
-    # 'minres': spl.minres,  # dont use, requires a symmetric matrix
     'qmr': spl.qmr,
     'gcrotmk': spl.gcrotmk
 }
 
+# convergence tolerance for iterative solvers.
+ATOL = 1e-8
+
+""" ========================== SOLVER FUNCTIONS ========================== """
+
+def solve_linear(A, b, iterative_method=False):
+    """ Master function to call the others """
+
+    if iterative_method and iterative_method is not None:
+        # if iterative solver string is supplied, use that method
+        return _solve_iterative(A, b, iterative_method=iterative_method)
+    elif iterative_method and iterative_method is None:
+        # if iterative_method is supplied as None, use the default
+        return _solve_iterative(A, b, iterative_method=DEFAULT_ITERATIVE_METHOD)
+    else:
+        # otherwise, use a direct solver
+        return _solve_direct(A, b)
+
+def _solve_direct(A, b):
+    """ Direct solver """
+
+    if HAS_MKL:
+        # prefered method using MKL. Much faster (on Mac at least)
+        pSolve = pardisoSolver(A, mtype=13)
+        pSolve.factor()
+        x = pSolve.solve(b)
+        pSolve.clear()
+        return x
+    else:
+        # scipy solver.
+        return spl.spsolve(A, b)
+
 def _solve_iterative(A, b, iterative_method=DEFAULT_ITERATIVE_METHOD):
     """ Iterative solver """
+
+    # error checking on the method name (https://docs.scipy.org/doc/scipy/reference/sparse.linalg.html)
     try:
         solver_fn = ITERATIVE_METHODS[iterative_method]
     except:
         raise ValueError("iterative method {} not found.\n supported methods are:\n {}".format(iterative_method, ITERATIVE_METHODS))
 
+    # call the solver using scipy's API
     x, info = solver_fn(A, b, atol=ATOL)
     return x
+
+def _solve_cuda(A, b, **kwargs):
+    """ You could put some other solver here if you're feeling adventurous """
+    raise NotImplementedError("Please implement something fast and exciting here!")
+
 
 """ ============================ SPEED TESTS ============================= """
 

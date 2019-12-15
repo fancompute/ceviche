@@ -16,7 +16,7 @@ class TestPlaneWave(unittest.TestCase):
 
     def setUp(self):
 
-        self.N = 5        # size of matrix dimensions.  matrix shape = (N, N)
+        self.N = 8        # size of matrix dimensions.  matrix shape = (N, N)
         self.M = self.N**2     # number of non-zeros (make it dense for numerical stability)
 
         # these are the default values used within the test functions

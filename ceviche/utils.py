@@ -1,13 +1,129 @@
 import numpy as np
 import scipy.sparse as sp
 import copy
+import autograd.numpy as npa
+import matplotlib.pylab as plt
+from autograd.extend import primitive, vspace, defvjp, defjvp
 
-""" Some utility functions that are useful.  Needs to get cleaned up.  """
+""" Useful functions """
+
+
+""" ==================== SPARSE MATRIX UTILITIES ==================== """
+
+def make_sparse(entries, indices, shape):
+    """Construct a sparse csr matrix
+    Args:
+      entries: numpy array with shape (M,) giving values for non-zero
+        matrix entries.
+      indices: numpy array with shape (2, M) giving x and y indices for
+        non-zero matrix entries.
+      shape: shape of resulting matrix
+    Returns:
+      sparse, complex, matrix with specified values
+    """  
+    coo = sp.coo_matrix((entries, indices), shape=shape, dtype=npa.complex128)
+    return coo.tocsr()
+
+def get_entries_indices(csr_matrix):
+    # takes sparse matrix and returns the entries and indeces in form compatible with 'make_sparse'
+    shape = csr_matrix.shape
+    coo_matrix = csr_matrix.tocoo()
+    entries = csr_matrix.data
+    cols = coo_matrix.col
+    rows = coo_matrix.row
+    indices = npa.vstack((rows, cols))
+    return entries, indices
+
+def transpose_indices(indices):
+    # returns the transposed indices for transpose sparse matrix creation
+    return npa.flip(indices, axis=0)
+
+def block_4(A, B, C, D):
+    """ Constructs a big matrix out of four sparse blocks
+        returns [A B]
+                [C D]
+    """
+    left = sp.vstack([A, C])
+    right = sp.vstack([B, D])
+    return sp.hstack([left, right])    
+
+
+""" ==================== DATA GENERATION UTILITIES ==================== """
+
+def make_rand(N):
+    # makes a random vector of size N with elements between -0.5 and 0.5
+    return npa.random.random(N) - 0.5
+
+def make_rand_complex(N):
+    # makes a random complex-valued vector of size N with re and im parts between -0.5 and 0.5
+    return make_rand(N) + 1j * make_rand(N)
+
+def make_rand_indeces(N, M):
+    # make M random indeces into an NxN matrix
+    return npa.random.randint(low=0, high=N, size=(2, M))
+
+def make_rand_entries_indices(N, M):
+    # make M random indeces and corresponding entries
+    entries = make_rand_complex(M)
+    indices = make_rand_indeces(N, M)
+    return entries, indices
+
+def make_rand_sparse(N, M):
+    # make a random sparse matrix of shape '(N, N)' and 'M' non-zero elements
+    entries, indices = make_rand_entries_indices(N, M)
+    return make_sparse(entries, indices, shape=(N, N))
+
+def make_rand_sparse_density(N, density=1):
+    """ Makes a sparse NxN matrix, another way to do it with density """
+    return sp.random(N, N, density=density) + 1j * sp.random(N, N, density=density)
+
+
+""" ==================== NUMERICAL DERIVAITVES ==================== """
+
+def der_num(fn, arg, index, delta):
+    # numerical derivative of `fn(arg)` with respect to `index` into arg and numerical step size `delta`
+    arg_i_for  = arg.copy()
+    arg_i_back = arg.copy()
+    arg_i_for[index] += delta / 2
+    arg_i_back[index] -= delta / 2
+    df_darg = (fn(arg_i_for) - fn(arg_i_back)) / delta
+    return df_darg
+
+def grad_num(fn, arg, delta=1e-6):
+    # take a (complex) numerical gradient of function 'fn' with argument 'arg' with step size 'delta'
+    N = arg.size
+    grad = npa.zeros((N,), dtype=npa.complex128)
+    f0 = fn(arg)
+    for i in range(N):
+        grad[i] = der_num(fn, arg, i, delta)        # real part
+        grad[i] += der_num(fn, arg, i, 1j * delta)  # imaginary part
+    return grad
+
+def jac_num(fn, arg, step_size=1e-7):
+    """ DEPRICATED: use 'numerical' in jacobians.py instead
+    numerically differentiate `fn` w.r.t. its argument `arg` 
+    `arg` can be a numpy array of arbitrary shape
+    `step_size` can be a number or an array of the same shape as `arg` """
+
+    in_array = float_2_array(arg).flatten()
+    out_array = float_2_array(fn(arg)).flatten()
+
+    m = in_array.size
+    n = out_array.size
+    shape = (m, n)
+    jacobian = np.zeros(shape)
+
+    for i in range(m):
+        input_i = in_array.copy()
+        input_i[i] += step_size
+        arg_i = input_i.reshape(in_array.shape)
+        output_i = fn(arg_i).flatten()
+        grad_i = (output_i - out_array) / step_size
+        jacobian[i, :] = get_value(grad_i)
+
+    return jacobian
 
 """ ==================== FDTD AND FDFD UTILITIES ==================== """
-
-import autograd.numpy as npa
-
 
 def grid_center_to_xyz(Q_mid, averaging=True):
     """ Computes the interpolated value of the quantity Q_mid felt at the Ex, Ey, Ez positions of the Yee latice
@@ -47,7 +163,6 @@ def grid_xyz_to_center(Q_xx, Q_yy, Q_zz):
 
     return Q_xx_avg, Q_yy_avg, Q_zz_avg
 
-
 def vec_zz_to_xy(info_dict, vec_zz, grid_averaging=True):
     """ does grid averaging on z vector vec_zz """
     arr_zz = vec_zz.reshape(info_dict['shape'])[:,:,None]
@@ -57,46 +172,11 @@ def vec_zz_to_xy(info_dict, vec_zz, grid_averaging=True):
 
 """ ===================== TESTING AND DEBUGGING ===================== """
 
-
-def make_sparse(N, random=True, density=1):
-    """ Makes a sparse NxN matrix. """
-    if not random:
-        np.random.seed(0)
-    D = sp.random(N, N, density=density) + 1j * sp.random(N, N, density=density)
-    return D
-
-
 def float_2_array(x):
     if not isinstance(x, np.ndarray):
         return np.array([x])
     else:
         return x
-
-
-def grad_num(fn, arg, step_size=1e-7):
-    """ DEPRICATED: use 'numerical' in jacobians.py instead
-    numerically differentiate `fn` w.r.t. its argument `arg` 
-    `arg` can be a numpy array of arbitrary shape
-    `step_size` can be a number or an array of the same shape as `arg` """
-
-    in_array = float_2_array(arg).flatten()
-    out_array = float_2_array(fn(arg)).flatten()
-
-    m = in_array.size
-    n = out_array.size
-    shape = (m, n)
-    jacobian = np.zeros(shape)
-
-    for i in range(m):
-        input_i = in_array.copy()
-        input_i[i] += step_size
-        arg_i = input_i.reshape(in_array.shape)
-        output_i = fn(arg_i).flatten()
-        grad_i = (output_i - out_array) / step_size
-        jacobian[i, :] = get_value(grad_i)
-
-    return jacobian
-
 
 def reshape_to_ND(arr, N):
     """ Adds dimensions to arr until it is dimension N
@@ -109,15 +189,11 @@ def reshape_to_ND(arr, N):
     return arr.reshape(arr.shape + extra_dims)
 
 
-""" =========================== AUTOGRAD =========================== """
-
-
-import autograd
-from autograd.extend import primitive, vspace, defvjp, defjvp
+""" ========================= TOOLS USEFUL FOR WORKING WITH AUTOGRAD ====================== """
 
 
 def get_value(x):
-    if type(x) == autograd.numpy.numpy_boxes.ArrayBox:
+    if type(x) == npa.numpy_boxes.ArrayBox:
         return x._value
     else:
         return x
@@ -172,10 +248,7 @@ def vjp_maker_num(fn, arg_inds, steps):
     return tuple(vjp_makers)
 
 
-""" =================== PLOTTING AND MEASUREMENT =================== """
-
-
-import matplotlib.pylab as plt
+""" =================== PLOTTING AND MEASUREMENT OF FDTD =================== """
 
 
 def aniplot(F, source, steps, component='Ez', num_panels=10):
@@ -311,16 +384,3 @@ def plot_spectral_power(series, dt, f_top=2e14):
     plt.xlabel('frequency (Hz)')
     plt.ylabel('power (|signal|^2)')
     plt.show()
-
-""" ========================= LINEAR ALGEBRA ========================= """
-
-
-def block_4(A, B, C, D):
-    """ Constructs a big matrix out of four sparse blocks
-        returns [A B]
-                [C D]
-    """
-    left = sp.vstack([A, C])
-    right = sp.vstack([B, D])
-    return sp.hstack([left, right])    
-
