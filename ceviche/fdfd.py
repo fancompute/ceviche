@@ -187,31 +187,30 @@ class fdfd_hz(fdfd):
     def __init__(self, omega, L0, eps_r, npml, bloch_x=0.0, bloch_y=0.0):
         super().__init__(omega, L0, eps_r, npml, bloch_x=bloch_x, bloch_y=bloch_y)
 
-    def _grid_average(self, eps_vec):
+    def _grid_average_2d(self, eps_vec, delta=1e-4):
+
         eps_grid = self._vec_to_grid(eps_vec)
         eps_grid_xx = 1 / 2 * (eps_grid + npa.roll(eps_grid, axis=1, shift=1))
         eps_grid_yy = 1 / 2 * (eps_grid + npa.roll(eps_grid, axis=0, shift=1))
         eps_vec_xx = self._grid_to_vec(eps_grid_xx)
         eps_vec_yy = self._grid_to_vec(eps_grid_yy)
+        eps_vec_xx = eps_vec_xx
+        eps_vec_yy = eps_vec_yy
         return eps_vec_xx, eps_vec_yy
 
     def _make_A(self, eps_vec):
 
-        eps_vec_xx, eps_vec_yy = self._grid_average(eps_vec)
-        eps_vec_xx_inv = 1 / eps_vec_xx
-        eps_vec_yy_inv = 1 / eps_vec_yy
+        eps_vec_xx, eps_vec_yy = self._grid_average_2d(eps_vec)
+        eps_vec_xx_inv = 1 / (eps_vec_xx + 1e-4)  # the 1e-4 is for numerical stability
+        eps_vec_yy_inv = 1 / (eps_vec_yy + 1e-4)  # autograd throws 'divide by zero' errors.
 
-        arangeN = npa.arange(self.N)
-        indices_diag = npa.vstack((arangeN, arangeN))
+        indices_diag = npa.vstack((npa.arange(self.N), npa.arange(self.N)))
 
         entries_DxEpsy,   indices_DxEpsy   = spsp_mult(self.entries_Dxb, self.indices_Dxb, eps_vec_yy_inv, indices_diag, self.N)
         entires_DxEpsyDx, indices_DxEpsyDx = spsp_mult(entries_DxEpsy, indices_DxEpsy, self.entries_Dxf, self.indices_Dxf, self.N)
 
         entries_DyEpsx,   indices_DyEpsx   = spsp_mult(self.entries_Dyb, self.indices_Dyb, eps_vec_xx_inv, indices_diag, self.N)
         entires_DyEpsxDy, indices_DyEpsxDy = spsp_mult(entries_DyEpsx, indices_DyEpsx, self.entries_Dyf, self.indices_Dyf, self.N)
-
-        # entires_DxEpsyDx, indices_DxEpsyDx = entries_DxEpsy, indices_DxEpsy
-        # entires_DyEpsxDy, indices_DyEpsxDy = entries_DyEpsx, indices_DyEpsx
 
         entries_d = 1 / EPSILON_0 * npa.hstack((entires_DxEpsyDx, entires_DyEpsxDy))
         indices_d = npa.hstack((indices_DxEpsyDx, indices_DyEpsxDy))
@@ -223,64 +222,72 @@ class fdfd_hz(fdfd):
 
         return entries_a, indices_a
 
-    # def _make_A_deprecated(self, eps_vec):
-
-    #     # notation: C = [[C11, C12], [C21, C22]]
-    #     C11 = -1 / MU_0 * self.Dyf.dot(self.Dyb) 
-    #     C22 = -1 / MU_0 * self.Dxf.dot(self.Dxb)
-    #     C12 =  1 / MU_0 * self.Dyf.dot(self.Dxb)
-    #     C21 =  1 / MU_0 * self.Dxf.dot(self.Dyb)
-
-    #     # get entries and indices
-    #     entries_c11, indices_c11 = get_entries_indices(C11)
-    #     entries_c22, indices_c22 = get_entries_indices(C22)
-    #     entries_c12, indices_c12 = get_entries_indices(C12)
-    #     entries_c21, indices_c21 = get_entries_indices(C21)
-
-    #     # shift the indices into each of the 4 quadrants
-    #     indices_c22 += self.N       # shift into bottom right quadrant
-    #     indices_c12[1,:] += self.N  # shift into top right quadrant
-    #     indices_c21[0,:] += self.N  # shift into bottom left quadrant
-
-    #     # get full matrix entries and indices
-    #     entries_c = npa.hstack((entries_c11, entries_c12, entries_c21, entries_c22))
-    #     indices_c = npa.hstack((indices_c11, indices_c12, indices_c21, indices_c22))
-
-    #     # indices into the diagonal of a sparse matrix
-    #     eps_vec_xx, eps_vec_yy = self._grid_average(eps_vec)
-    #     entries_diag = - EPSILON_0 * self.omega**2 * npa.hstack((eps_vec_xx, eps_vec_yy))
-    #     indices_diag = npa.vstack((npa.arange(2 * self.N), npa.arange(2 * self.N)))
-
-    #     # put together the big A and return entries and indices
-    #     entries_a = npa.hstack((entries_diag, entries_c))
-    #     indices_a = npa.hstack((indices_diag, indices_c))
-    #     return entries_a, indices_a
-
     def _solve_fn(self, eps_vec, entries_a, indices_a, Mz_vec):
 
         Hz_vec = sp_solve(entries_a, indices_a, Mz_vec)
-        eps_vec_xx, eps_vec_yy = self._grid_average(eps_vec)
+        eps_vec_xx, eps_vec_yy = self._grid_average_2d(eps_vec)
 
         # strip out the x and y components of E and find the Hz component
         Ex_vec, Ey_vec = self._Hz_to_Ex_Ey(Hz_vec, eps_vec_xx, eps_vec_yy)
-        Hz_vec = self._Ex_Ey_to_Hz(Ex_vec, Ey_vec)
 
         return Ex_vec, Ey_vec, Hz_vec
 
-    # def _solve_fn_deprecated(self, eps_vec, entries_a, indices_a, Mz_vec):
+class fdfd_3d(fdfd):
+    """ 3D FDFD class (work in progress) """
 
-    #     # convert the Mz current into Jx, Jy
-    #     eps_vec_xx, eps_vec_yy = self._grid_average(eps_vec)
-    #     Jx_vec, Jy_vec = self._Hz_to_Ex_Ey(Mz_vec, eps_vec_xx, eps_vec_yy)
+    def __init__(self, omega, L0, eps_r, npml, bloch_x=0.0, bloch_y=0.0):
+        raise NotImplementedError
 
-    #     # lump the current sources together and solve for electric field
-    #     source_J_vec = npa.hstack((Jx_vec, Jy_vec))
-    #     E_vec = sp_solve(entries_a, indices_a, source_J_vec)
+    def _grid_average_2d(self, eps_vec):
+        raise NotImplementedError
 
-    #     # strip out the x and y components of E and find the Hz component
-    #     Ex_vec = E_vec[:self.N]
-    #     Ey_vec = E_vec[self.N:]
-    #     Hz_vec = self._Ex_Ey_to_Hz(Ex_vec, Ey_vec)
+    def _make_A(self, eps_vec):
 
-    #     return Ex_vec, Ey_vec, Hz_vec
+        # notation: C = [[C11, C12], [C21, C22]]
+        C11 = -1 / MU_0 * self.Dyf.dot(self.Dyb) 
+        C22 = -1 / MU_0 * self.Dxf.dot(self.Dxb)
+        C12 =  1 / MU_0 * self.Dyf.dot(self.Dxb)
+        C21 =  1 / MU_0 * self.Dxf.dot(self.Dyb)
+
+        # get entries and indices
+        entries_c11, indices_c11 = get_entries_indices(C11)
+        entries_c22, indices_c22 = get_entries_indices(C22)
+        entries_c12, indices_c12 = get_entries_indices(C12)
+        entries_c21, indices_c21 = get_entries_indices(C21)
+
+        # shift the indices into each of the 4 quadrants
+        indices_c22 += self.N       # shift into bottom right quadrant
+        indices_c12[1,:] += self.N  # shift into top right quadrant
+        indices_c21[0,:] += self.N  # shift into bottom left quadrant
+
+        # get full matrix entries and indices
+        entries_c = npa.hstack((entries_c11, entries_c12, entries_c21, entries_c22))
+        indices_c = npa.hstack((indices_c11, indices_c12, indices_c21, indices_c22))
+
+        # indices into the diagonal of a sparse matrix
+        eps_vec_xx, eps_vec_yy = self._grid_average_2d(eps_vec)
+        entries_diag = - EPSILON_0 * self.omega**2 * npa.hstack((eps_vec_xx, eps_vec_yy))
+        indices_diag = npa.vstack((npa.arange(2 * self.N), npa.arange(2 * self.N)))
+
+        # put together the big A and return entries and indices
+        entries_a = npa.hstack((entries_diag, entries_c))
+        indices_a = npa.hstack((indices_diag, indices_c))
+        return entries_a, indices_a
+
+    def _solve_fn(self, eps_vec, entries_a, indices_a, Mz_vec):
+
+        # convert the Mz current into Jx, Jy
+        eps_vec_xx, eps_vec_yy = self._grid_average_2d(eps_vec)
+        Jx_vec, Jy_vec = self._Hz_to_Ex_Ey(Mz_vec, eps_vec_xx, eps_vec_yy)
+
+        # lump the current sources together and solve for electric field
+        source_J_vec = npa.hstack((Jx_vec, Jy_vec))
+        E_vec = sp_solve(entries_a, indices_a, source_J_vec)
+
+        # strip out the x and y components of E and find the Hz component
+        Ex_vec = E_vec[:self.N]
+        Ey_vec = E_vec[self.N:]
+        Hz_vec = self._Ex_Ey_to_Hz(Ex_vec, Ey_vec)
+
+        return Ex_vec, Ey_vec, Hz_vec
 
