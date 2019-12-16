@@ -138,13 +138,13 @@ class fdfd():
         return Hx_vec, Hy_vec
 
     def _Hz_to_Ex(self, Hz_vec, eps_vec_xx):
-        return  1 / 1j / EPSILON_0 / eps_vec_xx * self.sp_mult_Dyf(Hz_vec)
+        return  1 / 1j / EPSILON_0 / (eps_vec_xx + 1e-5) * self.sp_mult_Dyf(Hz_vec)
 
     def _Hz_to_Ey(self, Hz_vec, eps_vec_yy):
-        return -1 / 1j / EPSILON_0 / eps_vec_yy * self.sp_mult_Dxf(Hz_vec)
+        return -1 / 1j / EPSILON_0 / (eps_vec_yy + 1e-5) * self.sp_mult_Dxf(Hz_vec)
 
     def _Hx_Hy_to_Ez(self, Hx_vec, Hy_vec, eps_vec_zz):
-        return 1 / 1j / EPSILON_0 / eps_vec_zz * (self.sp_mult_Dxf(Hy_vec) - self.sp_mult_Dyf(Hx_vec))
+        return 1 / 1j / EPSILON_0 / (eps_vec_zz + 1e-5) * (self.sp_mult_Dxf(Hy_vec) - self.sp_mult_Dyf(Hx_vec))
 
     def _Hz_to_Ex_Ey(self, Hz_vec, eps_vec_xx, eps_vec_yy):
         Ex_vec = self._Hz_to_Ex(Hz_vec, eps_vec_xx)
