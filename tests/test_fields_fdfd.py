@@ -30,7 +30,7 @@ class TestFields_FDFD(unittest.TestCase):
         plt.imshow(np.real(plot_component), cmap='RdBu', vmin=-field_max/100, vmax=field_max/100)
         plt.show()
 
-    def _test_Ez(self):
+    def test_Ez(self):
         print('\ttesting Ez')
 
         F = fdfd_ez(self.omega, self.dL, self.eps_r, self.npml)

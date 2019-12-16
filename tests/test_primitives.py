@@ -9,6 +9,7 @@ import ceviche    # use the ceviche wrapper for autograd derivatives
 DECIMAL = 3       # number of decimals to check to
 
 ## Setup
+np.random.seed(11)
 
 class TestPlaneWave(unittest.TestCase):
 
@@ -26,6 +27,7 @@ class TestPlaneWave(unittest.TestCase):
         self.entries_const2 = make_rand_complex(self.M-2)
         self.x_const = make_rand_complex(self.N)
         self.b_const = make_rand_complex(self.N)
+        print(self.b_const[0])
 
     def out_fn(self, output_vector):
         # this function takes the output of each primitive and returns a real scalar (sort of like the objective function)
@@ -52,7 +54,7 @@ class TestPlaneWave(unittest.TestCase):
         np.testing.assert_almost_equal(grad_rev, grad_true, decimal=DECIMAL, err_msg=self.err_msg('fn_mult_entries', 'reverse'))
         np.testing.assert_almost_equal(grad_for, grad_true, decimal=DECIMAL, err_msg=self.err_msg('fn_mult_entries', 'forward'))
 
-    def _test_mult_x(self):
+    def test_mult_x(self):
 
         def fn_mult_x(x):
             # sparse matrix multiplication (Ax = b) as a function of dense vector 'x'
@@ -70,7 +72,7 @@ class TestPlaneWave(unittest.TestCase):
         np.testing.assert_almost_equal(grad_rev, grad_true, decimal=DECIMAL, err_msg=self.err_msg('fn_mult_x', 'reverse'))
         np.testing.assert_almost_equal(grad_for, grad_true, decimal=DECIMAL, err_msg=self.err_msg('fn_mult_x', 'forward'))
 
-    def _test_solve_entries(self):
+    def test_solve_entries(self):
 
         def fn_solve_entries(entries):
             # sparse matrix solve (x = A^{-1}b) as a function of matrix entries 'A(entries)'
@@ -86,7 +88,7 @@ class TestPlaneWave(unittest.TestCase):
         np.testing.assert_almost_equal(grad_rev, grad_true, decimal=DECIMAL, err_msg=self.err_msg('fn_solve_entries', 'reverse'))
         np.testing.assert_almost_equal(grad_for, grad_true, decimal=DECIMAL, err_msg=self.err_msg('fn_solve_entries', 'forward'))
 
-    def _test_solve_b(self):
+    def test_solve_b(self):
 
         def fn_solve_b(b):
             # sparse matrix solve (x = A^{-1}b) as a function of source 'b'
