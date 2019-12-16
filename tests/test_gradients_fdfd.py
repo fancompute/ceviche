@@ -103,7 +103,7 @@ class TestFDFD(unittest.TestCase):
 
         self.check_gradient_error(grad_numerical, grad_autograd_rev)
 
-    def _test_Hz_forward(self):
+    def test_Hz_forward(self):
 
         print('\ttesting forward-mode Hz in FDFD')
 
@@ -131,7 +131,7 @@ class TestFDFD(unittest.TestCase):
 
         self.check_gradient_error(grad_numerical, grad_autograd_for)
 
-    def _test_Ez_reverse(self):
+    def test_Ez_reverse(self):
 
         print('\ttesting reverse-mode Ez in FDFD')
 
@@ -161,7 +161,7 @@ class TestFDFD(unittest.TestCase):
 
         self.check_gradient_error(grad_numerical, grad_autograd_rev)
 
-    def _test_Ez_forward(self):
+    def test_Ez_forward(self):
 
         print('\ttesting forward-mode Ez in FDFD')
 

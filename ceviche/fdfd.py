@@ -205,13 +205,13 @@ class fdfd_hz(fdfd):
         indices_diag = npa.vstack((arangeN, arangeN))
 
         entries_DxEpsy,   indices_DxEpsy   = spsp_mult(self.entries_Dxb, self.indices_Dxb, eps_vec_yy_inv, indices_diag, self.N)
-        # entires_DxEpsyDx, indices_DxEpsyDx = spsp_mult(entries_DxEpsy, indices_DxEpsy, self.entries_Dxf, self.indices_Dxf, self.N)
+        entires_DxEpsyDx, indices_DxEpsyDx = spsp_mult(entries_DxEpsy, indices_DxEpsy, self.entries_Dxf, self.indices_Dxf, self.N)
 
         entries_DyEpsx,   indices_DyEpsx   = spsp_mult(self.entries_Dyb, self.indices_Dyb, eps_vec_xx_inv, indices_diag, self.N)
-        # entires_DyEpsxDy, indices_DyEpsxDy = spsp_mult(entries_DyEpsx, indices_DyEpsx, self.entries_Dyf, self.indices_Dyf, self.N)
+        entires_DyEpsxDy, indices_DyEpsxDy = spsp_mult(entries_DyEpsx, indices_DyEpsx, self.entries_Dyf, self.indices_Dyf, self.N)
 
-        entires_DxEpsyDx, indices_DxEpsyDx = entries_DxEpsy, indices_DxEpsy
-        entires_DyEpsxDy, indices_DyEpsxDy = entries_DyEpsx, indices_DyEpsx
+        # entires_DxEpsyDx, indices_DxEpsyDx = entries_DxEpsy, indices_DxEpsy
+        # entires_DyEpsxDy, indices_DyEpsxDy = entries_DyEpsx, indices_DyEpsx
 
         entries_d = 1 / EPSILON_0 * npa.hstack((entires_DxEpsyDx, entires_DyEpsxDy))
         indices_d = npa.hstack((indices_DxEpsyDx, indices_DyEpsxDy))
