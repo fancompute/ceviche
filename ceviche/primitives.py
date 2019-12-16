@@ -182,42 +182,64 @@ def grad_spsp_mult_entries_a_reverse(b_out, entries_a, indices_a, entries_x, ind
         If you write out the matrix elements and do the calculation, you can derive the code below, but it's a hairy derivation.
     """
 
-    # get all of the entries and indeces, compute problem sizes from the arugments.
     entries_b, indices_b = b_out
+
+    Ma = entries_a.size
+    Mx = entries_x.size
+    Mb = entries_b.size
+
+    # print('N  = ', N)
+    # print('Ma = ', Ma)
+    # print('Mx = ', Mx)
+    # print('Mb = ', Mb)
+    
     ik_a, jk_a = indices_a
     ik_b, jk_b = indices_b
     Ma = entries_a.size
     Mb = entries_b.size
 
     # make fake entries of all ones for dA/de and dB/de
-    entries_a1 = npa.ones(entries_a.shape)
-    entries_b1 = npa.ones(entries_b.size)
+    entries_a1 = npa.ones(Ma)
+    entries_b1 = npa.ones(Mb)
 
-    # construct matrices 'D_{i,j}k{a,b}' where D_lm is 1 if the {j,i}th element of {A,B}'s entries list is in the {i,j} {row,column} of {A,B}.
-    indices_D_ika = npa.vstack((npa.arange(Ma), ik_a))
-    indices_D_jka = npa.vstack((npa.arange(Ma), jk_a))
-    indices_D_ikb = npa.vstack((npa.arange(Mb), ik_b))
-    indices_D_jkb = npa.vstack((npa.arange(Mb), jk_b))
-    D_ika = make_sparse(entries_a1, indices_D_ika, shape=(Ma, N))
-    D_jka = make_sparse(entries_a1, indices_D_jka, shape=(Ma, N))
-    D_ikb = make_sparse(entries_b1, indices_D_ikb, shape=(Mb, N))
-    D_jkb = make_sparse(entries_b1, indices_D_jkb, shape=(Mb, N))
+    # construct the indices matrices (indices and elements)
+    indices_Ia = npa.vstack((ik_a, npa.arange(Ma)))
+    indices_Ja = npa.vstack((jk_a, npa.arange(Ma)))
+    indices_Ib = npa.vstack((ik_b, npa.arange(Mb)))
+    indices_Jb = npa.vstack((jk_b, npa.arange(Mb)))
 
-    # turn X into a sparse matrix explicitly and multiply it by the Di matrix of A
+    # construct the sparse versions of the indices matrices
+    Ia = make_sparse(entries_a1, indices_Ia, shape=(N, Ma))
+    Ja = make_sparse(entries_a1, indices_Ja, shape=(N, Ma))
+    Ib = make_sparse(entries_b1, indices_Ib, shape=(N, Mb))
+    Jb = make_sparse(entries_b1, indices_Jb, shape=(N, Mb))
+
+    # make the 'out' matrices for convenience
+    Oa = Ja.T
+    Ob = Jb.T
+
+    # print('Ia.shape = ', Ia.shape)
+    # print('Oa.shape = ', Oa.shape)
+    # print('Ib.shape = ', Ia.shape)
+    # print('Ob.shape = ', Ob.shape)
+
     X = make_sparse(entries_x, indices_x, shape=(N, N))
-    D_jka_X = D_jka.dot(X)
 
     def vjp(v):
         entries_v, _ = v
-        # turn V into a sparse matrix explicitly using the indices of b (output indices) and multiply it by the Dj matrix of A
-        V = make_sparse(entries_v, indices_b, shape=(N, N))
-        D_ika_V = D_ika.dot(V)
-
-        # element-wise these two results together and sum over the second index to give the results in the basis of output entries
-        combined = D_ika_V.multiply(D_jka_X)
-        return combined.sum(axis=1)
+        entries_vxt, indices_vxt = spsp_mult(entries_v, indices_b, entries_x, transpose_indices(indices_x), N)
+        VXT = make_sparse(entries_vxt, indices_vxt, shape=(N, N))
+        M = (Ia.T).dot(VXT).dot(Oa.T)
+        return M.diagonal()
 
     return vjp
+
+    # entries_gX, indices_gX = spsp_mult(g, indices_a, entries_x, indices_x, N)
+    # gX = make_sparse(entries_gX, indices_gX, shape=(N, N))
+
+    # M = (Ib.T).dot(gX).dot(Ob.T)
+
+    # return M.diagonal(), npa.zeros(Mb)
 
 def grad_spsp_mult_entries_x_reverse(b_out, entries_a, indices_a, entries_x, indices_x, N):
     """ Now we wish to do the gradient with respect to the X matrix in AX=B
@@ -242,45 +264,63 @@ ag.extend.defvjp(spsp_mult, grad_spsp_mult_entries_a_reverse, None, grad_spsp_mu
 def grad_spsp_mult_entries_a_forward(g, b_out, entries_a, indices_a, entries_x, indices_x, N):
     """ Forward mode is not much better than reverse mode, but the same general logic aoplies:
         Convert to matrix form, do the calculation, convert back to entries.        
+            dA/de @ x @ g
     """
 
-    # get entries, elements, and sizes from the arguments.
     entries_b, indices_b = b_out
+
+    Ma = entries_a.size
+    Mx = entries_x.size
+    Mb = entries_b.size
+
+    # print('N  = ', N)
+    # print('Ma = ', Ma)
+    # print('Mx = ', Mx)
+    # print('Mb = ', Mb)
+
+    # print('g.shape = ', g.shape)
+    
     ik_a, jk_a = indices_a
     ik_b, jk_b = indices_b
     Ma = entries_a.size
     Mb = entries_b.size
-    entries_a1 = npa.ones(entries_a.shape)
-    entries_b1 = npa.ones(entries_b.shape)
 
-    # construct the 'D' matrices, relating the indices of the A and B matrices to their entries.
-    indices_D_ika = npa.vstack((npa.arange(Ma), ik_a))
-    indices_D_jka = npa.vstack((npa.arange(Ma), jk_a))
-    indices_D_ikb = npa.vstack((npa.arange(Mb), ik_b))
-    indices_D_jkb = npa.vstack((npa.arange(Mb), jk_b))    
-    D_ika = make_sparse(entries_a1, indices_D_ika, shape=(Ma, N))
-    D_jka = make_sparse(entries_a1, indices_D_jka, shape=(Ma, N))
-    D_ikb = make_sparse(entries_b1, indices_D_ikb, shape=(Mb, N))
-    D_jkb = make_sparse(entries_b1, indices_D_jkb, shape=(Mb, N))
+    # make fake entries of all ones for dA/de and dB/de
+    entries_a1 = npa.ones(Ma)
+    entries_b1 = npa.ones(Mb)
 
-    # make the matrix XA using the entries of X and the indices of A^T
-    XA = make_sparse(entries_x, transpose_indices(indices_a), shape=(N, N))
-    # make the matrix G using the forward prop entries (g) and the indices of A.
-    GA = make_sparse(g, indices_a, shape=(N, N))
+    # construct the indices matrices (indices and elements)
+    indices_Ia = npa.vstack((ik_a, npa.arange(Ma)))
+    indices_Ja = npa.vstack((jk_a, npa.arange(Ma)))
+    indices_Ib = npa.vstack((ik_b, npa.arange(Mb)))
+    indices_Jb = npa.vstack((jk_b, npa.arange(Mb)))
 
-    # convert these into the basis of the entries of B
-    DXA = D_jkb.dot(XA)
-    DGA = D_ikb.dot(GA)
+    # construct the sparse versions of the indices matrices
+    Ia = make_sparse(entries_a1, indices_Ia, shape=(N, Ma))
+    Ja = make_sparse(entries_a1, indices_Ja, shape=(N, Ma))
+    Ib = make_sparse(entries_b1, indices_Ib, shape=(N, Mb))
+    Jb = make_sparse(entries_b1, indices_Jb, shape=(N, Mb))
 
-    # element-wise multiply, as before
-    combined_matrix = DXA.multiply(DGA)
+    # make the 'out' matrices for convenience
+    Oa = Ja.T
+    Ob = Jb.T
 
-    # dot product the result with vector of 1s to sum over one index and convert to a list of entries.
-    combined_entries = combined_matrix.dot(npa.ones((N,)))
+    # print('Ia.shape = ', Ia.shape)
+    # print('Oa.shape = ', Oa.shape)
+    # print('Ib.shape = ', Ia.shape)
+    # print('Ob.shape = ', Ob.shape)
 
-    # return the combined entries and indices of all zero (since the indices aren't affected by the initial entries, the gradient is 0)
-    indices_0 = npa.zeros((2, Mb))
-    return combined_entries, indices_0
+    X = make_sparse(entries_x, indices_x, shape=(N, N))
+
+    entries_gX, indices_gX = spsp_mult(g, indices_a, entries_x, indices_x, N)
+    gX = make_sparse(entries_gX, indices_gX, shape=(N, N))
+
+    M = (Ib.T).dot(gX).dot(Ob.T)
+
+    return M.diagonal(), npa.zeros(Mb)
+
+    # combined_entries = DXA.dot(DGA.T)
+    # combined_entries = combined_entries.diagonal()
 
 def grad_spsp_mult_entries_x_forward(g, b_out, entries_a, indices_a, entries_x, indices_x, N):
     """ Same trick as before: Reuse the previous VJP but for the transpose system """

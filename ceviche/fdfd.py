@@ -2,7 +2,7 @@ import autograd.numpy as npa
 import scipy.sparse as sp
 
 from .constants import *
-from .primitives import sp_solve, sp_mult#, get_entries_indices
+from .primitives import sp_solve, sp_mult, spsp_mult
 from .derivatives import compute_derivative_matrices
 from .utils import get_entries_indices
 
@@ -94,10 +94,10 @@ class fdfd():
         self.entries_Dyb, self.indices_Dyb = get_entries_indices(self.Dyb)
 
         # stores some convenience functions for multiplying derivative matrices by a vector `vec`
-        self.mult_Dxf = lambda vec: sp_mult(self.entries_Dxf, self.indices_Dxf, vec)
-        self.mult_Dxb = lambda vec: sp_mult(self.entries_Dxb, self.indices_Dxb, vec)
-        self.mult_Dyf = lambda vec: sp_mult(self.entries_Dyf, self.indices_Dyf, vec)
-        self.mult_Dyb = lambda vec: sp_mult(self.entries_Dyb, self.indices_Dyb, vec)
+        self.sp_mult_Dxf = lambda vec: sp_mult(self.entries_Dxf, self.indices_Dxf, vec)
+        self.sp_mult_Dxb = lambda vec: sp_mult(self.entries_Dxb, self.indices_Dxb, vec)
+        self.sp_mult_Dyf = lambda vec: sp_mult(self.entries_Dyf, self.indices_Dyf, vec)
+        self.sp_mult_Dyb = lambda vec: sp_mult(self.entries_Dyb, self.indices_Dyb, vec)
 
     def _vec_to_grid(self, vec):
         """ converts a vector quantity into an array of the shape of the FDFD simulation """
@@ -121,16 +121,16 @@ class fdfd():
     """ Field conversion functions for 2D.  Function names are self explanatory """
 
     def _Ex_Ey_to_Hz(self, Ex_vec, Ey_vec):
-        return 1 / 1j / MU_0 * (self.mult_Dxb(Ey_vec) - self.mult_Dyb(Ex_vec))
+        return 1 / 1j / MU_0 * (self.sp_mult_Dxb(Ey_vec) - self.sp_mult_Dyb(Ex_vec))
 
     def _Ez_to_Hx(self, Ez_vec):
-        return  1 / 1j / MU_0 * self.mult_Dyb(Ez_vec)
+        return  1 / 1j / MU_0 * self.sp_mult_Dyb(Ez_vec)
 
     def _Ez_to_Hy(self, Ez_vec):
-        return -1 / 1j / MU_0 * self.mult_Dxb(Ez_vec)
+        return -1 / 1j / MU_0 * self.sp_mult_Dxb(Ez_vec)
 
     def _Ex_Ey_to_Hz(self, Ex_vec, Ey_vec):
-        return 1 / 1j / MU_0 * (self.mult_Dxb(Ey_vec) - self.mult_Dyb(Ex_vec))
+        return 1 / 1j / MU_0 * (self.sp_mult_Dxb(Ey_vec) - self.sp_mult_Dyb(Ex_vec))
 
     def _Ez_to_Hx_Hy(self, Ez_vec):
         Hx_vec = self._Ez_to_Hx(Ez_vec)
@@ -138,13 +138,13 @@ class fdfd():
         return Hx_vec, Hy_vec
 
     def _Hz_to_Ex(self, Hz_vec, eps_vec_xx):
-        return  1 / 1j / EPSILON_0 / eps_vec_xx * self.mult_Dyf(Hz_vec)
+        return  1 / 1j / EPSILON_0 / eps_vec_xx * self.sp_mult_Dyf(Hz_vec)
 
     def _Hz_to_Ey(self, Hz_vec, eps_vec_yy):
-        return -1 / 1j / EPSILON_0 / eps_vec_yy * self.mult_Dxf(Hz_vec)
+        return -1 / 1j / EPSILON_0 / eps_vec_yy * self.sp_mult_Dxf(Hz_vec)
 
     def _Hx_Hy_to_Ez(self, Hx_vec, Hy_vec, eps_vec_zz):
-        return 1 / 1j / EPSILON_0 / eps_vec_zz * (self.mult_Dxf(Hy_vec) - self.mult_Dyf(Hx_vec))
+        return 1 / 1j / EPSILON_0 / eps_vec_zz * (self.sp_mult_Dxf(Hy_vec) - self.sp_mult_Dyf(Hx_vec))
 
     def _Hz_to_Ex_Ey(self, Hz_vec, eps_vec_xx, eps_vec_yy):
         Ex_vec = self._Hz_to_Ex(Hz_vec, eps_vec_xx)
@@ -197,51 +197,90 @@ class fdfd_hz(fdfd):
 
     def _make_A(self, eps_vec):
 
-        # notation: C = [[C11, C12], [C21, C22]]
-        C11 = -1 / MU_0 * self.Dyf.dot(self.Dyb) 
-        C22 = -1 / MU_0 * self.Dxf.dot(self.Dxb)
-        C12 =  1 / MU_0 * self.Dyf.dot(self.Dxb)
-        C21 =  1 / MU_0 * self.Dxf.dot(self.Dyb)
-
-        # get entries and indices
-        entries_c11, indices_c11 = get_entries_indices(C11)
-        entries_c22, indices_c22 = get_entries_indices(C22)
-        entries_c12, indices_c12 = get_entries_indices(C12)
-        entries_c21, indices_c21 = get_entries_indices(C21)
-
-        # shift the indices into each of the 4 quadrants
-        indices_c22 += self.N       # shift into bottom right quadrant
-        indices_c12[1,:] += self.N  # shift into top right quadrant
-        indices_c21[0,:] += self.N  # shift into bottom left quadrant
-
-        # get full matrix entries and indices
-        entries_c = npa.hstack((entries_c11, entries_c12, entries_c21, entries_c22))
-        indices_c = npa.hstack((indices_c11, indices_c12, indices_c21, indices_c22))
-
-        # indices into the diagonal of a sparse matrix
         eps_vec_xx, eps_vec_yy = self._grid_average(eps_vec)
-        entries_diag = - EPSILON_0 * self.omega**2 * npa.hstack((eps_vec_xx, eps_vec_yy))
-        indices_diag = npa.vstack((npa.arange(2 * self.N), npa.arange(2 * self.N)))
+        eps_vec_xx_inv = 1 / eps_vec_xx
+        eps_vec_yy_inv = 1 / eps_vec_yy
 
-        # put together the big A and return entries and indices
-        entries_a = npa.hstack((entries_diag, entries_c))
-        indices_a = npa.hstack((indices_diag, indices_c))
+        arangeN = npa.arange(self.N)
+        indices_diag = npa.vstack((arangeN, arangeN))
+
+        entries_DxEpsy,   indices_DxEpsy   = spsp_mult(self.entries_Dxb, self.indices_Dxb, eps_vec_yy_inv, indices_diag, self.N)
+        entires_DxEpsyDx, indices_DxEpsyDx = spsp_mult(entries_DxEpsy, indices_DxEpsy, self.entries_Dxf, self.indices_Dxf, self.N)
+
+        entries_DyEpsx,   indices_DyEpsx   = spsp_mult(self.entries_Dyb, self.indices_Dyb, eps_vec_xx_inv, indices_diag, self.N)
+        entires_DyEpsxDy, indices_DyEpsxDy = spsp_mult(entries_DyEpsx, indices_DyEpsx, self.entries_Dyf, self.indices_Dyf, self.N)
+
+        # entires_DxEpsyDx, indices_DxEpsyDx = entries_DxEpsy, indices_DxEpsy
+        # entires_DyEpsxDy, indices_DyEpsxDy = entries_DyEpsx, indices_DyEpsx
+
+        entries_d = 1 / EPSILON_0 * npa.hstack((entires_DxEpsyDx, entires_DyEpsxDy))
+        indices_d = npa.hstack((indices_DxEpsyDx, indices_DyEpsxDy))
+
+        entries_diag = MU_0 * self.omega**2 * npa.ones(self.N)
+
+        entries_a = npa.hstack((entries_d, entries_diag))
+        indices_a = npa.hstack((indices_d, indices_diag))
+
         return entries_a, indices_a
+
+    # def _make_A_deprecated(self, eps_vec):
+
+    #     # notation: C = [[C11, C12], [C21, C22]]
+    #     C11 = -1 / MU_0 * self.Dyf.dot(self.Dyb) 
+    #     C22 = -1 / MU_0 * self.Dxf.dot(self.Dxb)
+    #     C12 =  1 / MU_0 * self.Dyf.dot(self.Dxb)
+    #     C21 =  1 / MU_0 * self.Dxf.dot(self.Dyb)
+
+    #     # get entries and indices
+    #     entries_c11, indices_c11 = get_entries_indices(C11)
+    #     entries_c22, indices_c22 = get_entries_indices(C22)
+    #     entries_c12, indices_c12 = get_entries_indices(C12)
+    #     entries_c21, indices_c21 = get_entries_indices(C21)
+
+    #     # shift the indices into each of the 4 quadrants
+    #     indices_c22 += self.N       # shift into bottom right quadrant
+    #     indices_c12[1,:] += self.N  # shift into top right quadrant
+    #     indices_c21[0,:] += self.N  # shift into bottom left quadrant
+
+    #     # get full matrix entries and indices
+    #     entries_c = npa.hstack((entries_c11, entries_c12, entries_c21, entries_c22))
+    #     indices_c = npa.hstack((indices_c11, indices_c12, indices_c21, indices_c22))
+
+    #     # indices into the diagonal of a sparse matrix
+    #     eps_vec_xx, eps_vec_yy = self._grid_average(eps_vec)
+    #     entries_diag = - EPSILON_0 * self.omega**2 * npa.hstack((eps_vec_xx, eps_vec_yy))
+    #     indices_diag = npa.vstack((npa.arange(2 * self.N), npa.arange(2 * self.N)))
+
+    #     # put together the big A and return entries and indices
+    #     entries_a = npa.hstack((entries_diag, entries_c))
+    #     indices_a = npa.hstack((indices_diag, indices_c))
+    #     return entries_a, indices_a
 
     def _solve_fn(self, eps_vec, entries_a, indices_a, Mz_vec):
 
-        # convert the Mz current into Jx, Jy
+        Hz_vec = sp_solve(entries_a, indices_a, Mz_vec)
         eps_vec_xx, eps_vec_yy = self._grid_average(eps_vec)
-        Jx_vec, Jy_vec = self._Hz_to_Ex_Ey(Mz_vec, eps_vec_xx, eps_vec_yy)
-
-        # lump the current sources together and solve for electric field
-        source_J_vec = npa.hstack((Jx_vec, Jy_vec))
-        E_vec = sp_solve(entries_a, indices_a, source_J_vec)
 
         # strip out the x and y components of E and find the Hz component
-        Ex_vec = E_vec[:self.N]
-        Ey_vec = E_vec[self.N:]
+        Ex_vec, Ey_vec = self._Hz_to_Ex_Ey(Hz_vec, eps_vec_xx, eps_vec_yy)
         Hz_vec = self._Ex_Ey_to_Hz(Ex_vec, Ey_vec)
 
         return Ex_vec, Ey_vec, Hz_vec
+
+    # def _solve_fn_deprecated(self, eps_vec, entries_a, indices_a, Mz_vec):
+
+    #     # convert the Mz current into Jx, Jy
+    #     eps_vec_xx, eps_vec_yy = self._grid_average(eps_vec)
+    #     Jx_vec, Jy_vec = self._Hz_to_Ex_Ey(Mz_vec, eps_vec_xx, eps_vec_yy)
+
+    #     # lump the current sources together and solve for electric field
+    #     source_J_vec = npa.hstack((Jx_vec, Jy_vec))
+    #     E_vec = sp_solve(entries_a, indices_a, source_J_vec)
+
+    #     # strip out the x and y components of E and find the Hz component
+    #     Ex_vec = E_vec[:self.N]
+    #     Ey_vec = E_vec[self.N:]
+    #     Hz_vec = self._Ex_Ey_to_Hz(Ex_vec, Ey_vec)
+
+    #     return Ex_vec, Ey_vec, Hz_vec
 

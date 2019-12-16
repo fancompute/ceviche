@@ -36,7 +36,7 @@ def get_entries_indices(csr_matrix):
 
 def transpose_indices(indices):
     # returns the transposed indices for transpose sparse matrix creation
-    return npa.flip(indices, axis=0)
+   return npa.flip(indices, axis=0)
 
 def block_4(A, B, C, D):
     """ Constructs a big matrix out of four sparse blocks
