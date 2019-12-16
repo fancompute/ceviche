@@ -9,6 +9,7 @@ import ceviche    # use the ceviche wrapper for autograd derivatives
 DECIMAL = 3       # number of decimals to check to
 
 ## Setup
+np.random.seed(2)  # note sometimes the random matrices are singular and therefore the solver doesn't work (gives really large answers)
 
 class TestPlaneWave(unittest.TestCase):
 

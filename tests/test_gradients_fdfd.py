@@ -45,7 +45,7 @@ class TestFDFD(unittest.TestCase):
 
         # sources (chosen to have objectives around 1)
         self.source_amp_ez = 1
-        self.source_amp_hz = 1e-8
+        self.source_amp_hz = 1
 
         self.source_ez = np.zeros((self.Nx, self.Ny))
         self.source_ez[self.Nx//2, self.Ny//2] = self.source_amp_ez

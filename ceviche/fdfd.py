@@ -177,7 +177,9 @@ class fdfd_ez(fdfd):
         return entries_a, indices_a
 
     def _solve_fn(self, eps_vec, entries_a, indices_a, Jz_vec):
-        Ez_vec = sp_solve(entries_a, indices_a, Jz_vec)
+
+        b_vec = 1j * self.omega * MU_0 * Jz_vec
+        Ez_vec = sp_solve(entries_a, indices_a, b_vec)
         Hx_vec, Hy_vec = self._Ez_to_Hx_Hy(Ez_vec)
         return Hx_vec, Hy_vec, Ez_vec
 
@@ -201,8 +203,8 @@ class fdfd_hz(fdfd):
     def _make_A(self, eps_vec):
 
         eps_vec_xx, eps_vec_yy = self._grid_average_2d(eps_vec)
-        eps_vec_xx_inv = 1 / (eps_vec_xx + 1e-4)  # the 1e-4 is for numerical stability
-        eps_vec_yy_inv = 1 / (eps_vec_yy + 1e-4)  # autograd throws 'divide by zero' errors.
+        eps_vec_xx_inv = 1 / (eps_vec_xx + 1e-5)  # the 1e-4 is for numerical stability
+        eps_vec_yy_inv = 1 / (eps_vec_yy + 1e-5)  # autograd throws 'divide by zero' errors.
 
         indices_diag = npa.vstack((npa.arange(self.N), npa.arange(self.N)))
 
@@ -224,7 +226,8 @@ class fdfd_hz(fdfd):
 
     def _solve_fn(self, eps_vec, entries_a, indices_a, Mz_vec):
 
-        Hz_vec = sp_solve(entries_a, indices_a, Mz_vec)
+        b_vec = 1j * self.omega * MU_0 * Mz_vec          # needed so fields are SI units
+        Hz_vec = sp_solve(entries_a, indices_a, b_vec)
         eps_vec_xx, eps_vec_yy = self._grid_average_2d(eps_vec)
 
         # strip out the x and y components of E and find the Hz component
@@ -238,7 +241,7 @@ class fdfd_3d(fdfd):
     def __init__(self, omega, L0, eps_r, npml, bloch_x=0.0, bloch_y=0.0):
         raise NotImplementedError
 
-    def _grid_average_2d(self, eps_vec):
+    def _grid_average_3d(self, eps_vec):
         raise NotImplementedError
 
     def _make_A(self, eps_vec):
@@ -265,7 +268,7 @@ class fdfd_3d(fdfd):
         indices_c = npa.hstack((indices_c11, indices_c12, indices_c21, indices_c22))
 
         # indices into the diagonal of a sparse matrix
-        eps_vec_xx, eps_vec_yy = self._grid_average_2d(eps_vec)
+        eps_vec_xx, eps_vec_yy, eps_vec_zz = self._grid_average_3d(eps_vec)
         entries_diag = - EPSILON_0 * self.omega**2 * npa.hstack((eps_vec_xx, eps_vec_yy))
         indices_diag = npa.vstack((npa.arange(2 * self.N), npa.arange(2 * self.N)))
 

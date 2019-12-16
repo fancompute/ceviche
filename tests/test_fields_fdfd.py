@@ -27,10 +27,10 @@ class TestFields_FDFD(unittest.TestCase):
         plot_component = Hz
         field_max = np.max(np.abs(plot_component))
         print(field_max)
-        plt.imshow(np.real(plot_component), cmap='RdBu', vmin=-field_max/100, vmax=field_max/100)
+        plt.imshow(np.real(plot_component), cmap='RdBu', vmin=-field_max/5, vmax=field_max/5)
         plt.show()
 
-    def _test_Ez(self):
+    def test_Ez(self):
         print('\ttesting Ez')
 
         F = fdfd_ez(self.omega, self.dL, self.eps_r, self.npml)
