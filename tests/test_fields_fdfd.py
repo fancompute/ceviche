@@ -26,7 +26,6 @@ class TestFields_FDFD(unittest.TestCase):
         Ex, Ey, Hz = F.solve(self.source)
         plot_component = Hz
         field_max = np.max(np.abs(plot_component))
-        print(field_max)
         plt.imshow(np.real(plot_component), cmap='RdBu', vmin=-field_max/5, vmax=field_max/5)
         plt.show()
 

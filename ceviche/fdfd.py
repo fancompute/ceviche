@@ -11,8 +11,8 @@ from .utils import get_entries_indices
 class fdfd():
     """ Base class for FDFD simulation """
 
-    def __init__(self, omega, dL, eps_r, npml, bloch_x=0.0, bloch_y=0.0):
-        """ initialize with a given structure and source 
+    def __init__(self, omega, dL, eps_r, npml, bloch_phases=None):
+        """ initialize with a given structure and source
                 omega: angular frequency (rad/s)
                 dL: grid cell size (m)
                 eps_r: array containing relative permittivity
@@ -24,8 +24,7 @@ class fdfd():
         self.dL = dL
         self.npml = npml
 
-        self.bloch_x = bloch_x
-        self.bloch_y = bloch_y
+        self._setup_bloch_phases(bloch_phases)
 
         self.eps_r = eps_r
 
@@ -99,6 +98,19 @@ class fdfd():
         self.sp_mult_Dyf = lambda vec: sp_mult(self.entries_Dyf, self.indices_Dyf, vec)
         self.sp_mult_Dyb = lambda vec: sp_mult(self.entries_Dyb, self.indices_Dyb, vec)
 
+    def _setup_bloch_phases(self, bloch_phases):
+        """ Saves the x y and z bloch phases based on list of them 'bloch_phases' """
+
+        self.bloch_x = 0.0
+        self.bloch_y = 0.0
+        self.bloch_z = 0.0
+        if bloch_phases is not None:
+            self.bloch_x = bloch_phases[0]
+            if len(bloch_phases) > 1:
+                self.bloch_y = bloch_phases[1]
+            if len(bloch_phases) > 2:
+                self.bloch_z = bloch_phases[2]
+
     def _vec_to_grid(self, vec):
         """ converts a vector quantity into an array of the shape of the FDFD simulation """
         return npa.reshape(vec, self.shape)
@@ -156,8 +168,8 @@ class fdfd():
 class fdfd_ez(fdfd):
     """ FDFD class for linear Ez polarization """
 
-    def __init__(self, omega, L0, eps_r, npml, bloch_x=0.0, bloch_y=0.0):
-        super().__init__(omega, L0, eps_r, npml, bloch_x=bloch_x, bloch_y=bloch_y)
+    def __init__(self, omega, L0, eps_r, npml, bloch_phases=None):
+        super().__init__(omega, L0, eps_r, npml, bloch_phases=bloch_phases)
 
     def _make_A(self, eps_vec):
 
@@ -186,10 +198,10 @@ class fdfd_ez(fdfd):
 class fdfd_hz(fdfd):
     """ FDFD class for linear Ez polarization """
 
-    def __init__(self, omega, L0, eps_r, npml, bloch_x=0.0, bloch_y=0.0):
-        super().__init__(omega, L0, eps_r, npml, bloch_x=bloch_x, bloch_y=bloch_y)
+    def __init__(self, omega, L0, eps_r, npml, bloch_phases=None):
+        super().__init__(omega, L0, eps_r, npml, bloch_phases=bloch_phases)
 
-    def _grid_average_2d(self, eps_vec, delta=1e-4):
+    def _grid_average_2d(self, eps_vec):
 
         eps_grid = self._vec_to_grid(eps_vec)
         eps_grid_xx = 1 / 2 * (eps_grid + npa.roll(eps_grid, axis=1, shift=1))
@@ -238,7 +250,7 @@ class fdfd_hz(fdfd):
 class fdfd_3d(fdfd):
     """ 3D FDFD class (work in progress) """
 
-    def __init__(self, omega, L0, eps_r, npml, bloch_x=0.0, bloch_y=0.0):
+    def __init__(self, omega, L0, eps_r, npml, bloch_phases=None):
         raise NotImplementedError
 
     def _grid_average_3d(self, eps_vec):
