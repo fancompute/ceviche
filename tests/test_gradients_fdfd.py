@@ -92,6 +92,7 @@ class TestFDFD(unittest.TestCase):
                  + npa.sum(npa.square(npa.abs(Ex))) \
                  + npa.sum(npa.square(npa.abs(Ey)))
 
+
         grad_autograd_rev = jacobian(J_fdfd, mode='reverse')(self.eps_arr)
         grad_numerical = jacobian(J_fdfd, mode='numerical')(self.eps_arr)
 
