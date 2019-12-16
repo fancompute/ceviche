@@ -47,6 +47,31 @@ def block_4(A, B, C, D):
     right = sp.vstack([B, D])
     return sp.hstack([left, right])    
 
+def make_IO_matrices(indices, N):
+    """ Makes matrices that relate the sparse matrix entries to their locations in the matrix
+            The kth column of I is a 'one hot' vector specifing the k-th entries row index into A
+            The kth column of J is a 'one hot' vector specifing the k-th entries columnn index into A
+            O = J^T is for notational convenience.
+            Armed with a vector of M entries 'a', we can construct the sparse matrix 'A' as:
+                A = I @ diag(a) @ O
+            where 'diag(a)' is a (MxM) matrix with vector 'a' along its diagonal.
+            In index notation:
+                A_ij = I_ik * a_k * O_kj
+            In an opposite way, given sparse matrix 'A' we can strip out the entries `a` using the IO matrices as follows:
+                a = diag(I^T @ A @ O^T)
+            In index notation:
+                a_k = I_ik * A_ij * O_kj
+    """
+    M = indices.shape[1]                                 # number of indices in the matrix
+    entries_1 = npa.ones(M)                              # M entries of all 1's
+    ik, jk = indices                                     # separate i and j components of the indices
+    indices_I = npa.vstack((ik, npa.arange(M)))          # indices into the I matrix
+    indices_J = npa.vstack((jk, npa.arange(M)))          # indices into the J matrix
+    I = make_sparse(entries_1, indices_I, shape=(N, M))  # construct the I matrix
+    J = make_sparse(entries_1, indices_J, shape=(N, M))  # construct the J matrix
+    O = J.T                                              # make O = J^T matrix for consistency with my notes.
+    return I, O
+
 
 """ ==================== DATA GENERATION UTILITIES ==================== """
 
