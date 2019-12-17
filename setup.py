@@ -6,12 +6,11 @@ with open('README.md', 'r') as f:
     readme = f.read()
 
 dependencies = [
-        'numpy',
-        'scipy',
-        'matplotlib>=2.2.2',
+        'numpy>=1.16.2',
+        'scipy>=1.2.1',
+        'matplotlib>=3.0.3',
         'autograd>=1.3',
-        'future',
-        'pyMKL'
+        'pyMKL>=0.0.3'
 ]
 
 setup(
