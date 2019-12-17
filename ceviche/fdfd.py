@@ -180,7 +180,7 @@ class fdfd_ez(fdfd):
 
         # indices into the diagonal of a sparse matrix
         entries_diag = - EPSILON_0 * self.omega**2 * eps_vec
-        indices_diag = npa.vstack((npa.arange(self.N), npa.arange(self.NN)))
+        indices_diag = npa.vstack((npa.arange(self.N), npa.arange(self.N)))
 
         entries_a = npa.hstack((entries_diag, entries_c))
         indices_a = npa.hstack((indices_diag, indices_c))
