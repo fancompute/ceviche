@@ -30,66 +30,6 @@ There is a comprehensive ceviche tutorial available at [this link](https://githu
 
 There are also a few examples in the `examples/*` directory.
 
-### What can it do?  An Example
-
-Let's saw we have a simulation where we inject a current source at position `source` and measure the electric field intensity at `probe`.
-
-Between these two points, there's a box at location `pos_box` with permittivity `eps`.
-
-We're interested in computing how the intensity measured changes with respect to `eps`.
-
-With ceviche, we first write a simple function computing the measured intensity as a function of `eps` using FDFD
-
-```python
-import autograd.numpy as np           # import the autograd wrapper for numpy
-from ceviche import fdfd_ez as fdfd   # import the FDFD solver
-
-# make an FDFD simulation
-f = fdfd(omega, dl, eps_box, npml=[10, 10])
-
-def intensity(eps):
-    """ computes electric intensity at `probe` for a given box permittivity of `eps`
-
-        source |-----| probe
-            .  | eps |  .
-               |_____|
-    """
-
-    # set the permittivity in the box region to the input argument
-    fdfd.eps_r[box_pos] = eps
-
-    # solve the fields
-    Ex, Ey, Hz = f.solve(source)
-
-    # compute the intensity at `probe`
-    I = np.square(np.abs(Ex)) + np.square(np.abs(Ey))
-    return = np.sum(I * probe)
-```
-
-Then, we can easily take the derivative of the intensity with respect to `eps` using a ceviche function
-
-
-```python
-
-# use autograd to differentiate `intensity` function
-grad_fn = ceviche.jacobian(intensity)
-
-# then, evaluate it at the current value of `eps`
-dI_deps = grad_fn(eps_curr)
-
-```
-
-The beauty is that ceviche lets you compute this derivative without having to do any calculations by hand!  Using automatic differentiation, each step of the calculated is recorded and its derivative information is already known.  This lets us take derivatives of arbitrary complex code, where the output depends in some way on the electromagnetic simulation.
-
-Armed with this capability, we can now do things like performing gradient-based optimization (inverse design) to maximize the intensity.
-
-```python
-for _ in range(10):
-    eps_current += step_size * dI_deps_fn(eps_current)
-```
-
-It's also worth noting that the mathematics behind this gradient implementation uses the 'adjoint method', which lets you take derivatives with several degrees of freedom.  This is perfect for inverse design problems, or training of machine learning models that involve running an FDFD or FDTD simulation.  If you're interested in the connection between adjoint methods and backpropagation in the context of photonics, check out our group's earlier work on the subject [link](https://www.osapublishing.org/optica/abstract.cfm?uri=optica-5-7-864#articleMetrics).
-
 ## Installation
 
 There are many ways to install `ceviche`.
