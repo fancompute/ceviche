@@ -133,16 +133,16 @@ class fdfd():
     """ Field conversion functions for 2D.  Function names are self explanatory """
 
     def _Ex_Ey_to_Hz(self, Ex_vec, Ey_vec):
-        return 1 / 1j / MU_0 * (self.sp_mult_Dxb(Ey_vec) - self.sp_mult_Dyb(Ex_vec))
+        return  1 / 1j / self.omega / MU_0 * (self.sp_mult_Dxb(Ey_vec) - self.sp_mult_Dyb(Ex_vec))
 
     def _Ez_to_Hx(self, Ez_vec):
-        return  1 / 1j / MU_0 * self.sp_mult_Dyb(Ez_vec)
+        return  1 / 1j / self.omega / MU_0 * self.sp_mult_Dyb(Ez_vec)
 
     def _Ez_to_Hy(self, Ez_vec):
-        return -1 / 1j / MU_0 * self.sp_mult_Dxb(Ez_vec)
+        return -1 / 1j / self.omega / MU_0 * self.sp_mult_Dxb(Ez_vec)
 
     def _Ex_Ey_to_Hz(self, Ex_vec, Ey_vec):
-        return 1 / 1j / MU_0 * (self.sp_mult_Dxb(Ey_vec) - self.sp_mult_Dyb(Ex_vec))
+        return  1 / 1j / self.omega / MU_0 * (self.sp_mult_Dxb(Ey_vec) - self.sp_mult_Dyb(Ex_vec))
 
     def _Ez_to_Hx_Hy(self, Ez_vec):
         Hx_vec = self._Ez_to_Hx(Ez_vec)
@@ -150,13 +150,13 @@ class fdfd():
         return Hx_vec, Hy_vec
 
     def _Hz_to_Ex(self, Hz_vec, eps_vec_xx):
-        return  1 / 1j / EPSILON_0 / (eps_vec_xx + 1e-5) * self.sp_mult_Dyf(Hz_vec)
+        return  1 / 1j / self.omega / EPSILON_0 / (eps_vec_xx + 1e-5) * self.sp_mult_Dyf(Hz_vec)
 
     def _Hz_to_Ey(self, Hz_vec, eps_vec_yy):
-        return -1 / 1j / EPSILON_0 / (eps_vec_yy + 1e-5) * self.sp_mult_Dxf(Hz_vec)
+        return -1 / 1j / self.omega / EPSILON_0 / (eps_vec_yy + 1e-5) * self.sp_mult_Dxf(Hz_vec)
 
     def _Hx_Hy_to_Ez(self, Hx_vec, Hy_vec, eps_vec_zz):
-        return 1 / 1j / EPSILON_0 / (eps_vec_zz + 1e-5) * (self.sp_mult_Dxf(Hy_vec) - self.sp_mult_Dyf(Hx_vec))
+        return  1 / 1j / self.omega / EPSILON_0 / (eps_vec_zz + 1e-5) * (self.sp_mult_Dxf(Hy_vec) - self.sp_mult_Dyf(Hx_vec))
 
     def _Hz_to_Ex_Ey(self, Hz_vec, eps_vec_xx, eps_vec_yy):
         Ex_vec = self._Hz_to_Ex(Hz_vec, eps_vec_xx)
@@ -190,7 +190,7 @@ class fdfd_ez(fdfd):
 
     def _solve_fn(self, eps_vec, entries_a, indices_a, Jz_vec):
 
-        b_vec = 1j * self.omega * MU_0 * Jz_vec
+        b_vec = 1j * self.omega * Jz_vec
         Ez_vec = sp_solve(entries_a, indices_a, b_vec)
         Hx_vec, Hy_vec = self._Ez_to_Hx_Hy(Ez_vec)
         return Hx_vec, Hy_vec, Ez_vec
@@ -238,7 +238,7 @@ class fdfd_hz(fdfd):
 
     def _solve_fn(self, eps_vec, entries_a, indices_a, Mz_vec):
 
-        b_vec = 1j * self.omega * MU_0 * Mz_vec          # needed so fields are SI units
+        b_vec = 1j * self.omega * Mz_vec          # needed so fields are SI units
         Hz_vec = sp_solve(entries_a, indices_a, b_vec)
         eps_vec_xx, eps_vec_yy = self._grid_average_2d(eps_vec)
 
