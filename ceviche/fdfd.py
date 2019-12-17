@@ -149,6 +149,7 @@ class fdfd():
         Hy_vec = self._Ez_to_Hy(Ez_vec)
         return Hx_vec, Hy_vec
 
+    # addition of 1e-5 is for numerical stability when tracking gradients of eps_xx, and eps_yy -> 0
     def _Hz_to_Ex(self, Hz_vec, eps_vec_xx):
         return  1 / 1j / self.omega / EPSILON_0 / (eps_vec_xx + 1e-5) * self.sp_mult_Dyf(Hz_vec)
 
@@ -173,15 +174,13 @@ class fdfd_ez(fdfd):
 
     def _make_A(self, eps_vec):
 
-        N = eps_vec.size
-
         C = - 1 / MU_0 * self.Dxf.dot(self.Dxb) \
             - 1 / MU_0 * self.Dyf.dot(self.Dyb)
         entries_c, indices_c = get_entries_indices(C)
 
         # indices into the diagonal of a sparse matrix
         entries_diag = - EPSILON_0 * self.omega**2 * eps_vec
-        indices_diag = npa.vstack((npa.arange(N), npa.arange(N)))
+        indices_diag = npa.vstack((npa.arange(self.N), npa.arange(self.NN)))
 
         entries_a = npa.hstack((entries_diag, entries_c))
         indices_a = npa.hstack((indices_diag, indices_c))
@@ -215,7 +214,7 @@ class fdfd_hz(fdfd):
     def _make_A(self, eps_vec):
 
         eps_vec_xx, eps_vec_yy = self._grid_average_2d(eps_vec)
-        eps_vec_xx_inv = 1 / (eps_vec_xx + 1e-5)  # the 1e-4 is for numerical stability
+        eps_vec_xx_inv = 1 / (eps_vec_xx + 1e-5)  # the 1e-5 is for numerical stability
         eps_vec_yy_inv = 1 / (eps_vec_yy + 1e-5)  # autograd throws 'divide by zero' errors.
 
         indices_diag = npa.vstack((npa.arange(self.N), npa.arange(self.N)))
