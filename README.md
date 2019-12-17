@@ -4,8 +4,6 @@ Electromagnetic Simulation Tools + Automatic Differentiation.  Code for the arxi
 
 <img src="/img/horizontal-color.png" title="ceviche" alt="ceviche">
 
-(logo by [@nagilmer](http://nadinegilmer.com/))
-
 ## What is ceviche?
 
 `ceviche` provides two core electromagnetic simulation tools for solving Maxwell's equations:
@@ -20,7 +18,7 @@ This allows you to write code to solve your E&M problem, and then use automatic 
 
 As a result, you can do gradient-based optimization, sensitivity analysis, or plug your E&M solver into a machine learning model without having to go through the tedious process of deriving your derivatives by hand.
 
-### Tutorials
+## Examples
 
 There is a comprehensive ceviche tutorial available at [this link](https://github.com/fancompute/workshop-invdesign) with several ipython notebook examples:
 1. [Running FDFD simulations in ceviche.](https://nbviewer.jupyter.org/github/fancompute/workshop-invdesign/blob/master/01_First_simulation.ipynb)
@@ -63,13 +61,19 @@ sys.path.append('path/to/ceviche')
 
 The `ceviche` directory contains everything needed.
 
-To get the FDFD and FDTD simulators, import directly `from ceviche import fdtd, fdfd_ez, fdfd_hz, fdfd_ez_nl`
+To get the FDFD and FDTD simulators, import directly `from ceviche import fdtd, fdfd_ez, fdfd_hz`
 
 To get the differentiation, import `from ceviche import jacobian`.
 
 `constants.py` contains some constants `EPSILON_0`, `C_0`, `ETA_0`, `Q_E`, which are needed throughout the package
 
 `utils.py` contains a few useful functions for plotting, autogradding, and various other things.
+
+`optimizers.py` contains optimizer functions for doing inverse design.
+
+`viz.py` are functions that help with plotting fields and sructures.
+
+`modes.py` contains a mode sorter (WIP) that can be used to create waveguide mode profiles for the simulation, for example.
 
 ### Examples
 
@@ -89,10 +93,10 @@ to run a specific one.  Some of these tests involve visual inspection of the fie
 
 To run all of the gradient checking functions, run 
 
-    chmod + test/test_all_gradients.sh
-    ./tests/test_all_gradients.sh
+    chmod +x test/test_all_gradients.sh
+    tests/test_all_gradients.sh
 
-## Citation
+## Credits
 
 If you use this for your research or work, please cite
 
@@ -102,3 +106,5 @@ If you use this for your research or work, please cite
     Year = {2019},
     Eprint = {arXiv:1908.10507},
     }
+    
+Our logo was created by [@nagilmer](http://nadinegilmer.com/)
