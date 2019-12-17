@@ -3,7 +3,6 @@
 *.mat
 examples/figs/*.pdf
 examples/figs/data/*
-notes/*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
