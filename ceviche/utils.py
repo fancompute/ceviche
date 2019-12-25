@@ -7,7 +7,6 @@ from autograd.extend import primitive, vspace, defvjp, defjvp
 
 """ Useful functions """
 
-
 """ ==================== SPARSE MATRIX UTILITIES ==================== """
 
 def make_sparse(entries, indices, shape):

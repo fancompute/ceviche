@@ -9,7 +9,7 @@ import ceviche    # use the ceviche wrapper for autograd derivatives
 DECIMAL = 3       # number of decimals to check to
 
 ## Setup
-np.random.seed(2)  # note sometimes the random matrices are singular and therefore the solver doesn't work (gives really large answers)
+np.random.seed(124)  # note sometimes the random matrices are singular and therefore the solver doesn't work (gives really large answers)
 
 class TestPlaneWave(unittest.TestCase):
 
@@ -119,6 +119,37 @@ class TestPlaneWave(unittest.TestCase):
 
         np.testing.assert_almost_equal(grad_rev, grad_true, decimal=DECIMAL, err_msg=self.err_msg('fn_solve_entries', 'reverse'))
         np.testing.assert_almost_equal(grad_for, grad_true, decimal=DECIMAL, err_msg=self.err_msg('fn_solve_entries', 'forward'))
+
+    def test_nl(self):
+
+        indices_a = make_rand_indeces(self.N, 2 * self.N)
+        indices_b = make_rand_indeces(self.N, self.N)
+        entries_b = make_rand_complex(self.N)
+        x0 = make_rand_complex(self.N)
+
+        def entries(parameters, x):
+            p2 = npa.square(parameters)
+            Bp2 = sp_mult(entries_b, indices_b, p2)
+            abs_x = npa.abs(x)
+            Bax = sp_mult(entries_b, indices_b, abs_x)
+            return np.hstack((Bp2, Bax))
+
+        def fn_nl_solve(parameters, x):
+
+            entries_a = entries(parameters, x)
+            Ax = sp_mult(entries_a, indices_a, x)
+
+            return Ax - self.b_const
+
+        parameters = make_rand_complex(self.N)
+
+        grad_rev = ceviche.jacobian(fn_nl_solve, mode='reverse')(parameters, self.x_const)[0]
+        grad_for = ceviche.jacobian(fn_nl_solve, mode='forward')(parameters, self.x_const)[0]
+        grad_true = grad_num(fn_nl_solve, parameters)
+
+        np.testing.assert_almost_equal(grad_rev, grad_true, decimal=DECIMAL, err_msg=self.err_msg('fn_mult_x', 'reverse'))
+        np.testing.assert_almost_equal(grad_for, grad_true, decimal=DECIMAL, err_msg=self.err_msg('fn_mult_x', 'forward'))
+
 
 if __name__ == '__main__':
     unittest.main()
