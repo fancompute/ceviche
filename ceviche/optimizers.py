@@ -2,7 +2,7 @@ import numpy as np
 import time
 from autograd.numpy.numpy_boxes import ArrayBox
 
-def adam_optimize(objective, params, jac, step_size=1e-2, Nsteps=100, bounds=None, direction='min', beta1=0.9, beta2=0.999, callback=None):
+def adam_optimize(objective, params, jac, step_size=1e-2, Nsteps=100, bounds=None, direction='min', beta1=0.9, beta2=0.999, callback=None, verbose=True):
     """Performs Nsteps steps of ADAM minimization of function `objective` with gradient `jac`.
     The `bounds` are set abruptly by rejecting an update step out of bounds."""
     of_list = []
@@ -24,7 +24,8 @@ def adam_optimize(objective, params, jac, step_size=1e-2, Nsteps=100, bounds=Non
 
         of_list.append(of._value if type(of) is ArrayBox else of) 
 
-        print("Epoch: %3d/%3d | Duration: %.2f secs | Value: %5e" %(iteration+1, Nsteps, t_elapsed, of_list[-1]))
+        if verbose:
+            print("Epoch: %3d/%3d | Duration: %.2f secs | Value: %5e" %(iteration+1, Nsteps, t_elapsed, of_list[-1]))
 
         if iteration == 0:
             mopt = np.zeros(grad.shape)

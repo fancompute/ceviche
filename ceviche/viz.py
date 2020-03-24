@@ -23,7 +23,7 @@ def real(val, outline=None, ax=None, cbar=False, cmap='RdBu', outline_alpha=0.5)
     
     return ax
 
-def abs(val, outline=None, ax=None, cbar=False, cmap='magma', outline_alpha=0.5):
+def abs(val, outline=None, ax=None, cbar=False, cmap='magma', outline_alpha=0.5, outline_val=None):
     """Plots the absolute value of 'val', optionally overlaying an outline of 'outline'
     """
     
@@ -33,8 +33,9 @@ def abs(val, outline=None, ax=None, cbar=False, cmap='magma', outline_alpha=0.5)
     vmax = np.abs(val).max()
     h = ax.imshow(np.abs(val.T), cmap=cmap, origin='lower left', vmin=0, vmax=vmax)
     
+    if outline_val is None and outline is not None: outline_val = 0.5*(outline.min()+outline.max())
     if outline is not None:
-        ax.contour(outline.T, 0, colors='w', alpha=outline_alpha)
+        ax.contour(outline.T, [outline_val], colors='w', alpha=outline_alpha)
     
     ax.set_ylabel('y')
     ax.set_xlabel('x')
