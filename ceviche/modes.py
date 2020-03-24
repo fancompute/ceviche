@@ -8,7 +8,7 @@ from ceviche.constants import *
 from ceviche.fdfd import compute_derivative_matrices#, Ez_to_Hx_Hy
 
 def get_modes(eps_cross, omega, dL, npml, m=1, filtering=True):
-    """ Solve for the modes of a waveguide cross section 
+    """ Solve for the modes of a waveguide cross section
         ARGUMENTS
             eps_cross: the permittivity profile of the waveguide
             omega:     angular frequency of the modes
@@ -33,7 +33,7 @@ def get_modes(eps_cross, omega, dL, npml, m=1, filtering=True):
     A = diag_eps_r + Dxf.dot(Dxb) * (1 / k0) ** 2
 
     n_max = np.sqrt(np.max(eps_cross))
-    vals, vecs = solver_eigs(A, m, guess_value=4*n_max)
+    vals, vecs = solver_eigs(A, m, guess_value=n_max**2)
 
     if filtering:
         filter_re = lambda vals: np.real(vals) > 0.0
@@ -51,7 +51,7 @@ def get_modes(eps_cross, omega, dL, npml, m=1, filtering=True):
 
 def insert_mode(omega, dx, x, y, epsr, target=None, npml=0, m=1, filtering=False):
     """Solve for the modes in a cross section of epsr at the location defined by 'x' and 'y'
-    
+
     The mode is inserted into the 'target' array if it is suppled, if the target array is not
     supplied, then a target array is created with the same shape as epsr, and the mode is
     inserted into it.
@@ -67,7 +67,7 @@ def insert_mode(omega, dx, x, y, epsr, target=None, npml=0, m=1, filtering=False
 
 
 def solver_eigs(A, Neigs, guess_value=1.0):
-    """ solves for `Neigs` eigenmodes of A 
+    """ solves for `Neigs` eigenmodes of A
             A:            sparse linear operator describing modes
             Neigs:        number of eigenmodes to return
             guess_value:  estimate for the eigenvalues
@@ -109,7 +109,7 @@ def filter_modes(values, vectors, filters=None):
 
 
 def normalize_modes(vectors):
-    """ Normalize each `vec` in `vectors` such that `sum(|vec|^2)=1` 
+    """ Normalize each `vec` in `vectors` such that `sum(|vec|^2)=1`
             vectors: array with shape (n_points, n_vectors)
         NOTE: eigs already normalizes for you, so you technically dont need this function
     """
@@ -131,7 +131,7 @@ def Ez_to_H(Ez, omega, dL, npml):
     info_dict['Dxf'] = Dxf
     info_dict['Dxb'] = Dxb
     info_dict['Dyf'] = Dyf
-    info_dict['Dyb'] = Dyb   
+    info_dict['Dyb'] = Dyb
 
     Hx, Hy = Ez_to_Hx_Hy(Ez)
 
@@ -140,7 +140,7 @@ def Ez_to_H(Ez, omega, dL, npml):
 if __name__ == '__main__':
 
     """ Test on a simple ridge waveguide """
-        
+
     from ceviche.fdfd import fdfd_ez as fdfd
     import matplotlib.pylab as plt
 
@@ -155,7 +155,7 @@ if __name__ == '__main__':
 
     wg_perm = 4
 
-    wg_width = lambda0 
+    wg_width = lambda0
     wg_points = np.arange(Nx//2 - int(wg_width/dL/2), Nx//2 + int(wg_width/dL/2))
 
     eps_wg = np.ones((Nx,))
