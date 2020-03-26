@@ -141,9 +141,6 @@ class fdfd():
     def _Ez_to_Hy(self, Ez_vec):
         return  1 / 1j / self.omega / MU_0 * self.sp_mult_Dxb(Ez_vec)
 
-    def _Ex_Ey_to_Hz(self, Ex_vec, Ey_vec):
-        return  1 / 1j / self.omega / MU_0 * (self.sp_mult_Dxb(Ey_vec) - self.sp_mult_Dyb(Ex_vec))
-
     def _Ez_to_Hx_Hy(self, Ez_vec):
         Hx_vec = self._Ez_to_Hx(Ez_vec)
         Hy_vec = self._Ez_to_Hy(Ez_vec)
