@@ -50,7 +50,7 @@ class fdfd():
         raise NotImplementedError("need to make a _make_A() method")
 
     def _solve_fn(self, entries_a, indices_a, source_vec):
-        """ This method takes the system matrix and source and returns the x, y, and z field components """        
+        """ This method takes the system matrix and source and returns the x, y, and z field components """
         raise NotImplementedError("need to implement function to solve for field components")
 
     """ You call this to function to solve for the electromagnetic fields """
@@ -166,8 +166,8 @@ class fdfd():
 class fdfd_ez(fdfd):
     """ FDFD class for linear Ez polarization """
 
-    def __init__(self, omega, L0, eps_r, npml, bloch_phases=None):
-        super().__init__(omega, L0, eps_r, npml, bloch_phases=bloch_phases)
+    def __init__(self, omega, dL, eps_r, npml, bloch_phases=None):
+        super().__init__(omega, dL, eps_r, npml, bloch_phases=bloch_phases)
 
     def _make_A(self, eps_vec):
 
@@ -194,8 +194,8 @@ class fdfd_ez(fdfd):
 class fdfd_hz(fdfd):
     """ FDFD class for linear Ez polarization """
 
-    def __init__(self, omega, L0, eps_r, npml, bloch_phases=None):
-        super().__init__(omega, L0, eps_r, npml, bloch_phases=bloch_phases)
+    def __init__(self, omega, dL, eps_r, npml, bloch_phases=None):
+        super().__init__(omega, dL, eps_r, npml, bloch_phases=bloch_phases)
 
     def _grid_average_2d(self, eps_vec):
 
@@ -246,7 +246,7 @@ class fdfd_hz(fdfd):
 class fdfd_3d(fdfd):
     """ 3D FDFD class (work in progress) """
 
-    def __init__(self, omega, L0, eps_r, npml, bloch_phases=None):
+    def __init__(self, omega, dL, eps_r, npml, bloch_phases=None):
         raise NotImplementedError
 
     def _grid_average_3d(self, eps_vec):
@@ -255,7 +255,7 @@ class fdfd_3d(fdfd):
     def _make_A(self, eps_vec):
 
         # notation: C = [[C11, C12], [C21, C22]]
-        C11 = -1 / MU_0 * self.Dyf.dot(self.Dyb) 
+        C11 = -1 / MU_0 * self.Dyf.dot(self.Dyb)
         C22 = -1 / MU_0 * self.Dxf.dot(self.Dxb)
         C12 =  1 / MU_0 * self.Dyf.dot(self.Dxb)
         C21 =  1 / MU_0 * self.Dxf.dot(self.Dyb)
