@@ -1,3 +1,7 @@
+# For 3DFDFD
+  run temp3D.py you can get:
+   
+
 # ceviche [![Build Status](https://travis-ci.com/fancompute/ceviche.svg?token=ZCPktA3Ki2eYVXYnfbrz&branch=master)](https://travis-ci.com/twhughes/ceviche)
 
 Electromagnetic Simulation Tools + Automatic Differentiation.  Code for the arxiv preprint [Forward-Mode Differentiation of Maxwell's Equations](https://arxiv.org/abs/1908.10507).
