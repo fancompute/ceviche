@@ -5,6 +5,7 @@ from .utils import make_sparse, get_entries_indices
 from .primitives import sp_mult, spsp_mult, sp_solve
 
 class Sparse:
+    """ A sparse matrix with arbitrary entries, indices, and shape """
 
     def __init__(self, entries, indices, shape):
         self.entries = entries
@@ -48,6 +49,15 @@ class Sparse:
         elif isinstance(other, np.ndarray):
             res = sp_mult(self.entries, self.indices, other)
             return res
+
+class Diagonal(Sparse):
+    """ A sparse matrix with `diag_vector` along the diagonal and zeros otherwise """
+
+    def __init__(self, diag_vector):
+        N = diag_vector.size
+        shape = (N, N)
+        indices = np.vstack((np.arange(N), np.arange(N)))
+        super().__init__(diag_vector, indices, shape)
 
 def from_csr_matrix(csr_matrix):
     """ Creates `sparse` object from explicit scipy.sparse.csr_matrix """
