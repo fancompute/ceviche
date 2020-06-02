@@ -1,10 +1,13 @@
 import autograd.numpy as npa
 import scipy.sparse as sp
+import matplotlib as mpl
+mpl.rcParams['figure.dpi']=100
+import matplotlib.pylab as plt
 
 from .constants import *
 from .primitives import sp_solve, sp_mult, spsp_mult
-from .derivatives import compute_derivative_matrices
-from .utils import get_entries_indices
+from .derivatives import compute_derivative_matrices, compute_derivative_matrices_3D
+from .utils import get_entries_indices, make_sparse
 
 # notataion is similar to that used in: http://www.jpier.org/PIERB/pierb36/11.11092006.pdf
 
@@ -19,15 +22,12 @@ class fdfd():
                 npml: list of number of PML grid cells in [x, y]
                 bloch_{x,y} phase difference across {x,y} boundaries for bloch periodic boundary conditions (default = 0 = periodic)
         """
-
+        self.is_3D = False
         self.omega = omega
         self.dL = dL
         self.npml = npml
-
         self._setup_bloch_phases(bloch_phases)
-
         self.eps_r = eps_r
-
         self._setup_derivatives()
 
     """ what happens when you reassign the permittivity of the fdfd object """
@@ -40,7 +40,10 @@ class fdfd():
     @eps_r.setter
     def eps_r(self, new_eps):
         """ Defines some attributes when eps_r is set. """
-        self._save_shape(new_eps)
+        if self.is_3D is True:
+            self._save_shape_3D(new_eps)
+        else:
+            self._save_shape(new_eps)
         self._eps_r = new_eps
 
     """ classes inherited from fdfd() must implement their own versions of these functions for `fdfd.solve()` to work """
@@ -67,7 +70,6 @@ class fdfd():
 
         # solve field componets usng A and the source
         Fx_vec, Fy_vec, Fz_vec = self._solve_fn(eps_vec, entries_a, indices_a, source_vec)
-
         # put all field components into a tuple, convert to grid shape and return them all
         Fx = self._vec_to_grid(Fx_vec)
         Fy = self._vec_to_grid(Fy_vec)
@@ -124,7 +126,13 @@ class fdfd():
         self.shape = grid.shape
         self.Nx, self.Ny = self.shape
         self.N = self.Nx * self.Ny
-
+        
+    def _save_shape_3D(self, grid):
+        """ Sores the shape and size of `grid` array to the FDFD object """
+        self.shape = grid.shape
+        self.Nx, self.Ny, self.Nz = self.shape
+        self.N = self.Nx * self.Ny * self.Nz
+        
     @staticmethod
     def _default_val(val, default_val=None):
         # not used yet
@@ -165,29 +173,32 @@ class fdfd():
 
 class fdfd_ez(fdfd):
     """ FDFD class for linear Ez polarization """
-
+   
     def __init__(self, omega, dL, eps_r, npml, bloch_phases=None):
         super().__init__(omega, dL, eps_r, npml, bloch_phases=bloch_phases)
-
+        
     def _make_A(self, eps_vec):
-
         C = - 1 / MU_0 * self.Dxf.dot(self.Dxb) \
             - 1 / MU_0 * self.Dyf.dot(self.Dyb)
+        #print('C的size',C.shape)
+        print('CC',C)
         entries_c, indices_c = get_entries_indices(C)
-
         # indices into the diagonal of a sparse matrix
         entries_diag = - EPSILON_0 * self.omega**2 * eps_vec
+        #print('eps_vec的size',eps_vec.shape)
         indices_diag = npa.vstack((npa.arange(self.N), npa.arange(self.N)))
-
+        print('EE',entries_diag)
         entries_a = npa.hstack((entries_diag, entries_c))
         indices_a = npa.hstack((indices_diag, indices_c))
-
+        print('AA',entries_a)
         return entries_a, indices_a
 
     def _solve_fn(self, eps_vec, entries_a, indices_a, Jz_vec):
 
         b_vec = 1j * self.omega * Jz_vec
+        print(b_vec)
         Ez_vec = sp_solve(entries_a, indices_a, b_vec)
+        print('Ez_vec',Ez_vec)
         Hx_vec, Hy_vec = self._Ez_to_Hx_Hy(Ez_vec)
         return Hx_vec, Hy_vec, Ez_vec
 
@@ -243,62 +254,81 @@ class fdfd_hz(fdfd):
 
         return Ex_vec, Ey_vec, Hz_vec
 
-class fdfd_3d(fdfd):
+
+
+class fdfd3D(fdfd):
     """ 3D FDFD class (work in progress) """
 
     def __init__(self, omega, dL, eps_r, npml, bloch_phases=None):
-        raise NotImplementedError
+        self.is_3D = True
+        self.omega = omega
+        self.dL = dL
+        self.npml = npml
+        self._setup_bloch_phases(bloch_phases)
+        self.eps_r = eps_r
+        self.shape = eps_r.shape
+        print("eps_r.shape:",eps_r.shape)
 
     def _grid_average_3d(self, eps_vec):
-        raise NotImplementedError
+        eps_grid = self._vec_to_grid(eps_vec)
+        eps_grid_xx = 1 / 2 * (eps_grid + npa.roll(eps_grid, axis=2, shift=1))
+        eps_grid_yy = 1 / 2 * (eps_grid + npa.roll(eps_grid, axis=1, shift=1))
+        eps_grid_zz = 1 / 2 * (eps_grid + npa.roll(eps_grid, axis=0, shift=1))
+        eps_vec_xx = self._grid_to_vec(eps_grid_xx)
+        eps_vec_yy = self._grid_to_vec(eps_grid_yy)
+        eps_vec_zz = self._grid_to_vec(eps_grid_zz)
+        eps_vec_xx = eps_vec_xx
+        eps_vec_yy = eps_vec_yy
+        eps_vec_zz = eps_vec_zz
+        vec = npa.hstack((eps_vec_xx, eps_vec_yy, eps_vec_zz))
+        return vec
 
     def _make_A(self, eps_vec):
-
-        # notation: C = [[C11, C12], [C21, C22]]
-        C11 = -1 / MU_0 * self.Dyf.dot(self.Dyb)
-        C22 = -1 / MU_0 * self.Dxf.dot(self.Dxb)
-        C12 =  1 / MU_0 * self.Dyf.dot(self.Dxb)
-        C21 =  1 / MU_0 * self.Dxf.dot(self.Dyb)
-
-        # get entries and indices
-        entries_c11, indices_c11 = get_entries_indices(C11)
-        entries_c22, indices_c22 = get_entries_indices(C22)
-        entries_c12, indices_c12 = get_entries_indices(C12)
-        entries_c21, indices_c21 = get_entries_indices(C21)
-
-        # shift the indices into each of the 4 quadrants
-        indices_c22 += self.N       # shift into bottom right quadrant
-        indices_c12[1,:] += self.N  # shift into top right quadrant
-        indices_c21[0,:] += self.N  # shift into bottom left quadrant
-
-        # get full matrix entries and indices
-        entries_c = npa.hstack((entries_c11, entries_c12, entries_c21, entries_c22))
-        indices_c = npa.hstack((indices_c11, indices_c12, indices_c21, indices_c22))
-
-        # indices into the diagonal of a sparse matrix
-        eps_vec_xx, eps_vec_yy, eps_vec_zz = self._grid_average_3d(eps_vec)
-        entries_diag = - EPSILON_0 * self.omega**2 * npa.hstack((eps_vec_xx, eps_vec_yy))
-        indices_diag = npa.vstack((npa.arange(2 * self.N), npa.arange(2 * self.N)))
-
-        # put together the big A and return entries and indices
+        curls_e, curls_h = compute_derivative_matrices_3D(self.omega, self.shape, self.npml, self.dL, self.bloch_x, self.bloch_y, self.bloch_z)
+        EPS_vec = self._grid_average_3d(eps_vec)
+        C = (1 / MU_0 * curls_h.dot(curls_e)) 
+        entries_c, indices_c = get_entries_indices(C)
+        entries_diag = - EPSILON_0 * self.omega**2 * EPS_vec
+        indices_diag = npa.vstack((npa.arange(3*self.N), npa.arange(3*self.N)))
         entries_a = npa.hstack((entries_diag, entries_c))
         indices_a = npa.hstack((indices_diag, indices_c))
+
         return entries_a, indices_a
+        
+    def solve(self, source):
+        """ Outward facing function (what gets called by user) that takes a source grid and returns the field components """
+         
+        # flatten the permittivity and source grid
+        source_vec = self._grid_to_vec(source)
+        print("Shape_source_vec",source_vec.shape)
+        eps_vec = self._grid_to_vec(self.eps_r)
 
-    def _solve_fn(self, eps_vec, entries_a, indices_a, Mz_vec):
+        # create the A matrix for this polarization
+        entries_a, indices_a = self._make_A(eps_vec)
 
-        # convert the Mz current into Jx, Jy
-        eps_vec_xx, eps_vec_yy = self._grid_average_2d(eps_vec)
-        Jx_vec, Jy_vec = self._Hz_to_Ex_Ey(Mz_vec, eps_vec_xx, eps_vec_yy)
+        # solve field componets usng A and the source
+        E_vec = self._solve_fn(entries_a, indices_a, source_vec)
+        return E_vec
+        
+    def _solve_fn(self,entries_a, indices_a, source_vec):
+        
+        b_vec = 1j * self.omega * source_vec
 
-        # lump the current sources together and solve for electric field
-        source_J_vec = npa.hstack((Jx_vec, Jy_vec))
-        E_vec = sp_solve(entries_a, indices_a, source_J_vec)
+        E_vec = sp_solve(entries_a, indices_a, b_vec)
 
-        # strip out the x and y components of E and find the Hz component
-        Ex_vec = E_vec[:self.N]
-        Ey_vec = E_vec[self.N:]
-        Hz_vec = self._Ex_Ey_to_Hz(Ex_vec, Ey_vec)
-
-        return Ex_vec, Ey_vec, Hz_vec
-
+        return E_vec
+      
+    def Vec3Dtogrid(self,Vec):
+        N = self.N
+        shape = self.shape
+        Vecx = npa.zeros(N)
+        Vecy = npa.zeros(N)
+        Vecz = npa.zeros(N)
+        Vecx[:] = Vec[0:N].real
+        Vecy[:] = Vec[N:2*N].real
+        Vecz[:] = Vec[2*N:3*N].real
+        Vec_gridx = npa.reshape(Vecx, self.shape)
+        print("ShapeV:",Vec_gridx.shape)
+        Vec_gridy = npa.reshape(Vecy, self.shape)
+        Vec_gridz = npa.reshape(Vecz, self.shape)
+        return Vec_gridx,Vec_gridy,Vec_gridz
