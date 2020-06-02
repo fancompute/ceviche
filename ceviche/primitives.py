@@ -16,7 +16,7 @@ know how to handle those as arguments to functions.
 """ GUIDE TO THE PRIMITIVES DEFINED BELOW:
         naming convention for gradient functions:
            "def grad_{function_name}_{argument_name}_{mode}"
-        defines the derivative of `function_name` with respect to `argument_name` using `mode`-mode differentiation    
+        defines the derivative of `function_name` with respect to `argument_name` using `mode`-mode differentiation
         where 'mode' is one of 'reverse' or 'forward'
 
     These functions define the basic operations needed for FDFD and also their derivatives
@@ -27,7 +27,7 @@ know how to handle those as arguments to functions.
 
     NOTES for the curious (since this information isnt in autograd documentation...)
 
-        To define a function as being trackable by autograd, need to add the 
+        To define a function as being trackable by autograd, need to add the
         @primitive decorator
 
     REVERSE MODE
@@ -67,8 +67,8 @@ def sp_mult(entries, indices, x):
     Returns:
       1d numpy array corresponding to the result (b) of A * x = b.
     """
-    N = x.size
-    A = make_sparse(entries, indices, shape=(N, N))
+    out_shape = x.shape # only works with square matrices right now
+    A = make_sparse(entries, indices, shape=out_shape)
     return A.dot(x)
 
 def grad_sp_mult_entries_reverse(ans, entries, indices, x):
@@ -167,7 +167,7 @@ def spsp_mult(entries_a, indices_a, entries_x, indices_x, N):
       entries_b: numpy array with shape (num_non_zeros,) giving values for non-zero
         matrix entries into the result B.
       indices_b: numpy array with shape (2, num_non_zeros) giving i, j indices for
-        non-zero matrix entries into the result B.      
+        non-zero matrix entries into the result B.
     """
     A = make_sparse(entries_a, indices_a, shape=(N, N))
     X = make_sparse(entries_x, indices_x, shape=(N, N))
@@ -204,7 +204,7 @@ def grad_spsp_mult_entries_a_reverse(b_out, entries_a, indices_a, entries_x, ind
 
 def grad_spsp_mult_entries_x_reverse(b_out, entries_a, indices_a, entries_x, indices_x, N):
     """ Now we wish to do the gradient with respect to the X matrix in AX=B
-        Instead of doing it all out again, we just use the previous grad function on the transpose equation X^T A^T = B^T 
+        Instead of doing it all out again, we just use the previous grad function on the transpose equation X^T A^T = B^T
     """
 
     # get the transposes of the original problem
@@ -224,7 +224,7 @@ ag.extend.defvjp(spsp_mult, grad_spsp_mult_entries_a_reverse, None, grad_spsp_mu
 
 def grad_spsp_mult_entries_a_forward(g, b_out, entries_a, indices_a, entries_x, indices_x, N):
     """ Forward mode is not much better than reverse mode, but the same general logic aoplies:
-        Convert to matrix form, do the calculation, convert back to entries.        
+        Convert to matrix form, do the calculation, convert back to entries.
             dA/de @ x @ g
     """
 
@@ -279,7 +279,7 @@ def sp_solve_nl(parameters, a_indices, b, fn_nl):
 
 def grad_sp_solve_nl_parameters(x, parameters, a_indices, b, fn_nl):
 
-    """ 
+    """
     We are finding the solution (x) to the nonlinear function:
 
         f = A(x, p) @ x - b = 0
@@ -293,7 +293,7 @@ def grad_sp_solve_nl_parameters(x, parameters, a_indices, b, fn_nl):
 
         [ df  / dx,  df  / dx*] [ dx  / dp ] = -[ df  / dp]
         [ df* / dx,  df* / dx*] [ dx* / dp ]    [ df* / dp]
-    
+
     Note that we need to explicitly make A a function of x and x* for complex x
 
     In our case:
@@ -314,7 +314,7 @@ def grad_sp_solve_nl_parameters(x, parameters, a_indices, b, fn_nl):
 
         (dA / dp) @ x -> ag.jacobian(Ax, 1)
 
-    Note that this is a matrix, not a vector. 
+    Note that this is a matrix, not a vector.
     We'll have to handle dA/dx* but this can probably be done, maybe with autograd directly.
 
     Other than this, assuming entries_a(x, p) is fully autograd compatible, we can get these terms no problem!
@@ -353,7 +353,7 @@ def grad_sp_solve_nl_parameters(x, parameters, a_indices, b, fn_nl):
 
 def grad_sp_solve_nl_b(x, parameters, a_indices, b, fn_nl):
 
-    """ 
+    """
     Computing the derivative w.r.t b is simpler
 
         f = A(x) @ x - b(p) = 0
