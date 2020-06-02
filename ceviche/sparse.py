@@ -11,7 +11,7 @@ class Sparse:
         self.entries = entries
         self.indices = indices
         self.shape = shape
-        self.csr_matrix = make_sparse(entries, indices, shape)
+        # self.csr_matrix = make_sparse(entries, indices, shape)
 
     def __add__(self, other):
         if isinstance(other, Sparse):

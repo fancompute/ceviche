@@ -67,8 +67,8 @@ def sp_mult(entries, indices, x):
     Returns:
       1d numpy array corresponding to the result (b) of A * x = b.
     """
-    out_shape = x.shape # only works with square matrices right now
-    A = make_sparse(entries, indices, shape=out_shape)
+    N = x.shape[0]
+    A = make_sparse(entries, indices, shape=(N, N))
     return A.dot(x)
 
 def grad_sp_mult_entries_reverse(ans, entries, indices, x):
