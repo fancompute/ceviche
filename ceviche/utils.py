@@ -235,6 +235,10 @@ def get_shape(x):
     else:
         return vspace(x).shape
 
+def is_array(x):
+    """ Checks if x is either a numpy array or an autograd ArrayBox """
+    return isinstance(x, np.ndarray) or isinstance(x, npa.numpy_boxes.ArrayBox)
+
 
 def vjp_maker_num(fn, arg_inds, steps):
     """ Makes a vjp_maker for the numerical derivative of a function `fn`

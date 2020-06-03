@@ -87,7 +87,7 @@ class TestSparse(unittest.TestCase):
         assert_allclose(C.A, true_C)
         assert isinstance(C, Sparse)
 
-    """ left and right matrix multiplication """
+    """ matrix multiplication """
 
     def test_matmul_Sparse(self):
         C = self.A_Sparse @ self.B_Sparse
@@ -113,7 +113,7 @@ class TestSparse(unittest.TestCase):
         D_ndarray = self.D.A
         assert_allclose(D_ndarray.diagonal(), self.diag_vec)
 
-    """ autograd shit """
+    """ autograd stuff """
 
     def test_ag_matmul_Sparse(self):
 
