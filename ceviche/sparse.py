@@ -12,7 +12,17 @@ class Sparse:
         self.entries = entries
         self.indices = indices
         self.shape = shape
-        # self.csr_matrix = make_sparse(entries, indices, shape)
+
+    @property
+    def csr_matrix(self):
+        return make_sparse(self.entries, self.indices, self.shape)
+
+    @property
+    def T(self):
+        return Sparse(self.entries, npa.roll(self.indices, 1, axis=0), self.shape)
+
+    def __neg__(self):
+        return Sparse(-self.entries, self.indices, self.shape)
 
     def __add__(self, other):
         if isinstance(other, Sparse):
@@ -25,19 +35,19 @@ class Sparse:
             res_ndarray = self.csr_matrix.A + other
             return res_ndarray
 
-    def __sub__(self, other):
-        if isinstance(other, Sparse):
-            res_csr = self.csr_matrix - other.csr_matrix
-            return from_csr_matrix(res_csr)
-        elif isinstance(other, sp.csr_matrix):
-            res_csr = self.csr_matrix - other
-            return from_csr_matrix(res_csr)
-        elif isinstance(other, np.ndarray):
-            res_ndarray = self.csr_matrix.A - other
-            return res_ndarray
+    # def __sub__(self, other):
+    #     if isinstance(other, Sparse):
+    #         res_csr = self.csr_matrix - other.csr_matrix
+    #         return from_csr_matrix(res_csr)
+    #     elif isinstance(other, sp.csr_matrix):
+    #         res_csr = self.csr_matrix - other
+    #         return from_csr_matrix(res_csr)
+    #     elif isinstance(other, np.ndarray):
+    #         res_ndarray = self.csr_matrix.A - other
+    #         return res_ndarray
 
-    def __neg__(self):
-        return Sparse(-self.entries, self.indices, self.shape)
+    def __sub__(self, other):
+        return self + (-other)
 
     def __matmul__(self, other):
         if isinstance(other, Sparse):
