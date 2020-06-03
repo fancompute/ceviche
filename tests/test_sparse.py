@@ -107,7 +107,7 @@ class TestSparse(unittest.TestCase):
 
     """ autograd shit """
 
-    def test_ag_matmul(self):
+    def test_ag_matmul_Sparse(self):
 
         def f(v):
             D1 = Diagonal(v)
@@ -122,6 +122,15 @@ class TestSparse(unittest.TestCase):
         # analytical grad = 2 * np.abs(v)
         assert_allclose(grad, 2 * np.abs(self.diag_vec))
 
+    def test_ag_matmul_ndarray(self):
+
+        def f(v):
+            D1 = Diagonal(v)
+            v2 = D1 @ v
+            return np.abs(np.sum(v2))
+
+        grad = ag.grad(f)(self.diag_vec)
+        assert_allclose(grad, 2 * np.abs(self.diag_vec))
 
 
 if __name__ == '__main__':

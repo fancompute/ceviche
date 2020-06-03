@@ -1,4 +1,5 @@
 import numpy as np
+import autograd.numpy as npa
 import scipy.sparse as sp
 
 from .utils import make_sparse, get_entries_indices
@@ -46,7 +47,7 @@ class Sparse:
             other_entries, other_indices = get_entries_indices(other)
             res_entries, res_indices = spsp_mult(self.entries, self.indices, other_entries, other_indices, self.shape[0])
             return Sparse(res_entries, res_indices, self.shape)
-        elif isinstance(other, np.ndarray):
+        elif isinstance(other, np.ndarray) or isinstance(other, npa.numpy_boxes.ArrayBox):
             res = sp_mult(self.entries, self.indices, other)
             return res
 
