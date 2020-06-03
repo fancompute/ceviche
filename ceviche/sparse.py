@@ -164,10 +164,11 @@ def convmat_1d(kernel, in_shape):
     Note
     ----
     Strictly speaking, "convolution" in CNNs is a misnomer, it's technically correlation.
-    The difference being whether we do `kernel(i+j)*input(i)` or `kernel(i-j)*input(i)`.
-    Anyway, here we implement a matrix that does it as usually defined in CNNs, i.e. 
+    The difference being whether we do `kernel(i+j)*input(i)` or `kernel(i-j)*input(i)`, 
+    or in other words whether to flip the kernel in the construction below.
+    Anyway, here we implement a matrix that does it as is usually defined in CNNs, i.e. 
     `convmat_1d(kernel, in_shape) @ input` yields a vector c defined as
-        `c_j = sum_i(kernel(i + j)*input(i))`
+        `c_j = sum_i(kernel(i - j)*input(i))`
 
     Parameters
     ----------
@@ -179,28 +180,18 @@ def convmat_1d(kernel, in_shape):
     Returns
     -------
     conv1d : Sparse
-        A `Sparse` matrix of shape (in_shape, in_shape) that implements the convolution
-        of an input vector of shape `in_shape` with the `kernel`
+        A `Sparse` matrix of shape (in_shape, in_shape) such that `conv1d @ input`
+        is the convolution of an `input` vector of shape `in_shape` with the `kernel`.
     """
+
     Nk = kernel.size
     Nkodd = np.mod(Nk, 2)
-    ik = npa.arange(-Nk//2+Nkodd, Nk//2+Nkodd)
-
-    # Sparse matrix entries
-    entries = npa.tile(kernel, in_shape)
-    entries = entries[Nk//2:Nk//2+(in_shape-1)*Nk]
-    
-    # Linear indexing
-    ind_lin = np.hstack([ii*in_shape + ik for ii in range(in_shape)])
-    ind_lin = ind_lin[Nk//2:Nk//2+(in_shape-1)*Nk]
+    offsets = list(range(-Nk//2+Nkodd, Nk//2+Nkodd))
 
     # Sparse matrix shape
     shape = (in_shape, in_shape)
 
-    # Convert to row, column
-    indices = np.vstack(np.unravel_index(ind_lin, shape))
-
-    return Sparse(entries, indices, shape)
+    return diags(kernel, offsets, shape)
 
 
 

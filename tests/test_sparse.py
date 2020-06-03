@@ -3,13 +3,14 @@ import autograd.numpy as np
 import matplotlib.pylab as plt
 import autograd as ag
 import scipy.sparse as sp
+import scipy.signal as sps
 
 from numpy.testing import assert_allclose
 
 import sys
 sys.path.append('../ceviche')
 
-from ceviche.sparse import Sparse, Diagonal, from_csr_matrix, diags
+from ceviche.sparse import Sparse, Diagonal, from_csr_matrix, diags, convmat_1d
 from ceviche import jacobian
 
 class TestSparse(unittest.TestCase):
@@ -131,6 +132,24 @@ class TestSparse(unittest.TestCase):
         C = diags(diagonals, offsets, shape).A
         true_C = sp.diags(diagonals, offsets, shape).A
         assert_allclose(C, true_C)
+
+    """ convolution matrices """
+
+    def test_conv1d(self):
+        in_shape = 6
+        inp = np.random.rand(in_shape)
+
+        # Odd-sized kernel 
+        kernel = np.random.rand(3)
+        c = convmat_1d(kernel, in_shape) @ inp
+        true_c = sps.correlate(inp, kernel, mode='same')
+        assert_allclose(c, true_c)
+
+        # Even-sized kernel 
+        kernel = np.random.rand(4)
+        c = convmat_1d(kernel, in_shape) @ inp
+        true_c = sps.correlate(inp, kernel, mode='same')
+        assert_allclose(c, true_c)
 
     """ autograd stuff """
 
