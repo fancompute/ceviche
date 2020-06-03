@@ -14,12 +14,20 @@ class Sparse:
         self.shape = shape
 
     @property
+    def A(self):
+        """ numpy.ndarray explicit dense matrix representation version of self """
+        csr_matrix = self.csr_matrix.todense()
+        return np.asarray(csr_matrix)
+
+    @property
     def csr_matrix(self):
+        """ scipy.sparse.csr_matrix explicit sparse matrix representation of self """
         return make_sparse(self.entries, self.indices, self.shape)
 
     @property
     def T(self):
-        return Sparse(self.entries, npa.roll(self.indices, 1, axis=0), self.shape)
+        """ transpose of self """
+        return Sparse(self.entries, npa.roll(self.indices, shift=1, axis=0), self.shape)
 
     def __neg__(self):
         return Sparse(-self.entries, self.indices, self.shape)

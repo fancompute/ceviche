@@ -24,8 +24,8 @@ class TestSparse(unittest.TestCase):
         self.A_Sparse = from_csr_matrix(self.A_csr_matrix)
         self.B_Sparse = from_csr_matrix(self.B_csr_matrix)
 
-        self.A_ndarray = self.A_csr_matrix.A
-        self.B_ndarray = self.B_csr_matrix.A
+        self.A_ndarray = self.A_Sparse.A
+        self.B_ndarray = self.B_Sparse.A
 
         self.diag_vec = np.random.random(N)
         self.D = Diagonal(self.diag_vec)
@@ -34,7 +34,7 @@ class TestSparse(unittest.TestCase):
     def test_transpose(self):
         C = self.A_Sparse.T
         true_C = self.A_ndarray.T
-        assert_allclose(C.csr_matrix.A, true_C)
+        assert_allclose(C.A, true_C)
         assert isinstance(C, Sparse)
 
     """ addition """
@@ -42,13 +42,13 @@ class TestSparse(unittest.TestCase):
     def test_add_Sparse(self):
         C = self.A_Sparse + self.B_Sparse
         true_C = self.A_ndarray + self.B_ndarray
-        assert_allclose(C.csr_matrix.A, true_C)
+        assert_allclose(C.A, true_C)
         assert isinstance(C, Sparse)
 
     def test_add_csr_matrix(self):
         C = self.A_Sparse + self.B_csr_matrix
         true_C = self.A_ndarray + self.B_ndarray
-        assert_allclose(C.csr_matrix.A, true_C)
+        assert_allclose(C.A, true_C)
         assert isinstance(C, Sparse)
 
     def test_add_ndarray(self):
@@ -62,13 +62,13 @@ class TestSparse(unittest.TestCase):
     def test_sub_Sparse(self):
         C = self.A_Sparse - self.B_Sparse
         true_C = self.A_ndarray - self.B_ndarray
-        assert_allclose(C.csr_matrix.A, true_C)
+        assert_allclose(C.A, true_C)
         assert isinstance(C, Sparse)
 
     def test_sub_csr_matrix(self):
         C = self.A_Sparse - self.B_csr_matrix
         true_C = self.A_ndarray - self.B_ndarray
-        assert_allclose(C.csr_matrix.A, true_C)
+        assert_allclose(C.A, true_C)
         assert isinstance(C, Sparse)
 
     def test_sub_ndarray(self):
@@ -82,7 +82,7 @@ class TestSparse(unittest.TestCase):
     def test_neg_Sparse(self):
         C = -self.A_Sparse
         true_C = -self.A_ndarray
-        assert_allclose(C.csr_matrix.A, true_C)
+        assert_allclose(C.A, true_C)
         assert isinstance(C, Sparse)
 
     """ left and right matrix multiplication """
@@ -90,13 +90,13 @@ class TestSparse(unittest.TestCase):
     def test_matmul_Sparse(self):
         C = self.A_Sparse @ self.B_Sparse
         true_C = self.A_ndarray @ self.B_ndarray
-        assert_allclose(C.csr_matrix.A, true_C)
+        assert_allclose(C.A, true_C)
         assert isinstance(C, Sparse)
 
     def test_matmul_csr_matrix(self):
         C = self.A_Sparse @ self.B_csr_matrix
         true_C = self.A_ndarray @ self.B_ndarray
-        assert_allclose(C.csr_matrix.A, true_C)
+        assert_allclose(C.A, true_C)
         assert isinstance(C, Sparse)
 
     def test_matmul_ndarray(self):
@@ -108,7 +108,7 @@ class TestSparse(unittest.TestCase):
     """ diagonal matrices """
 
     def test_diag(self):
-        D_ndarray = self.D.csr_matrix.A
+        D_ndarray = self.D.A
         assert_allclose(D_ndarray.diagonal(), self.diag_vec)
 
     """ autograd shit """
@@ -124,8 +124,6 @@ class TestSparse(unittest.TestCase):
         val = f(self.diag_vec)
 
         grad = ag.grad(f)(self.diag_vec)
-        # analytical val  = np.abs(np.sum(v ** 2))
-        # analytical grad = 2 * np.abs(v)
         assert_allclose(grad, 2 * np.abs(self.diag_vec))
 
     def test_ag_matmul_ndarray(self):
