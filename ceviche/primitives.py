@@ -113,7 +113,6 @@ def grad_spsp_add_entries_x_forward(g, B, entries_a, indices_a, entries_x, indic
 
 ag.extend.defjvp(spsp_add, grad_spsp_add_entries_a_forward, None, grad_spsp_add_entries_x_forward, None, None)
 
-
 """ ========================== Sparse Matrix-Vector Multiplication =========================="""
 
 @ag.primitive

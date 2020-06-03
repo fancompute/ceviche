@@ -41,6 +41,7 @@ class Sparse:
             entries, indices = spsp_add(self.entries, self.indices, other_entries, other_indices, self.shape)
             return Sparse(entries, indices, self.shape)
         elif is_array(other):
+            # This should generally *not* be needed! Also, it's not autograd compatible.
             res_ndarray = self.csr_matrix.A + other
             return res_ndarray
 
@@ -78,8 +79,9 @@ def from_csr_matrix(csr_matrix):
 def diags(diagonals, offsets=0, shape=None):
     """
     Similar to scipy.sparse.diags, returns a Sparse object.
+    `shape` works slightly differently (more general, see below).
     Works with autograd when w.r.t. `diagonals` and the returned 
-    `entries` of the Sparse object.
+    `entries` of the Sparse object. 
 
     Parameters
     ----------
@@ -191,7 +193,6 @@ def convmat_1d(kernel, in_shape):
     # Linear indexing
     ind_lin = np.hstack([ii*in_shape + ik for ii in range(in_shape)])
     ind_lin = ind_lin[Nk//2:Nk//2+(in_shape-1)*Nk]
-    print(ind_lin)
 
     # Sparse matrix shape
     shape = (in_shape, in_shape)

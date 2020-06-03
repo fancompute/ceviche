@@ -9,7 +9,7 @@ from numpy.testing import assert_allclose
 import sys
 sys.path.append('../ceviche')
 
-from ceviche.sparse import Sparse, Diagonal, from_csr_matrix
+from ceviche.sparse import Sparse, Diagonal, from_csr_matrix, diags
 from ceviche import jacobian
 
 class TestSparse(unittest.TestCase):
@@ -31,6 +31,7 @@ class TestSparse(unittest.TestCase):
 
         self.diag_vec = np.random.random(N)
         self.D = Diagonal(self.diag_vec)
+        self.D_csr_matrix = self.D.csr_matrix
 
     """ transpose """
     def test_transpose(self):
@@ -113,7 +114,27 @@ class TestSparse(unittest.TestCase):
         D_ndarray = self.D.A
         assert_allclose(D_ndarray.diagonal(), self.diag_vec)
 
+    """ diags constructor """
+
+    def test_diags_toeplitz(self):
+        values = np.random.rand(3,)
+        offsets = [-1, 0, 2]
+        shape = (5, 4)
+        C = diags(values, offsets, shape).A
+        true_C = sp.diags(values, offsets, shape).A
+        assert_allclose(C, true_C)
+
+    def test_diags_sequence(self):
+        diagonals = [np.random.rand(4,) for i in range(3)]
+        offsets = [-1, 0, 2]
+        shape = (5, 4)
+        C = diags(diagonals, offsets, shape).A
+        true_C = sp.diags(diagonals, offsets, shape).A
+        assert_allclose(C, true_C)
+
     """ autograd stuff """
+
+    """ ag multiplication """
 
     def test_ag_matmul_Sparse(self):
 
@@ -123,13 +144,26 @@ class TestSparse(unittest.TestCase):
             D3 = D1 @ D2
             return np.abs(np.sum(D3.entries))
 
-        val = f(self.diag_vec)
-
         grad = jacobian(f, mode='reverse')(self.diag_vec)
         assert_allclose(grad[0,:], 2 * self.diag_vec)
 
         grad = jacobian(f, mode='forward')(self.diag_vec)
         assert_allclose(grad[0,:], 2 * self.diag_vec)
+
+    def test_ag_matmul_csr_matrix(self):
+
+        def f(v):
+            D1 = Diagonal(v)
+            # Gradient only supported w.r.t. first argument of @
+            D2 = self.D_csr_matrix
+            D3 = D1 @ D2
+            return np.abs(np.sum(D3.entries))
+
+        grad = jacobian(f, mode='reverse')(self.diag_vec)
+        assert_allclose(grad[0,:], self.diag_vec)
+
+        grad = jacobian(f, mode='forward')(self.diag_vec)
+        assert_allclose(grad[0,:], self.diag_vec)
 
     def test_ag_matmul_ndarray(self):
 
@@ -144,7 +178,9 @@ class TestSparse(unittest.TestCase):
         grad = jacobian(f, mode='forward')(self.diag_vec)
         assert_allclose(grad[0,:], 2 * self.diag_vec)
 
-    def test_ag_add_ndarray(self):
+    """ ag addition """
+
+    def test_ag_add_Sparse(self):
 
         def f(v):
             D1 = Diagonal(v)
@@ -158,6 +194,56 @@ class TestSparse(unittest.TestCase):
 
         grad = jacobian(f, mode='forward')(self.diag_vec)
         assert_allclose(grad[0,:], 4 * self.diag_vec)
+
+    def test_ag_add_csr_matrix(self):
+
+        def f(v):
+            D1 = Diagonal(v)
+            # Gradient only supported w.r.t. first argument of +
+            D2 = self.D_csr_matrix
+            D3 = D1 + D2
+            v2 = D3 @ v
+            return np.abs(np.sum(v2))
+
+        grad = jacobian(f, mode='reverse')(self.diag_vec)
+        assert_allclose(grad[0,:], 3 * self.diag_vec)
+
+        grad = jacobian(f, mode='forward')(self.diag_vec)
+        assert_allclose(grad[0,:], 3 * self.diag_vec)
+
+    def test_ag_add_ndarray(self):
+        """ This is not ag compatible and also shouldn't be used in general,
+        as it returns a dense ndarray"""
+        pass
+
+    """ ag diags constructor """
+
+    def test_ag_diag_toeplitz(self):
+
+        def f(vals):
+            D1 = diags(vals, [-1, 0, 2], shape=(5, 4))
+            return np.abs(np.sum(D1.entries))
+
+        vals = np.random.rand(3)
+        grad_r = jacobian(f, mode='reverse')(vals)
+        grad_f = jacobian(f, mode='forward')(vals)
+        grad_n = jacobian(f, mode='numerical')(vals)
+        assert_allclose(grad_r, grad_n)
+        assert_allclose(grad_f, grad_n)
+
+    def test_ag_diag_sequence(self):
+
+        def f(vals):
+            diagonals = [vals[:3], vals[3:]]
+            D1 = diags(diagonals, [-1, 2], shape=(5, 4))
+            return np.abs(np.sum(D1.entries))
+
+        vals = np.random.rand(6)
+        grad_r = jacobian(f, mode='reverse')(vals)
+        grad_f = jacobian(f, mode='forward')(vals)
+        grad_n = jacobian(f, mode='numerical')(vals)
+        assert_allclose(grad_r, grad_n)
+        assert_allclose(grad_f, grad_n)
 
 if __name__ == '__main__':
     unittest.main()
