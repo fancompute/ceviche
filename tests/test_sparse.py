@@ -1,14 +1,16 @@
 import unittest
 import autograd.numpy as np
-from numpy.testing import assert_allclose
 import matplotlib.pylab as plt
 import autograd as ag
+import scipy.sparse as sp
+
+from numpy.testing import assert_allclose
 
 import sys
 sys.path.append('../ceviche')
 
 from ceviche.sparse import Sparse, Diagonal, from_csr_matrix
-import scipy.sparse as sp
+from ceviche import jacobian
 
 class TestSparse(unittest.TestCase):
 
@@ -123,8 +125,11 @@ class TestSparse(unittest.TestCase):
 
         val = f(self.diag_vec)
 
-        grad = ag.grad(f)(self.diag_vec)
-        assert_allclose(grad, 2 * np.abs(self.diag_vec))
+        grad = jacobian(f, mode='reverse')(self.diag_vec)
+        assert_allclose(grad[0,:], 2 * self.diag_vec)
+
+        grad = jacobian(f, mode='forward')(self.diag_vec)
+        assert_allclose(grad[0,:], 2 * self.diag_vec)
 
     def test_ag_matmul_ndarray(self):
 
@@ -133,9 +138,26 @@ class TestSparse(unittest.TestCase):
             v2 = D1 @ v
             return np.abs(np.sum(v2))
 
-        grad = ag.grad(f)(self.diag_vec)
-        assert_allclose(grad, 2 * np.abs(self.diag_vec))
+        grad = jacobian(f, mode='reverse')(self.diag_vec)
+        assert_allclose(grad[0,:], 2 * self.diag_vec)
 
+        grad = jacobian(f, mode='forward')(self.diag_vec)
+        assert_allclose(grad[0,:], 2 * self.diag_vec)
+
+    def test_ag_add_ndarray(self):
+
+        def f(v):
+            D1 = Diagonal(v)
+            D2 = Diagonal(v)
+            D3 = D1 + D2
+            v2 = D3 @ v
+            return np.abs(np.sum(v2))
+
+        grad = jacobian(f, mode='reverse')(self.diag_vec)
+        assert_allclose(grad[0,:], 4 * self.diag_vec)
+
+        grad = jacobian(f, mode='forward')(self.diag_vec)
+        assert_allclose(grad[0,:], 4 * self.diag_vec)
 
 if __name__ == '__main__':
     unittest.main()

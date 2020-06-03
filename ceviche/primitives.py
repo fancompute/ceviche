@@ -53,6 +53,67 @@ know how to handle those as arguments to functions.
     defjvp(function, arg1's jvp, arg2's jvp, ...)
 """
 
+
+""" ========================== Sparse Addition =========================="""
+
+@ag.primitive
+def spsp_add(entries_a, indices_a, entries_x, indices_x, shape):
+    """ Add a sparse matrix (A) by a sparse matrix (X) A + X = B
+    Args:
+      entries_a: numpy array with shape (num_non_zeros,) giving values for non-zero
+        matrix entries into A.
+      indices_a: numpy array with shape (2, num_non_zeros) giving x and y indices for
+        non-zero matrix entries into A.
+      entries_x: numpy array with shape (num_non_zeros,) giving values for non-zero
+        matrix entries into X.
+      indices_x: numpy array with shape (2, num_non_zeros) giving x and y indices for
+        non-zero matrix entries into X.
+      shape: shape of A and X (assumed the same)
+    Returns:
+      entries_b: numpy array with shape (num_non_zeros,) giving values for non-zero
+        matrix entries into the result B.
+      indices_b: numpy array with shape (2, num_non_zeros) giving i, j indices for
+        non-zero matrix entries into the result B.
+    """
+    A = make_sparse(entries_a, indices_a, shape=shape)
+    X = make_sparse(entries_x, indices_x, shape=shape)
+    B_csr = A + X
+    entries_b, indices_b = get_entries_indices(B_csr)
+    return entries_b, indices_b
+
+def grad_spsp_add_entries_a_reverse(B, entries_a, indices_a, entries_x, indices_x, shape):
+    """ dA is A with entries set to 1. vjp(A + X)(v) = dA^T v """
+    dA = make_sparse(npa.ones_like(entries_a), indices_a, shape=shape)
+    def vjp(v):
+        return dA.T @ v[0]
+    return vjp
+
+def grad_spsp_add_entries_x_reverse(B, entries_a, indices_a, entries_x, indices_x, shape):
+    """ dX is X with entries set to 1. vjp(A + X)(v) = dX^T v """
+    dX = make_sparse(npa.ones_like(entries_x), indices_x, shape=shape)
+    def vjp(v):
+        return dX.T @ v[0]
+    return vjp
+
+ag.extend.defvjp(spsp_add, grad_spsp_add_entries_a_reverse, None, grad_spsp_add_entries_x_reverse, None, None)
+
+def grad_spsp_add_entries_a_forward(g, B, entries_a, indices_a, entries_x, indices_x, shape):
+    """ returns derivative of entries and indices of (A + X) @ g """
+    dA = make_sparse(npa.ones_like(entries_a), indices_a, shape=shape)
+    d_entries = dA @ g
+    d_indices = npa.zeros((2, d_entries.size))
+    return d_entries, d_indices
+
+def grad_spsp_add_entries_x_forward(g, B, entries_a, indices_a, entries_x, indices_x, shape):
+    """ returns derivative of entries and indices of (A + X) @ g """
+    dX = make_sparse(npa.ones_like(entries_a), indices_a, shape=shape)
+    d_entries = dX @ g
+    d_indices = npa.zeros((2, d_entries.size))
+    return d_entries, d_indices
+
+ag.extend.defjvp(spsp_add, grad_spsp_add_entries_a_forward, None, grad_spsp_add_entries_x_forward, None, None)
+
+
 """ ========================== Sparse Matrix-Vector Multiplication =========================="""
 
 @ag.primitive
@@ -257,121 +318,6 @@ def grad_spsp_mult_entries_x_forward(g, b_out, entries_a, indices_a, entries_x, 
     return grad_spsp_mult_entries_a_forward(g, b_T_out, entries_x, indices_xT, entries_a, indices_aT, N)
 
 ag.extend.defjvp(spsp_mult, grad_spsp_mult_entries_a_forward, None, grad_spsp_mult_entries_x_forward, None, None)
-
-
-""" ========================== Nonlinear Solve ========================== """
-
-# this is just a sketch of how to do problems involving sparse matrix solves with nonlinear elements...  WIP.
-
-def sp_solve_nl(parameters, a_indices, b, fn_nl):
-    """
-        parameters: entries into matrix A are function of parameters and solution x
-        a_indices: indices into sparse A matrix
-        b: source vector for A(xx = b
-        fn_nl: describes how the entries of a depend on the solution of A(x,p) @ x = b and the parameters  `a_entries = fn_nl(params, x)`
-    """
-
-    # do the actual nonlinear solve in `_solve_nl_problem` (using newton, picard, whatever)
-    # this tells you the final entries into A given the parameters and the nonlinear function.
-    a_entries = ceviche.solvers._solve_nl_problem(parameters, a_indices, fn_nl, a_entries0=None)  # optinally, give starting a_entries
-    x = sp_solve(a_entries, a_indices, b)  # the final solution to A(x) x = b
-    return x
-
-def grad_sp_solve_nl_parameters(x, parameters, a_indices, b, fn_nl):
-
-    """
-    We are finding the solution (x) to the nonlinear function:
-
-        f = A(x, p) @ x - b = 0
-
-    And need to define the vjp of the solution (x) with respect to the parameters (p)
-
-        vjp(v) = (dx / dp)^T @ v
-
-    To do this (see Eq. 5 of https://pubs-acs-org.stanford.idm.oclc.org/doi/pdf/10.1021/acsphotonics.8b01522)
-    we need to solve the following linear system:
-
-        [ df  / dx,  df  / dx*] [ dx  / dp ] = -[ df  / dp]
-        [ df* / dx,  df* / dx*] [ dx* / dp ]    [ df* / dp]
-
-    Note that we need to explicitly make A a function of x and x* for complex x
-
-    In our case:
-
-        (df / dx)  = (dA / dx) @ x + A
-        (df / dx*) = (dA / dx*) @ x
-        (df / dp)  = (dA / dp) @ x
-
-    How do we put this into code?  Let
-
-        A(x, p) @ x -> Ax = sp_mult(entries_a(x, p), indices_a, x)
-
-    Since we already defined the primitive of sp_mult, we can just do:
-
-        (dA / dx) @ x -> ag.jacobian(Ax, 0)
-
-    Now how about the source term?
-
-        (dA / dp) @ x -> ag.jacobian(Ax, 1)
-
-    Note that this is a matrix, not a vector.
-    We'll have to handle dA/dx* but this can probably be done, maybe with autograd directly.
-
-    Other than this, assuming entries_a(x, p) is fully autograd compatible, we can get these terms no problem!
-
-    Coming back to our problem, we actually need to compute:
-
-        (dx / dp)^T @ v
-
-    Because
-
-        (dx / dp) = -(df / dx)^{-1} @ (df / dp)
-
-    (ignoring the complex conjugate terms).  We can write this vjp as
-
-        (df / dp)^T @ (df / dx)^{-T} @ v
-
-    Since df / dp is a matrix, not a vector, its more efficient to do the mat_mul on the right first.
-    So we first solve
-
-        adjoint(v) = -(df / dx)^{-T} @ v
-                   => sp_solve(entries_a_big, transpose(indices_a_big), -v)
-
-    and then it's a simple matter of doing the matrix multiplication
-
-        vjp(v) = (df / dp)^T @ adjoint(v)
-               => sp_mult(entries_dfdp, transpose(indices_dfdp), adjoint)
-
-    and then return the result, making sure to strip the complex conjugate.
-
-        return vjp[:N]
-    """
-
-    def vjp(v):
-        raise NotImplementedError
-    return vjp
-
-def grad_sp_solve_nl_b(x, parameters, a_indices, b, fn_nl):
-
-    """
-    Computing the derivative w.r.t b is simpler
-
-        f = A(x) @ x - b(p) = 0
-
-    And now the terms we need are
-
-        df / dx  = (dA / dx) @ x + A
-        df / dx* = (dA / dx*) @ x
-        df / dp  = -(db / dp)
-
-    So it's basically the same problem with a differenct source term now.
-    """
-
-    def vjp(v):
-        raise NotImplementedError
-    return vjp
-
-ag.extend.defvjp(sp_solve_nl, grad_sp_solve_nl_parameters, None, grad_sp_solve_nl_b, None)
 
 
 if __name__ == '__main__':

@@ -3,7 +3,7 @@ import autograd.numpy as npa
 import scipy.sparse as sp
 
 from .utils import make_sparse, get_entries_indices
-from .primitives import sp_mult, spsp_mult, sp_solve
+from .primitives import spsp_add, sp_mult, spsp_mult, sp_solve
 
 class Sparse:
     """ A sparse matrix with arbitrary entries, indices, and shape """
@@ -34,25 +34,14 @@ class Sparse:
 
     def __add__(self, other):
         if isinstance(other, Sparse):
-            res_csr = self.csr_matrix + other.csr_matrix
-            return from_csr_matrix(res_csr)
+            entries, indices = spsp_add(self.entries, self.indices, other.entries, other.indices, self.shape)
+            return Sparse(entries, indices, self.shape)
         elif isinstance(other, sp.csr_matrix):
             res_csr = self.csr_matrix + other
             return from_csr_matrix(res_csr)
         elif isinstance(other, np.ndarray):
             res_ndarray = self.csr_matrix.A + other
             return res_ndarray
-
-    # def __sub__(self, other):
-    #     if isinstance(other, Sparse):
-    #         res_csr = self.csr_matrix - other.csr_matrix
-    #         return from_csr_matrix(res_csr)
-    #     elif isinstance(other, sp.csr_matrix):
-    #         res_csr = self.csr_matrix - other
-    #         return from_csr_matrix(res_csr)
-    #     elif isinstance(other, np.ndarray):
-    #         res_ndarray = self.csr_matrix.A - other
-    #         return res_ndarray
 
     def __sub__(self, other):
         return self + (-other)
