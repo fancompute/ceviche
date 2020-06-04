@@ -125,14 +125,14 @@ def diags(diagonals, offsets=0, shape=None):
             # Single diagonal and single offset
             diag_seq = [diagonals]
             offsets = [offsets]
-            if shape==None:
+            if shape is None:
                 Ndmax = diagonals.size
                 sp_shape = (Ndmax, Ndmax)
 
     else:
         # diagonals is a sequence
         diag_seq = diagonals
-        if shape==None:
+        if shape is None:
             Ndmax = np.amax([d.size for d in diagonals])
             sp_shape = (Ndmax, Ndmax)
 
