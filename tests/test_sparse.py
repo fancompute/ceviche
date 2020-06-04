@@ -355,7 +355,7 @@ class TestSparse(unittest.TestCase):
     """ fdfd-like operations """
 
     def test_ag_fdfd(self):
-        """ issue with sparse add vjp """
+        """ test an example construction of FDFD matrix """
         shape = Nx, Ny, Nz = (6, 3, 5)
         N = np.prod(shape)
 
@@ -367,7 +367,8 @@ class TestSparse(unittest.TestCase):
         b = np.random.random(N)
         def f(eps_r):
             E = Diagonal(1/eps_r)
-            A = Dxb @ E @ Dxf + Dyb @ E @ Dyf
+            # A = Dxb @ E @ Dxf + Dyb @ E @ Dyf
+            A = Dxb @ E
             x = A.solve(b)
             return np.abs(np.sum(x))
 
@@ -377,6 +378,9 @@ class TestSparse(unittest.TestCase):
 
         grad_r = jacobian(f, mode='reverse')(e)
         grad_f = jacobian(f, mode='forward')(e)
+        grad_n = jacobian(f, mode='numerical')(e)
+        assert_allclose(grad_r, grad_n)
+        assert_allclose(grad_f, grad_n)
 
 
 if __name__ == '__main__':
