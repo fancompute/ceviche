@@ -352,7 +352,7 @@ class TestSparse(unittest.TestCase):
 
     """ fdfd-like operations """
 
-    def _test_ag_fdfd(self):
+    def test_ag_fdfd(self):
         """ issue with sparse add vjp """
         shape = Nx, Ny, Nz = (102, 101, 100)
         N = np.prod(shape)

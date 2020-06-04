@@ -85,14 +85,18 @@ def grad_spsp_add_entries_a_reverse(B, entries_a, indices_a, entries_x, indices_
     """ dA is A with entries set to 1. vjp(A + X)(v) = dA^T v """
     dA = make_sparse(npa.ones_like(entries_a), indices_a, shape=shape)
     def vjp(v):
-        return dA.T @ v[0]
+        _, col_indices_a = indices_a
+        v_entries, _ = v
+        return v_entries[col_indices_a]
     return vjp
 
 def grad_spsp_add_entries_x_reverse(B, entries_a, indices_a, entries_x, indices_x, shape):
     """ dX is X with entries set to 1. vjp(A + X)(v) = dX^T v """
     dX = make_sparse(npa.ones_like(entries_x), indices_x, shape=shape)
     def vjp(v):
-        return dX.T @ v[0]
+        _, col_indices_x = indices_x
+        v_entries, _ = v
+        return v_entries[col_indices_x]
     return vjp
 
 ag.extend.defvjp(spsp_add, grad_spsp_add_entries_a_reverse, None, grad_spsp_add_entries_x_reverse, None, None)
