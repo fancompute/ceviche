@@ -139,13 +139,13 @@ class TestSparse(unittest.TestCase):
         in_shape = 6
         inp = np.random.rand(in_shape)
 
-        # Odd-sized kernel 
+        # Odd-sized kernel
         kernel = np.random.rand(3)
         c = convmat_1d(kernel, in_shape) @ inp
         true_c = sps.correlate(inp, kernel, mode='same')
         assert_allclose(c, true_c)
 
-        # Even-sized kernel 
+        # Even-sized kernel
         kernel = np.random.rand(4)
         c = convmat_1d(kernel, in_shape) @ inp
         true_c = sps.correlate(inp, kernel, mode='same')
@@ -233,7 +233,22 @@ class TestSparse(unittest.TestCase):
     def test_ag_add_ndarray(self):
         """ This is not ag compatible and also shouldn't be used in general,
         as it returns a dense ndarray"""
-        pass
+
+        A = np.random.random(self.A_Sparse.shape)
+
+        def f(A):
+            D1 = Diagonal(self.diag_vec)
+            # Gradient only supported w.r.t. first argument of +
+            D2 = A
+            D3 = D1 + D2
+            v2 = D3 @ v
+            return np.abs(np.sum(v2))
+
+        grad = jacobian(f, mode='reverse')(A)
+        assert_allclose(grad, np.eye(A.size[0]))
+
+        grad = jacobian(f, mode='forward')(self.diag_vec)
+        assert_allclose(grad, np.eye(A.size[0]))
 
     """ ag diags constructor """
 

@@ -16,8 +16,10 @@ class Sparse:
     @property
     def A(self):
         """ numpy.ndarray explicit dense matrix representation version of self """
-        csr_matrix = self.csr_matrix.todense()
-        return np.asarray(csr_matrix)
+        array = np.zeros(self.shape, dtype=complex)
+        i, j = self.indices
+        array[i, j] = self.entries
+        return array
 
     @property
     def csr_matrix(self):
@@ -42,7 +44,7 @@ class Sparse:
             return Sparse(entries, indices, self.shape)
         elif is_array(other):
             # This should generally *not* be needed! Also, it's not autograd compatible.
-            res_ndarray = self.csr_matrix.A + other
+            res_ndarray = self.A + other
             return res_ndarray
 
     def __sub__(self, other):
@@ -74,28 +76,28 @@ def from_csr_matrix(csr_matrix):
 
     entries, indices = get_entries_indices(csr_matrix)
     shape = csr_matrix.shape
-    return Sparse(entries, indices, shape)    
+    return Sparse(entries, indices, shape)
 
 def diags(diagonals, offsets=0, shape=None):
     """
     Similar to scipy.sparse.diags, returns a Sparse object.
     `shape` works slightly differently (more general, see below).
-    Works with autograd when w.r.t. `diagonals` and the returned 
-    `entries` of the Sparse object. 
+    Works with autograd when w.r.t. `diagonals` and the returned
+    `entries` of the Sparse object.
 
     Parameters
     ----------
     diagonals: np.ndarray or sequence of np.ndarray
-        If `diagonals` is a single array, `offsets` must either be a single int 
-        defining the diagonal, or a sequence of the same legnth, in which case a 
-        Toeplitz matrix is created. 
-        If `diagonals` is a sequence of arrays, its length must be the same as 
+        If `diagonals` is a single array, `offsets` must either be a single int
+        defining the diagonal, or a sequence of the same legnth, in which case a
+        Toeplitz matrix is created.
+        If `diagonals` is a sequence of arrays, its length must be the same as
         the length of the `offsets` sequence.
     offsets: sequence of int or an int, optional
         Diagonals to set, > 0 means above main diagonal.
     shape: tuple of int, optional
-        Shape of the result. If omitted, a square matrix large enough to contain 
-        the diagonals is returned. Some diagonals may be padded with zeros if 
+        Shape of the result. If omitted, a square matrix large enough to contain
+        the diagonals is returned. Some diagonals may be padded with zeros if
         needed (the zeros are not stored in the sparse representation).
     """
 
@@ -114,13 +116,13 @@ def diags(diagonals, offsets=0, shape=None):
                 diag_seq = []
                 for (dind, diag) in enumerate(diagonals):
                     rep = Ndmax - offsets[dind]
-                    diag_seq.append(diag*np.ones((rep,)))    
+                    diag_seq.append(diag*np.ones((rep,)))
             else:
                 raise ValueError("If `diagonals` is a single array, `offsets` "
                     "should either be a single integer, or a sqeuence with the "
                     "same length as `diagonals`.")
         else:
-            # Single diagonal and single offset 
+            # Single diagonal and single offset
             diag_seq = [diagonals]
             offsets = [offsets]
             if shape==None:
@@ -151,7 +153,7 @@ def diags(diagonals, offsets=0, shape=None):
     # Stack arrays and trim things that lie outside the matrix
     entries = npa.hstack(entries)
     indices = np.vstack((np.hstack(row_inds), np.hstack(col_inds)))
-    inds_keep = np.nonzero((indices[0, :] < sp_shape[0]) & 
+    inds_keep = np.nonzero((indices[0, :] < sp_shape[0]) &
                             (indices[1, :] < sp_shape[1]))[0]
     entries = entries[inds_keep]
     indices = indices[:, inds_keep]
@@ -164,9 +166,9 @@ def convmat_1d(kernel, in_shape):
     Note
     ----
     Strictly speaking, "convolution" in CNNs is a misnomer, it's technically correlation.
-    The difference being whether we do `kernel(i+j)*input(i)` or `kernel(i-j)*input(i)`, 
+    The difference being whether we do `kernel(i+j)*input(i)` or `kernel(i-j)*input(i)`,
     or in other words whether to flip the kernel in the construction below.
-    Anyway, here we implement a matrix that does it as is usually defined in CNNs, i.e. 
+    Anyway, here we implement a matrix that does it as is usually defined in CNNs, i.e.
     `convmat_1d(kernel, in_shape) @ input` yields a vector c defined as
         `c_j = sum_i(kernel(i - j)*input(i))`
 
