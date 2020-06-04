@@ -13,6 +13,7 @@ sys.path.append('../ceviche')
 from ceviche.sparse import Sparse, Diagonal, Derivative
 from ceviche.sparse import from_csr_matrix, diags, convmat_1d
 from ceviche import jacobian
+from ceviche.derivatives import make_derivatives, Dxf, Dxb, Dyf, Dyb, Dzf, Dzb
 
 class TestSparse(unittest.TestCase):
 
@@ -156,6 +157,36 @@ class TestSparse(unittest.TestCase):
         A1 = dot(Dzb, A)
         A2 = A - np.roll(A, shift=-1, axis=2)
         assert_allclose(A1, A2)
+
+    def test_make_derivatives(self):
+        shape = (10, 20, 30)
+        Dxf = Derivative(shape, axis=0, fb='f')
+        Dxb = Derivative(shape, axis=0, fb='b')
+        Dyf = Derivative(shape, axis=1, fb='f')
+        Dyb = Derivative(shape, axis=1, fb='b')
+        Dzf = Derivative(shape, axis=2, fb='f')
+        Dzb = Derivative(shape, axis=2, fb='b')
+        d_dict = make_derivatives(*shape)
+
+        def check_same(S, C):
+            return (S - C).csr_matrix.nnz == 0
+
+        assert check_same(Dxf, d_dict['Dxf'])
+        assert check_same(Dxb, d_dict['Dxb'])
+        assert check_same(Dyf, d_dict['Dyf'])
+        assert check_same(Dyb, d_dict['Dyb'])
+        assert check_same(Dzf, d_dict['Dzf'])
+        assert check_same(Dzb, d_dict['Dzb'])
+
+    def test_fdfd(self):
+        shape = (102, 101, 100)
+        N = np.prod(shape)
+        E = Diagonal(np.random.random(N))
+        Dxf = Derivative(shape, axis=0, fb='f')
+        Dxb = Derivative(shape, axis=0, fb='b')
+        Dyf = Derivative(shape, axis=1, fb='f')
+        Dyb = Derivative(shape, axis=1, fb='b')
+        A = Dxb @ E @ Dxf + Dyb @ E @ Dyf
 
     """ diags constructor """
 
@@ -318,6 +349,32 @@ class TestSparse(unittest.TestCase):
         grad_n = jacobian(f, mode='numerical')(vals)
         assert_allclose(grad_r, grad_n)
         assert_allclose(grad_f, grad_n)
+
+    """ fdfd-like operations """
+
+    def _test_ag_fdfd(self):
+        """ issue with sparse add vjp """
+        shape = Nx, Ny, Nz = (102, 101, 100)
+        N = np.prod(shape)
+
+        Dxf = Derivative(shape, axis=0, fb='f')
+        Dxb = Derivative(shape, axis=0, fb='b')
+        Dyf = Derivative(shape, axis=1, fb='f')
+        Dyb = Derivative(shape, axis=1, fb='b')
+
+        def f(eps_r):
+            E = Diagonal(1/eps_r)
+            A = Dxb @ E @ Dxf + Dyb @ E @ Dyf
+            return np.abs(np.sum(A.entries))
+
+        import autograd as ag
+
+        e = np.random.random(N)
+
+        ag.grad(f)(e)
+        # grad_r = jacobian(f, mode='reverse')(e)
+        # grad_f = jacobian(f, mode='forward')(e)
+
 
 if __name__ == '__main__':
     unittest.main()

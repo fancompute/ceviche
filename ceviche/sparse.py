@@ -77,7 +77,8 @@ class Derivative(Sparse):
     def __init__(self, shape, axis, fb):
         der_csr = der_mat(*shape, axis=axis, fb=fb)
         entries, indices = get_entries_indices(der_csr)
-        super().__init__(entries, indices, shape)
+        N = np.prod(shape)
+        super().__init__(entries, indices, shape=(N, N))
 
 def from_csr_matrix(csr_matrix):
     """ Creates `sparse` object from explicit scipy.sparse.csr_matrix """

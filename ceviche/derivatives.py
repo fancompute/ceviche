@@ -94,23 +94,23 @@ def createDws(component, dir, shape, dL, bloch_x=0.0, bloch_y=0.0):
 def make_Dxf(dL, shape, bloch_x=0.0):
     """ Forward derivative in x """
     Nx, Ny = shape
-    phasor_x = np.exp(1j * bloch_x)
-    Dxf = sp.diags([-1, 1, phasor_x], [0, 1, -Nx+1], shape=(Nx, Nx), dtype=np.complex128)
+    phasor_x = npa.exp(1j * bloch_x)
+    Dxf = sp.diags([-1, 1, phasor_x], [0, 1, -Nx+1], shape=(Nx, Nx), dtype=npa.complex128)
     Dxf = 1 / dL * sp.kron(Dxf, sp.eye(Ny))
     return Dxf
 
 def make_Dxb(dL, shape, bloch_x=0.0):
     """ Backward derivative in x """
     Nx, Ny = shape
-    phasor_x = np.exp(1j * bloch_x)
-    Dxb = sp.diags([1, -1, -np.conj(phasor_x)], [0, -1, Nx-1], shape=(Nx, Nx), dtype=np.complex128)
+    phasor_x = npa.exp(1j * bloch_x)
+    Dxb = sp.diags([1, -1, -npa.conj(phasor_x)], [0, -1, Nx-1], shape=(Nx, Nx), dtype=npa.complex128)
     Dxb = 1 / dL * sp.kron(Dxb, sp.eye(Ny))
     return Dxb
 
 def make_Dyf(dL, shape, bloch_y=0.0):
     """ Forward derivative in y """
     Nx, Ny = shape
-    phasor_y = np.exp(1j * bloch_y)
+    phasor_y = npa.exp(1j * bloch_y)
     Dyf = sp.diags([-1, 1, phasor_y], [0, 1, -Ny+1], shape=(Ny, Ny))
     Dyf = 1 / dL * sp.kron(sp.eye(Nx), Dyf)
     return Dyf
@@ -118,8 +118,8 @@ def make_Dyf(dL, shape, bloch_y=0.0):
 def make_Dyb(dL, shape, bloch_y=0.0):
     """ Backward derivative in y """
     Nx, Ny = shape
-    phasor_y = np.exp(1j * bloch_y)
-    Dyb = sp.diags([1, -1, -np.conj(phasor_y)], [0, -1, Ny-1], shape=(Ny, Ny))
+    phasor_y = npa.exp(1j * bloch_y)
+    Dyb = sp.diags([1, -1, -npa.conj(phasor_y)], [0, -1, Ny-1], shape=(Ny, Ny))
     Dyb = 1 / dL * sp.kron(sp.eye(Nx), Dyb)
     return Dyb
 
@@ -143,10 +143,10 @@ def create_S_matrices(omega, shape, npml, dL):
     s_vector_y_b = create_sfactor('b', omega, dL, Ny, Ny_pml)
 
     # Fill the 2D space with layers of appropriate s-factors
-    Sx_f_2D = np.zeros(shape, dtype=np.complex128)
-    Sx_b_2D = np.zeros(shape, dtype=np.complex128)
-    Sy_f_2D = np.zeros(shape, dtype=np.complex128)
-    Sy_b_2D = np.zeros(shape, dtype=np.complex128)
+    Sx_f_2D = npa.zeros(shape, dtype=npa.complex128)
+    Sx_b_2D = npa.zeros(shape, dtype=npa.complex128)
+    Sy_f_2D = npa.zeros(shape, dtype=npa.complex128)
+    Sy_b_2D = npa.zeros(shape, dtype=npa.complex128)
 
     # insert the cross sections into the S-grids (could be done more elegantly)
     for i in range(0, Ny):
@@ -175,7 +175,7 @@ def create_sfactor(dir, omega, dL, N, N_pml):
 
     #  for no PNL, this should just be zero
     if N_pml == 0:
-        return np.ones(N, dtype=np.complex128)
+        return npa.ones(N, dtype=npa.complex128)
 
     # otherwise, get different profiles for forward and reverse derivative matrices
     dw = N_pml * dL
@@ -188,7 +188,7 @@ def create_sfactor(dir, omega, dL, N, N_pml):
 
 def create_sfactor_f(omega, dL, N, N_pml, dw):
     """ S-factor profile for forward derivative matrix """
-    sfactor_array = np.ones(N, dtype=np.complex128)
+    sfactor_array = npa.ones(N, dtype=npa.complex128)
     for i in range(N):
         if i <= N_pml:
             sfactor_array[i] = s_value(dL * (N_pml - i + 0.5), dw, omega)
@@ -198,7 +198,7 @@ def create_sfactor_f(omega, dL, N, N_pml, dw):
 
 def create_sfactor_b(omega, dL, N, N_pml, dw):
     """ S-factor profile for backward derivative matrix """
-    sfactor_array = np.ones(N, dtype=np.complex128)
+    sfactor_array = npa.ones(N, dtype=npa.complex128)
     for i in range(N):
         if i <= N_pml:
             sfactor_array[i] = s_value(dL * (N_pml - i + 1), dw, omega)
@@ -215,83 +215,117 @@ def s_value(l, dw, omega):
     """ S-value to use in the S-matrices """
     return 1 - 1j * sig_w(l, dw) / (omega * EPSILON_0)
 
-""" Index expansion """
-
-import numpy as np
-import scipy.sparse as sp
+""" Index expansion method for constructing sparse derivative matrices e
+    The idea here is to create sparse matrices that can be multiplied by
+    flattened arrays to perform derivative operations.
+    For example if A is of shape (Nx, Ny, Nz), and `a = A.flatten()`
+    then we can find a sparse matrix `D` that when `D @ a` gives the derivative along one axis
+        `*dims` are the dimensions of the original `Nd` matrix.  eg. `dims = Nx, Ny, Nz = 100, 30, 10`
+        `shifts` is a tuple of the shifts applied along each `dim`, ie. `(0, 1, 0)` returns something that shifts `y` axis by `+1`
+"""
 
 def check_args(*dims, shifts=None):
-    """ if shifts is NOne, makes all shifts = 0, checks that shifts is same length as dims """
-    ndim = len(dims)
+    """ checks that `shifts` tuple is ok given the *dims """
+    num_dims = len(dims)
     if shifts is None:
-        shifts = ndim * (0,)
-    assert len(shifts) == ndim
+        # make shifts = (0, 0, 0, ...) for given number of dimensions
+        shifts = num_dims * (0,)
+    else:
+        assert len(shifts) == num_dims
     return shifts
 
 def shift_arange(N, shift=0):
-    """ make an arange 0 to N-1, shifted by shift """
-    a = np.arange(N)
-    return np.roll(a, shift=shift)
+    """ make an `np.arange` of indices from `0` to `N-1`, shifted by `shift` """
+    a = npa.arange(N)
+    return npa.roll(a, shift=shift)
 
 def expand_dims(*dims, shifts=None):
-    """ expands dims = Nx, Ny, ... into several aranges, each with shift[dim] """
+    """ expands `dims` = `Nx`, `Ny`, ... into several `aranges`, each with `shift[dim]` applied """
     shifts = check_args(*dims, shifts=shifts)
-
     dim_ranges = (shift_arange(N, s) for (N, s) in zip(list(dims), shifts))
-
     return dim_ranges
 
 def get_subs(*dims, shifts=None):
-    """ Return tuple of subscipts into each dimension """
-    dim_ranges = expand_dims(*dims, shifts=shifts)
-    subs_exp = np.meshgrid(*dim_ranges, indexing='ij')
-    return (s.flatten() for s in subs_exp)
+    """ Return tuple of subscripts into each dimension """
+    dimension_ranges = expand_dims(*dims, shifts=shifts)
+    subscripts_expanded = npa.meshgrid(*dimension_ranges, indexing='ij')
+    return (sub.flatten() for sub in subscripts_expanded)
 
 def get_inds(*dims, shifts=None):
-    """ Return i and j indices into big array """
-    subs_exp = get_subs(*dims, shifts=shifts)
-    return np.ravel_multi_index(list(subs_exp), dims)
+    """ Return indices into the *flattened* array """
+    subscripts_expanded = get_subs(*dims, shifts=shifts)
+    return npa.ravel_multi_index(list(subscripts_expanded), dims)
 
 def shift_inds(*dims, shifts=None):
-    i = get_inds(*dims, shifts=None)
-    j = get_inds(*dims, shifts=shifts)
-    return i, j
+    """ return row and column indices into *flattened array* """
+    rows = get_inds(*dims, shifts=None)         # rows are unshifted
+    cols = get_inds(*dims, shifts=shifts)       # comlumns are shifted
+    return rows, cols
 
 def shift_mat(*dims, shifts=None):
-    N = np.prod(dims)
+    """ return sparse matrix that performs `shifts` on a flattened version of a `dims` shaped array """
+    N = npa.prod(dims)
     i, j = shift_inds(*dims, shifts=shifts)
-    entries = np.ones_like(i)
-    indices = np.vstack((i, j))
+    entries = npa.ones_like(i)
+    indices = npa.vstack((i, j))
     return sp.coo_matrix((entries, indices), shape=(N, N))
 
 def roll_mat(*dims, shift=0, axis=0):
+    """ return sparse matrix that performs `shift` along one `axis` of a flattened version of a `dims` shaped array """
     shifts = len(dims) * [0]
     shifts[axis] = shift
     return shift_mat(*dims, shifts=shifts)
 
 def der_mat(*dims, axis=0, fb='f'):
-    I = roll_mat(*dims)
+    """ creates sparse derivative matrix that does finite difference (forward 'f' or backward 'b') along one `axis` of a flattened `dims`-shaped array  """
+    identity = roll_mat(*dims)
     if fb == 'f':
-        return roll_mat(*dims, shift=1, axis=axis) - I
+        roll_forward = roll_mat(*dims, shift=1, axis=axis)
+        return roll_forward - identity
     elif fb == 'b':
-        return I - roll_mat(*dims, shift=-1, axis=axis)
+        roll_backward = roll_mat(*dims, shift=-1, axis=axis)
+        return identity - roll_backward
     else:
         raise ValueError(f'fb must be f or b, given {fb}')
 
+def Dnf(*dims, n):
+    """ forward derivative along `axis = n` """
+    return der_mat(*dims, axis=n, fb='f')
+
+def Dnb(*dims, n):
+    """ backward derivative along `axis = n` """
+    return der_mat(*dims, axis=n, fb='b')
+
 def Dxf(*dims):
-    return Der(*dims, axis=0, fb='f')
+    """ forward derivative along first axis """
+    return der_mat(*dims, axis=0, fb='f')
 
 def Dxb(*dims):
-    return Der(*dims, axis=0, fb='b')
+    """ backward derivative along first axis """
+    return der_mat(*dims, axis=0, fb='b')
 
 def Dyf(*dims):
-    return Der(*dims, axis=1, fb='f')
+    """ forward derivative along second axis """
+    return der_mat(*dims, axis=1, fb='f')
 
 def Dyb(*dims):
-    return Der(*dims, axis=1, fb='b')
+    """ backward derivative along second axis """
+    return der_mat(*dims, axis=1, fb='b')
 
 def Dzf(*dims):
-    return Der(*dims, axis=2, fb='f')
+    """ forward derivative along third axis """
+    return der_mat(*dims, axis=2, fb='f')
 
 def Dzb(*dims):
-    return Der(*dims, axis=2, fb='b')
+    """ backward derivative along third axis """
+    return der_mat(*dims, axis=2, fb='b')
+
+def make_derivatives(*dims):
+    num_dims = len(dims)
+    assert num_dims <= 3
+
+    axes = ['x', 'y', 'z'][:num_dims]
+
+    return {f'D{ax}{c}': der_mat(*dims, axis=n, fb=c)
+                for n, ax in enumerate(axes)
+                for c in ('f', 'b')}
