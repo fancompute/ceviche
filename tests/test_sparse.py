@@ -10,7 +10,7 @@ from numpy.testing import assert_allclose
 import sys
 sys.path.append('../ceviche')
 
-from ceviche.sparse import Sparse, Diagonal, from_csr_matrix, diags, convmat_1d
+from ceviche.sparse import Sparse, Diagonal, from_csr_matrix, diags, convmat_1d, convmat_2d
 from ceviche import jacobian
 
 class TestSparse(unittest.TestCase):
@@ -150,6 +150,14 @@ class TestSparse(unittest.TestCase):
         c = convmat_1d(kernel, in_shape) @ inp
         true_c = sps.correlate(inp, kernel, mode='same')
         assert_allclose(c, true_c)
+
+    def test_conv2d(self):
+        in_shape = (5, 6)
+        inp = np.random.rand(in_shape[0], in_shape[1])
+        kernel = np.random.rand(4, 3)
+        c = convmat_2d(kernel, in_shape) @ inp.ravel()
+        true_c = sps.correlate(inp, kernel, mode='same')
+        assert_allclose(c, true_c.ravel())
 
     """ autograd stuff """
 

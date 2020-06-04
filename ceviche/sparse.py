@@ -148,11 +148,12 @@ def diags(diagonals, offsets=0, shape=None):
             row_inds.append(np.arange(Nd) - offsets[dind])
             col_inds.append(np.arange(Nd))
 
-    # Stack arrays and trim things that lie outside the matrix
+    # Stack arrays and trim things that lie outside the matrix and entries equal to 0
     entries = npa.hstack(entries)
     indices = np.vstack((np.hstack(row_inds), np.hstack(col_inds)))
     inds_keep = np.nonzero((indices[0, :] < sp_shape[0]) & 
-                            (indices[1, :] < sp_shape[1]))[0]
+                            (indices[1, :] < sp_shape[1]) &
+                            (entries!=0))[0]
     entries = entries[inds_keep]
     indices = indices[:, inds_keep]
 
@@ -193,6 +194,56 @@ def convmat_1d(kernel, in_shape):
 
     return diags(kernel, offsets, shape)
 
+def convmat_2d(kernel, in_shape):
+    """
+    Note
+    ----
+    In terms of signal processing, this is technically self-correlation. See note 
+    on convmat_1d.
+
+    Parameters
+    ----------
+    kernel : np.ndarray
+        2D array defining the kernel
+    in_shape : tuple of int
+        tuple of length 2 defining the shape of the input
+
+    Returns
+    -------
+    conv2d : Sparse
+        A `Sparse` matrix of shape (N, N) with N = in_shape[0]*in_shape[1]
+        such that `conv2d @ input.ravel()` is the convolution of an `input` array
+        of shape `in_shape` with the 2D `kernel`.
+    """
+
+    Nkx, Nky = kernel.shape
+    Nix, Niy = in_shape
+    Nkxodd, Nkyodd = np.mod(Nkx, 2), np.mod(Nky, 2)
+    Ni = Nix * Niy
+
+    entries, indr, indc = [], [], []
+
+    for ix in range(Nix):
+        for kx in range(-Nkx//2+Nkxodd, Nkx//2+Nkxodd):
+            if 0 <= ix - kx < Nix:
+                K = kernel[kx + Nkx//2, :]
+                offsets = list(range(-Nky//2+Nkyodd, Nky//2+Nkyodd))
+                s = (Niy, Niy)
+                conv1d = diags(K, offsets, s)
+                
+                entries.append(conv1d.entries)
+                ind1 = conv1d.indices[0, :]
+                ind2 = conv1d.indices[1, :]
+                indr.append(ind1 + (ix - kx)*Niy)
+                indc.append(ind2 + ix*Niy)
+
+    entries = npa.hstack(entries)
+    indices = np.vstack((np.hstack(indr), np.hstack(indc)))
+
+    # Sparse matrix shape
+    shape = (Ni, Ni)
+
+    return Sparse(entries, indices, shape)
 
 
 
