@@ -32,6 +32,13 @@ class Sparse:
         """ transpose of self """
         return Sparse(self.entries, npa.roll(self.indices, shift=1, axis=0), self.shape)
 
+    def solve(self, other):
+        """ linear solve """
+        if is_array(other):
+            return sp_solve(self.entries, self.indices, other)
+        else:
+            raise ValueError("can't solve with anything but array-like")
+
     def __neg__(self):
         return Sparse(-self.entries, self.indices, self.shape)
 

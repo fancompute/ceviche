@@ -182,11 +182,13 @@ class TestSparse(unittest.TestCase):
         shape = (102, 101, 100)
         N = np.prod(shape)
         E = Diagonal(np.random.random(N))
+        b = np.random.random(N)
         Dxf = Derivative(shape, axis=0, fb='f')
         Dxb = Derivative(shape, axis=0, fb='b')
         Dyf = Derivative(shape, axis=1, fb='f')
         Dyb = Derivative(shape, axis=1, fb='b')
         A = Dxb @ E @ Dxf + Dyb @ E @ Dyf
+        x = A.solve(b)
 
     """ diags constructor """
 
@@ -354,7 +356,7 @@ class TestSparse(unittest.TestCase):
 
     def test_ag_fdfd(self):
         """ issue with sparse add vjp """
-        shape = Nx, Ny, Nz = (102, 101, 100)
+        shape = Nx, Ny, Nz = (6, 3, 5)
         N = np.prod(shape)
 
         Dxf = Derivative(shape, axis=0, fb='f')
@@ -362,18 +364,19 @@ class TestSparse(unittest.TestCase):
         Dyf = Derivative(shape, axis=1, fb='f')
         Dyb = Derivative(shape, axis=1, fb='b')
 
+        b = np.random.random(N)
         def f(eps_r):
             E = Diagonal(1/eps_r)
             A = Dxb @ E @ Dxf + Dyb @ E @ Dyf
-            return np.abs(np.sum(A.entries))
+            x = A.solve(b)
+            return np.abs(np.sum(x))
 
         import autograd as ag
 
         e = np.random.random(N)
 
-        ag.grad(f)(e)
-        # grad_r = jacobian(f, mode='reverse')(e)
-        # grad_f = jacobian(f, mode='forward')(e)
+        grad_r = jacobian(f, mode='reverse')(e)
+        grad_f = jacobian(f, mode='forward')(e)
 
 
 if __name__ == '__main__':
