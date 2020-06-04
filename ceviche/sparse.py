@@ -4,7 +4,7 @@ import scipy.sparse as sp
 
 from .utils import make_sparse, get_entries_indices, is_array
 from .primitives import spsp_add, sp_mult, spsp_mult, sp_solve
-from .derivatives import der_mat
+from .derivatives import der_mat, shift_mat
 
 class Sparse:
     """ A sparse matrix with arbitrary entries, indices, and shape """
@@ -86,6 +86,31 @@ class Derivative(Sparse):
         entries, indices = get_entries_indices(der_csr)
         N = np.prod(shape)
         super().__init__(entries, indices, shape=(N, N))
+
+class Convolution(Sparse):
+
+    def __init__(self, shape, kernel):
+
+        res_csr = Sparse(entries=np.zeros(0), indices=np.zeros((2, 0)), shape=shape)
+
+        # loop through indices of flattened kernel
+        for k, i in enumerate(kernel.flatten()):
+
+            # get the i,j,k... indices as a tuple
+            k_subs = np.unravel_index(i, kernel.shape)
+
+            # this is the permutation matrix that shifts a vector by k_subs
+            perm_mat = shift_mat(*shape, shift=k_subs)
+
+            # add together with the kernel value as constant in front
+            res_csr = res_csr + k * perm_mat
+
+        # get the entries and indices  of the final array
+        entries, indices = get_entries_indices(res_csr)
+
+        # save as Sparse()
+        super().__init__(entries, indices, shape)
+
 
 def from_csr_matrix(csr_matrix):
     """ Creates `sparse` object from explicit scipy.sparse.csr_matrix """
@@ -169,10 +194,10 @@ def diags(diagonals, offsets=0, shape=None):
     # Stack arrays and trim things that lie outside the matrix and entries equal to 0
     entries = npa.hstack(entries)
     indices = np.vstack((np.hstack(row_inds), np.hstack(col_inds)))
-    inds_keep = np.nonzero((indices[0, :] < sp_shape[0]) & 
+    inds_keep = np.nonzero((indices[0, :] < sp_shape[0]) &
                             (indices[1, :] < sp_shape[1]) &
                             (entries!=0))[0]
-    
+
     entries = entries[inds_keep]
     indices = indices[:, inds_keep]
 
@@ -217,7 +242,7 @@ def convmat_2d(kernel, in_shape):
     """
     Note
     ----
-    In terms of signal processing, this is technically self-correlation. See note 
+    In terms of signal processing, this is technically self-correlation. See note
     on convmat_1d.
 
     Parameters
@@ -249,7 +274,7 @@ def convmat_2d(kernel, in_shape):
                 offsets = list(range(-Nky//2+Nkyodd, Nky//2+Nkyodd))
                 s = (Niy, Niy)
                 conv1d = diags(K, offsets, s)
-                
+
                 entries.append(conv1d.entries)
                 ind1 = conv1d.indices[0, :]
                 ind2 = conv1d.indices[1, :]
