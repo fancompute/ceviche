@@ -83,33 +83,35 @@ def spsp_add(entries_a, indices_a, entries_x, indices_x, shape):
 
 def grad_spsp_add_entries_a_reverse(B, entries_a, indices_a, entries_x, indices_x, shape):
     """ dA is A with entries set to 1. vjp(A + X)(v) = dA^T v """
-    dA = make_sparse(npa.ones_like(entries_a), indices_a, shape=shape)
     def vjp(v):
-        return dA.T @ v[0]
+        _, col_indices_a = indices_a
+        v_entries, _ = v
+        return v_entries[col_indices_a]
     return vjp
 
 def grad_spsp_add_entries_x_reverse(B, entries_a, indices_a, entries_x, indices_x, shape):
     """ dX is X with entries set to 1. vjp(A + X)(v) = dX^T v """
-    dX = make_sparse(npa.ones_like(entries_x), indices_x, shape=shape)
     def vjp(v):
-        return dX.T @ v[0]
+        _, col_indices_x = indices_x
+        v_entries, _ = v
+        return v_entries[col_indices_x]
     return vjp
 
 ag.extend.defvjp(spsp_add, grad_spsp_add_entries_a_reverse, None, grad_spsp_add_entries_x_reverse, None, None)
 
 def grad_spsp_add_entries_a_forward(g, B, entries_a, indices_a, entries_x, indices_x, shape):
     """ returns derivative of entries and indices of (A + X) @ g """
-    dA = make_sparse(npa.ones_like(entries_a), indices_a, shape=shape)
-    d_entries = dA @ g
-    d_indices = npa.zeros((2, d_entries.size))
-    return d_entries, d_indices
+    _, indices_out = B
+    _, rows_out = indices_out
+    new_entries = g[rows_out]
+    return new_entries, indices_out
 
 def grad_spsp_add_entries_x_forward(g, B, entries_a, indices_a, entries_x, indices_x, shape):
     """ returns derivative of entries and indices of (A + X) @ g """
-    dX = make_sparse(npa.ones_like(entries_a), indices_a, shape=shape)
-    d_entries = dX @ g
-    d_indices = npa.zeros((2, d_entries.size))
-    return d_entries, d_indices
+    _, indices_out = B
+    _, rows_out = indices_out
+    new_entries = g[rows_out]
+    return new_entries, indices_out
 
 ag.extend.defjvp(spsp_add, grad_spsp_add_entries_a_forward, None, grad_spsp_add_entries_x_forward, None, None)
 

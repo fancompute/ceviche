@@ -20,7 +20,7 @@ def make_sparse(entries, indices, shape):
       shape: shape of resulting matrix
     Returns:
       sparse, complex, matrix with specified values
-    """  
+    """
     coo = sp.coo_matrix((entries, indices), shape=shape, dtype=npa.complex128)
     return coo.tocsr()
 
@@ -45,7 +45,7 @@ def block_4(A, B, C, D):
     """
     left = sp.vstack([A, C])
     right = sp.vstack([B, D])
-    return sp.hstack([left, right])    
+    return sp.hstack([left, right])
 
 def make_IO_matrices(indices, N):
     """ Makes matrices that relate the sparse matrix entries to their locations in the matrix
@@ -126,7 +126,7 @@ def grad_num(fn, arg, delta=1e-6):
 
 def jac_num(fn, arg, step_size=1e-7):
     """ DEPRICATED: use 'numerical' in jacobians.py instead
-    numerically differentiate `fn` w.r.t. its argument `arg` 
+    numerically differentiate `fn` w.r.t. its argument `arg`
     `arg` can be a numpy array of arbitrary shape
     `step_size` can be a number or an array of the same shape as `arg` """
 
@@ -238,7 +238,6 @@ def get_shape(x):
 def is_array(x):
     """ Checks if x is either a numpy array or an autograd ArrayBox """
     return isinstance(x, np.ndarray) or isinstance(x, npa.numpy_boxes.ArrayBox)
-
 
 def vjp_maker_num(fn, arg_inds, steps):
     """ Makes a vjp_maker for the numerical derivative of a function `fn`
@@ -352,8 +351,8 @@ from numpy.fft import fft, fftfreq
 
 
 @primitive
-def my_fft(x):    
-    """ 
+def my_fft(x):
+    """
     Wrapper for numpy's FFT, so I can add a primitive to it
         FFT(x) is like a DFT matrix (D) dot with x
     """
@@ -361,7 +360,7 @@ def my_fft(x):
 
 
 def fft_grad(g, ans, x):
-    """ 
+    """
     Define the jacobian-vector product of my_fft(x)
         The gradient of FFT times g is the vjp
         ans = fft(x) = D @ x

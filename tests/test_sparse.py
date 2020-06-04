@@ -10,8 +10,10 @@ from numpy.testing import assert_allclose
 import sys
 sys.path.append('../ceviche')
 
-from ceviche.sparse import Sparse, Diagonal, from_csr_matrix, diags, convmat_1d, convmat_2d
+from ceviche.sparse import Sparse, Diagonal, Derivative
+from ceviche.sparse import from_csr_matrix, diags, convmat_1d, convmat_2d
 from ceviche import jacobian
+from ceviche.derivatives import make_derivatives, Dxf, Dxb, Dyf, Dyb, Dzf, Dzb
 
 class TestSparse(unittest.TestCase):
 
@@ -115,6 +117,79 @@ class TestSparse(unittest.TestCase):
         D_ndarray = self.D.A
         assert_allclose(D_ndarray.diagonal(), self.diag_vec)
 
+    """ derivative matrices """
+
+    def test_der(self):
+        shape = (10, 20, 30)
+        Dxf = Derivative(shape, axis=0, fb='f')
+        Dxb = Derivative(shape, axis=0, fb='b')
+        Dyf = Derivative(shape, axis=1, fb='f')
+        Dyb = Derivative(shape, axis=1, fb='b')
+        Dzf = Derivative(shape, axis=2, fb='f')
+        Dzb = Derivative(shape, axis=2, fb='b')
+
+        A = np.random.random(shape)
+
+        def dot(D, A):
+            res_flat = D @ A.flatten()
+            return res_flat.reshape(A.shape)
+
+        A1 = dot(Dxf, A)
+        A2 = np.roll(A, shift=1, axis=0) - A
+        assert_allclose(A1, A2)
+
+        A1 = dot(Dxb, A)
+        A2 = A - np.roll(A, shift=-1, axis=0)
+        assert_allclose(A1, A2)
+
+        A1 = dot(Dyf, A)
+        A2 = np.roll(A, shift=1, axis=1) - A
+        assert_allclose(A1, A2)
+
+        A1 = dot(Dyb, A)
+        A2 = A - np.roll(A, shift=-1, axis=1)
+        assert_allclose(A1, A2)
+
+        A1 = dot(Dzf, A)
+        A2 = np.roll(A, shift=1, axis=2) - A
+        assert_allclose(A1, A2)
+
+        A1 = dot(Dzb, A)
+        A2 = A - np.roll(A, shift=-1, axis=2)
+        assert_allclose(A1, A2)
+
+    def test_make_derivatives(self):
+        shape = (10, 20, 30)
+        Dxf = Derivative(shape, axis=0, fb='f')
+        Dxb = Derivative(shape, axis=0, fb='b')
+        Dyf = Derivative(shape, axis=1, fb='f')
+        Dyb = Derivative(shape, axis=1, fb='b')
+        Dzf = Derivative(shape, axis=2, fb='f')
+        Dzb = Derivative(shape, axis=2, fb='b')
+        d_dict = make_derivatives(*shape)
+
+        def check_same(S, C):
+            return (S - C).csr_matrix.nnz == 0
+
+        assert check_same(Dxf, d_dict['Dxf'])
+        assert check_same(Dxb, d_dict['Dxb'])
+        assert check_same(Dyf, d_dict['Dyf'])
+        assert check_same(Dyb, d_dict['Dyb'])
+        assert check_same(Dzf, d_dict['Dzf'])
+        assert check_same(Dzb, d_dict['Dzb'])
+
+    def test_fdfd(self):
+        shape = (102, 101, 100)
+        N = np.prod(shape)
+        E = Diagonal(np.random.random(N))
+        b = np.random.random(N)
+        Dxf = Derivative(shape, axis=0, fb='f')
+        Dxb = Derivative(shape, axis=0, fb='b')
+        Dyf = Derivative(shape, axis=1, fb='f')
+        Dyb = Derivative(shape, axis=1, fb='b')
+        A = Dxb @ E @ Dxf + Dyb @ E @ Dyf
+        x = A.solve(b)
+
     """ diags constructor """
 
     def test_diags_toeplitz(self):
@@ -139,13 +214,13 @@ class TestSparse(unittest.TestCase):
         in_shape = 6
         inp = np.random.rand(in_shape)
 
-        # Odd-sized kernel 
+        # Odd-sized kernel
         kernel = np.random.rand(3)
         c = convmat_1d(kernel, in_shape) @ inp
         true_c = sps.correlate(inp, kernel, mode='same')
         assert_allclose(c, true_c)
 
-        # Even-sized kernel 
+        # Even-sized kernel
         kernel = np.random.rand(4)
         c = convmat_1d(kernel, in_shape) @ inp
         true_c = sps.correlate(inp, kernel, mode='same')
@@ -241,7 +316,20 @@ class TestSparse(unittest.TestCase):
     def test_ag_add_ndarray(self):
         """ This is not ag compatible and also shouldn't be used in general,
         as it returns a dense ndarray"""
-        pass
+
+        A = np.random.random(self.A_Sparse.shape)
+
+        def f(A):
+            D1 = Diagonal(self.diag_vec)
+            D2 = A
+            D3 = D1 + D2
+            return np.abs(np.sum(D3))
+
+        grad = jacobian(f, mode='reverse')(A)
+        assert_allclose(grad[0,:], np.ones(A.size))
+
+        grad = jacobian(f, mode='forward')(A)
+        assert_allclose(grad[0,:], np.ones(A.size))
 
     """ ag diags constructor """
 
@@ -271,6 +359,37 @@ class TestSparse(unittest.TestCase):
         grad_n = jacobian(f, mode='numerical')(vals)
         assert_allclose(grad_r, grad_n)
         assert_allclose(grad_f, grad_n)
+
+    """ fdfd-like operations """
+
+    def test_ag_fdfd(self):
+        """ test an example construction of FDFD matrix """
+        shape = Nx, Ny, Nz = (6, 3, 5)
+        N = np.prod(shape)
+
+        Dxf = Derivative(shape, axis=0, fb='f')
+        Dxb = Derivative(shape, axis=0, fb='b')
+        Dyf = Derivative(shape, axis=1, fb='f')
+        Dyb = Derivative(shape, axis=1, fb='b')
+
+        b = np.random.random(N)
+        def f(eps_r):
+            E = Diagonal(1/eps_r)
+            # A = Dxb @ E @ Dxf + Dyb @ E @ Dyf
+            A = Dxb @ E
+            x = A.solve(b)
+            return np.abs(np.sum(x))
+
+        import autograd as ag
+
+        e = np.random.random(N)
+
+        grad_r = jacobian(f, mode='reverse')(e)
+        grad_f = jacobian(f, mode='forward')(e)
+        grad_n = jacobian(f, mode='numerical')(e)
+        assert_allclose(grad_r, grad_n)
+        assert_allclose(grad_f, grad_n)
+
 
 if __name__ == '__main__':
     unittest.main()
