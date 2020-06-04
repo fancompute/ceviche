@@ -4,6 +4,7 @@ import scipy.sparse as sp
 
 from .utils import make_sparse, get_entries_indices, is_array
 from .primitives import spsp_add, sp_mult, spsp_mult, sp_solve
+from .derivatives import der_mat
 
 class Sparse:
     """ A sparse matrix with arbitrary entries, indices, and shape """
@@ -70,6 +71,13 @@ class Diagonal(Sparse):
         shape = (N, N)
         indices = np.vstack((np.arange(N), np.arange(N)))
         super().__init__(diag_vector, indices, shape)
+
+class Derivative(Sparse):
+
+    def __init__(self, shape, axis, fb):
+        der_csr = der_mat(*shape, axis=axis, fb=fb)
+        entries, indices = get_entries_indices(der_csr)
+        super().__init__(entries, indices, shape)
 
 def from_csr_matrix(csr_matrix):
     """ Creates `sparse` object from explicit scipy.sparse.csr_matrix """

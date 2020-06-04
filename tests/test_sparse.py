@@ -10,7 +10,8 @@ from numpy.testing import assert_allclose
 import sys
 sys.path.append('../ceviche')
 
-from ceviche.sparse import Sparse, Diagonal, from_csr_matrix, diags, convmat_1d
+from ceviche.sparse import Sparse, Diagonal, Derivative
+from ceviche.sparse import from_csr_matrix, diags, convmat_1d
 from ceviche import jacobian
 
 class TestSparse(unittest.TestCase):
@@ -114,6 +115,47 @@ class TestSparse(unittest.TestCase):
     def test_diag(self):
         D_ndarray = self.D.A
         assert_allclose(D_ndarray.diagonal(), self.diag_vec)
+
+    """ derivative matrices """
+
+    def test_der(self):
+        shape = (10, 20, 30)
+        Dxf = Derivative(shape, axis=0, fb='f')
+        Dxb = Derivative(shape, axis=0, fb='b')
+        Dyf = Derivative(shape, axis=1, fb='f')
+        Dyb = Derivative(shape, axis=1, fb='b')
+        Dzf = Derivative(shape, axis=2, fb='f')
+        Dzb = Derivative(shape, axis=2, fb='b')
+
+        A = np.random.random(shape)
+
+        def dot(D, A):
+            res_flat = D @ A.flatten()
+            return res_flat.reshape(A.shape)
+
+        A1 = dot(Dxf, A)
+        A2 = np.roll(A, shift=1, axis=0) - A
+        assert_allclose(A1, A2)
+
+        A1 = dot(Dxb, A)
+        A2 = A - np.roll(A, shift=-1, axis=0)
+        assert_allclose(A1, A2)
+
+        A1 = dot(Dyf, A)
+        A2 = np.roll(A, shift=1, axis=1) - A
+        assert_allclose(A1, A2)
+
+        A1 = dot(Dyb, A)
+        A2 = A - np.roll(A, shift=-1, axis=1)
+        assert_allclose(A1, A2)
+
+        A1 = dot(Dzf, A)
+        A2 = np.roll(A, shift=1, axis=2) - A
+        assert_allclose(A1, A2)
+
+        A1 = dot(Dzb, A)
+        A2 = A - np.roll(A, shift=-1, axis=2)
+        assert_allclose(A1, A2)
 
     """ diags constructor """
 
@@ -238,17 +280,15 @@ class TestSparse(unittest.TestCase):
 
         def f(A):
             D1 = Diagonal(self.diag_vec)
-            # Gradient only supported w.r.t. first argument of +
             D2 = A
             D3 = D1 + D2
-            v2 = D3 @ v
-            return np.abs(np.sum(v2))
+            return np.abs(np.sum(D3))
 
         grad = jacobian(f, mode='reverse')(A)
-        assert_allclose(grad, np.eye(A.size[0]))
+        assert_allclose(grad[0,:], np.ones(A.size))
 
-        grad = jacobian(f, mode='forward')(self.diag_vec)
-        assert_allclose(grad, np.eye(A.size[0]))
+        grad = jacobian(f, mode='forward')(A)
+        assert_allclose(grad[0,:], np.ones(A.size))
 
     """ ag diags constructor """
 

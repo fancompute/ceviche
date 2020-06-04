@@ -32,7 +32,7 @@ def curl_H(axis, Hx, Hy, Hz, dL):
 """======================= STUFF THAT CONSTRUCTS THE DERIVATIVE MATRIX ==========================="""
 
 def compute_derivative_matrices(omega, shape, npml, dL, bloch_x=0.0, bloch_y=0.0):
-    """ Returns sparse derivative matrices.  Currently works for 2D and 1D 
+    """ Returns sparse derivative matrices.  Currently works for 2D and 1D
             omega: angular frequency (rad/sec)
             shape: shape of the FDFD grid
             npml: list of number of PML cells in x and y.
@@ -70,7 +70,7 @@ def createDws(component, dir, shape, dL, bloch_x=0.0, bloch_y=0.0):
             block_y: bloch phase (phase across periodic boundary) in y
     """
 
-    Nx, Ny = shape    
+    Nx, Ny = shape
 
     # special case, a 1D problem
     if component == 'x' and Nx == 1:
@@ -134,7 +134,7 @@ def create_S_matrices(omega, shape, npml, dL):
     N = Nx * Ny
     x_range = [0, float(dL * Nx)]
     y_range = [0, float(dL * Ny)]
-    Nx_pml, Ny_pml = npml    
+    Nx_pml, Ny_pml = npml
 
     # Create the sfactor in each direction and for 'f' and 'b'
     s_vector_x_f = create_sfactor('f', omega, dL, Nx, Nx_pml)
@@ -214,3 +214,84 @@ def sig_w(l, dw, m=3, lnR=-30):
 def s_value(l, dw, omega):
     """ S-value to use in the S-matrices """
     return 1 - 1j * sig_w(l, dw) / (omega * EPSILON_0)
+
+""" Index expansion """
+
+import numpy as np
+import scipy.sparse as sp
+
+def check_args(*dims, shifts=None):
+    """ if shifts is NOne, makes all shifts = 0, checks that shifts is same length as dims """
+    ndim = len(dims)
+    if shifts is None:
+        shifts = ndim * (0,)
+    assert len(shifts) == ndim
+    return shifts
+
+def shift_arange(N, shift=0):
+    """ make an arange 0 to N-1, shifted by shift """
+    a = np.arange(N)
+    return np.roll(a, shift=shift)
+
+def expand_dims(*dims, shifts=None):
+    """ expands dims = Nx, Ny, ... into several aranges, each with shift[dim] """
+    shifts = check_args(*dims, shifts=shifts)
+
+    dim_ranges = (shift_arange(N, s) for (N, s) in zip(list(dims), shifts))
+
+    return dim_ranges
+
+def get_subs(*dims, shifts=None):
+    """ Return tuple of subscipts into each dimension """
+    dim_ranges = expand_dims(*dims, shifts=shifts)
+    subs_exp = np.meshgrid(*dim_ranges, indexing='ij')
+    return (s.flatten() for s in subs_exp)
+
+def get_inds(*dims, shifts=None):
+    """ Return i and j indices into big array """
+    subs_exp = get_subs(*dims, shifts=shifts)
+    return np.ravel_multi_index(list(subs_exp), dims)
+
+def shift_inds(*dims, shifts=None):
+    i = get_inds(*dims, shifts=None)
+    j = get_inds(*dims, shifts=shifts)
+    return i, j
+
+def shift_mat(*dims, shifts=None):
+    N = np.prod(dims)
+    i, j = shift_inds(*dims, shifts=shifts)
+    entries = np.ones_like(i)
+    indices = np.vstack((i, j))
+    return sp.coo_matrix((entries, indices), shape=(N, N))
+
+def roll_mat(*dims, shift=0, axis=0):
+    shifts = len(dims) * [0]
+    shifts[axis] = shift
+    return shift_mat(*dims, shifts=shifts)
+
+def der_mat(*dims, axis=0, fb='f'):
+    I = roll_mat(*dims)
+    if fb == 'f':
+        return roll_mat(*dims, shift=1, axis=axis) - I
+    elif fb == 'b':
+        return I - roll_mat(*dims, shift=-1, axis=axis)
+    else:
+        raise ValueError(f'fb must be f or b, given {fb}')
+
+def Dxf(*dims):
+    return Der(*dims, axis=0, fb='f')
+
+def Dxb(*dims):
+    return Der(*dims, axis=0, fb='b')
+
+def Dyf(*dims):
+    return Der(*dims, axis=1, fb='f')
+
+def Dyb(*dims):
+    return Der(*dims, axis=1, fb='b')
+
+def Dzf(*dims):
+    return Der(*dims, axis=2, fb='f')
+
+def Dzb(*dims):
+    return Der(*dims, axis=2, fb='b')
