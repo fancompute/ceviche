@@ -191,6 +191,123 @@ class fdfd_ez(fdfd):
         Hx_vec, Hy_vec = self._Ez_to_Hx_Hy(Ez_vec)
         return Hx_vec, Hy_vec, Ez_vec
 
+
+class fdfd_mf_ez(fdfd):
+    """ FDFD class for multifrequency linear Ez polarization """
+
+    def __init__(self, omega, dL, eps_r, Omega, delta, phi, Nsb, npml, bloch_phases=None):
+        super().__init__(omega, dL, eps_r, npml, bloch_phases=bloch_phases)
+        self.Omega = Omega
+        self.delta = delta
+        self.phi = phi
+        self.Nsb = Nsb
+
+    @property
+    def delta(self):
+        """ Returns the relative permittivity grid """
+        return self._delta
+
+    @property
+    def phi(self):
+        """ Returns the relative permittivity grid """
+        return self._phi
+
+    @delta.setter
+    def delta(self, new_delta):
+        """ Defines some attributes when delta is set. """
+        self._delta = new_delta
+
+    @phi.setter
+    def phi(self, new_phi):
+        """ Defines some attributes when [hi] is set. """
+        self._phi = new_phi
+
+    def solve(self, source_z):
+        """ Outward facing function (what gets called by user) that takes a source grid and returns the field components """
+        # flatten the permittivity and source grid
+        source_vec = self._grid_to_vec(source_z)
+        eps_vec = self._grid_to_vec(self.eps_r)
+        Nfreq = npa.shape(self.delta)[0]
+        delta_matrix = self.delta.reshape([Nfreq, npa.prod(self.shape)])
+        phi_matrix = self.phi.reshape([Nfreq, npa.prod(self.shape)])
+        # create the A matrix for this polarization
+        entries_a, indices_a = self._make_A(eps_vec, delta_matrix, phi_matrix)
+
+        # solve field componets usng A and the source
+        Fx_vec, Fy_vec, Fz_vec = self._solve_fn(eps_vec, entries_a, indices_a, source_vec)
+
+        # put all field components into a tuple, convert to grid shape and return them all
+        Fx = self._vec_to_grid(Fx_vec)
+        Fy = self._vec_to_grid(Fy_vec)
+        Fz = self._vec_to_grid(Fz_vec)
+
+        return Fx, Fy, Fz
+
+    def _make_A(self, eps_vec, delta_matrix, phi_matrix):
+
+        M = 2*self.Nsb + 1
+        N = self.Nx * self.Ny
+        W = self.omega + npa.arange(-self.Nsb,self.Nsb+1)*self.Omega
+
+        C = sp.kron(sp.eye(M), - 1 / MU_0 * self.Dxf.dot(self.Dxb) - 1 / MU_0 * self.Dyf.dot(self.Dyb))
+        entries_c, indices_c = get_entries_indices(C)
+
+        # indices into the diagonal of a sparse matrix 
+        D = - EPSILON_0 * sp.kron(sp.spdiags(W**2,[0],M,M), sp.spdiags(eps_vec,[0],N,N))
+        entries_diag, indices_diag = get_entries_indices(D)
+
+        entries_a = npa.hstack((entries_diag, entries_c))
+        indices_a = npa.hstack((indices_diag, indices_c))
+
+        Nfreq = npa.shape(delta_matrix)[0]
+        for k in npa.arange(Nfreq):
+            delta_diag_p = - EPSILON_0 * sp.spdiags(delta_matrix[k,:] * npa.exp(1j*phi_matrix[k,:]), [0], N, N)
+            delta_diag_m = - EPSILON_0 * sp.spdiags(delta_matrix[k,:] * npa.exp(-1j*phi_matrix[k,:]), [0], N, N)
+            Z = sp.kron(sp.spdiags(0.5*npa.concatenate([ [0], W[:-(k+1)] ])**2,[k+1],M,M), delta_diag_p)
+            entries_z, indices_z = get_entries_indices(Z)
+            entries_a = npa.hstack((entries_z, entries_a))
+            indices_a = npa.hstack((indices_z,indices_a))
+            Z = sp.kron(sp.spdiags(0.5*npa.concatenate([ W[k+1:], [0] ])**2,[-(k+1)],M,M), delta_diag_m)
+            entries_z, indices_z = get_entries_indices(Z)
+            entries_a = npa.hstack((entries_z, entries_a))
+            indices_a = npa.hstack((indices_z,indices_a))
+
+        return entries_a, indices_a
+
+    def _solve_fn(self, eps_vec, entries_a, indices_a, Jz_vec):
+        M = 2*self.Nsb + 1
+        N = self.Nx * self.Ny
+        W = self.omega + npa.arange(-self.Nsb,self.Nsb+1)*self.Omega 
+        P = sp.kron(sp.spdiags(W,[0],M,M), sp.eye(N))
+        entries_p, indices_p = get_entries_indices(P)
+        b_vec = 1j * sp_mult(entries_p,indices_p,Jz_vec)
+        Ez_vec = sp_solve(entries_a, indices_a, b_vec)
+        Hx_vec, Hy_vec = self._Ez_to_Hx_Hy(Ez_vec)
+        return Hx_vec, Hy_vec, Ez_vec
+
+    def _Ez_to_Hx(self, Ez_vec):
+        M = 2*self.Nsb + 1
+        Winv = npa.reciprocal(self.omega + npa.arange(-self.Nsb,self.Nsb+1)*self.Omega)
+        Dyb_mf = sp.kron(sp.spdiags(Winv,[0],M,M), self.Dyb)
+        entries_Dyb_mf, indices_Dyb_mf = get_entries_indices(Dyb_mf)
+        return -1 / 1j / MU_0 * sp_mult(entries_Dyb_mf, indices_Dyb_mf, Ez_vec)
+
+    def _Ez_to_Hy(self, Ez_vec):
+        M = 2*self.Nsb + 1
+        Winv = npa.reciprocal(self.omega + npa.arange(-self.Nsb,self.Nsb+1)*self.Omega)
+        Dxb_mf = sp.kron(sp.spdiags(Winv,[0],M,M), self.Dxb)
+        entries_Dxb_mf, indices_Dxb_mf = get_entries_indices(Dxb_mf)
+        return  1 / 1j / MU_0 * sp_mult(entries_Dxb_mf, indices_Dxb_mf, Ez_vec)
+
+    def _Ez_to_Hx_Hy(self, Ez_vec):
+        Hx_vec = self._Ez_to_Hx(Ez_vec)
+        Hy_vec = self._Ez_to_Hy(Ez_vec)
+        return Hx_vec, Hy_vec
+
+    def _vec_to_grid(self, vec):
+        grid_shape = (2*self.Nsb + 1, self.Nx, self.Ny)
+        return npa.reshape(vec, grid_shape)
+
 class fdfd_hz(fdfd):
     """ FDFD class for linear Ez polarization """
 
