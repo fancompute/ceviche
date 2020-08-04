@@ -25,7 +25,7 @@ ALLOWED_RATIO = 1e-4    # maximum allowed ratio of || grad_num - grad_auto || vs
 VERBOSE = False         # print out full gradients?
 DEPS = 1e-6             # numerical gradient step size
 
-print("Testing the Multi-frequency Linear FDFD gradients")
+print("Testing the Multi-frequency Linear FDFD Ez gradients")
 
 class TestFDFD(unittest.TestCase):
 
