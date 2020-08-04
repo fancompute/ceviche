@@ -239,6 +239,7 @@ class fdfd_mf_ez(fdfd):
         entries_c, indices_c = get_entries_indices(C)
 
         # diagonal entries representing static refractive index
+        # this part is just a block diagonal version of the single frequency fdfd_ez
         entries_diag = - EPSILON_0 * npa.kron(W**2, eps_vec)
         indices_diag = npa.vstack((npa.arange(M*N), npa.arange(M*N)))
 
@@ -246,6 +247,7 @@ class fdfd_mf_ez(fdfd):
         indices_a = npa.hstack((indices_diag, indices_c))
 
         # off-diagonal entries representing dynamic modulation
+        # this part couples different frequencies due to modulation
         # for a derivation of these entries, see Y. Shi, W. Shin, and S. Fan. Optica 3(11), 2016.
         Nfreq = npa.shape(delta_matrix)[0]
         for k in npa.arange(Nfreq):
@@ -265,6 +267,7 @@ class fdfd_mf_ez(fdfd):
         return entries_a, indices_a
 
     def _solve_fn(self, eps_vec, entries_a, indices_a, Jz_vec):
+        """ Multi-frequency version of _solve_fn() defined in fdfd_ez """
         M = 2*self.Nsb + 1
         N = self.Nx * self.Ny
         W = self.omega + npa.arange(-self.Nsb,self.Nsb+1)*self.omega_mod 
@@ -276,6 +279,7 @@ class fdfd_mf_ez(fdfd):
         return Hx_vec, Hy_vec, Ez_vec
 
     def _Ez_to_Hx(self, Ez_vec):
+        """ Multi-frequency version of _Ez_to_Hx() defined in fdfd """
         M = 2*self.Nsb + 1
         Winv = npa.reciprocal(self.omega + npa.arange(-self.Nsb,self.Nsb+1)*self.omega_mod)
         Dyb_mf = sp.kron(sp.spdiags(Winv,[0],M,M), self.Dyb)
@@ -283,6 +287,7 @@ class fdfd_mf_ez(fdfd):
         return -1 / 1j / MU_0 * sp_mult(entries_Dyb_mf, indices_Dyb_mf, Ez_vec)
 
     def _Ez_to_Hy(self, Ez_vec):
+        """ Multi-frequency version of _Ez_to_Hy() defined in fdfd """
         M = 2*self.Nsb + 1
         Winv = npa.reciprocal(self.omega + npa.arange(-self.Nsb,self.Nsb+1)*self.omega_mod)
         Dxb_mf = sp.kron(sp.spdiags(Winv,[0],M,M), self.Dxb)
@@ -290,11 +295,14 @@ class fdfd_mf_ez(fdfd):
         return  1 / 1j / MU_0 * sp_mult(entries_Dxb_mf, indices_Dxb_mf, Ez_vec)
 
     def _Ez_to_Hx_Hy(self, Ez_vec):
+        """ Multi-frequency version of _Ez_to_Hx_Hy() defined in fdfd """
         Hx_vec = self._Ez_to_Hx(Ez_vec)
         Hy_vec = self._Ez_to_Hy(Ez_vec)
         return Hx_vec, Hy_vec
 
     def _vec_to_grid(self, vec):
+        """ Multi-frequency version of _vec_to_grid() defined in fdfd """
+        # grid shape has Nx*Ny cells per frequency sideband
         grid_shape = (2*self.Nsb + 1, self.Nx, self.Ny)
         return npa.reshape(vec, grid_shape)
 
