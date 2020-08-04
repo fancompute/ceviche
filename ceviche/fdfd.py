@@ -281,7 +281,7 @@ class fdfd_mf_ez(fdfd):
     def _Ez_to_Hx(self, Ez_vec):
         """ Multi-frequency version of _Ez_to_Hx() defined in fdfd """
         M = 2*self.Nsb + 1
-        Winv = npa.reciprocal(self.omega + npa.arange(-self.Nsb,self.Nsb+1)*self.omega_mod)
+        Winv = 1/(self.omega + npa.arange(-self.Nsb,self.Nsb+1)*self.omega_mod)
         Dyb_mf = sp.kron(sp.spdiags(Winv,[0],M,M), self.Dyb)
         entries_Dyb_mf, indices_Dyb_mf = get_entries_indices(Dyb_mf)
         return -1 / 1j / MU_0 * sp_mult(entries_Dyb_mf, indices_Dyb_mf, Ez_vec)
@@ -289,7 +289,7 @@ class fdfd_mf_ez(fdfd):
     def _Ez_to_Hy(self, Ez_vec):
         """ Multi-frequency version of _Ez_to_Hy() defined in fdfd """
         M = 2*self.Nsb + 1
-        Winv = npa.reciprocal(self.omega + npa.arange(-self.Nsb,self.Nsb+1)*self.omega_mod)
+        Winv = 1/(self.omega + npa.arange(-self.Nsb,self.Nsb+1)*self.omega_mod)
         Dxb_mf = sp.kron(sp.spdiags(Winv,[0],M,M), self.Dxb)
         entries_Dxb_mf, indices_Dxb_mf = get_entries_indices(Dxb_mf)
         return  1 / 1j / MU_0 * sp_mult(entries_Dxb_mf, indices_Dxb_mf, Ez_vec)
