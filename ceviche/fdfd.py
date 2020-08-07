@@ -243,6 +243,121 @@ class fdfd_hz(fdfd):
 
         return Ex_vec, Ey_vec, Hz_vec
 
+
+class fdfd_mf_ez(fdfd):
+    """ FDFD class for multifrequency linear Ez polarization. New variables:
+            omega_mod: angular frequency of modulation (rad/s)
+            delta: array of shape (Nfreq, Nx, Ny) containing pointwise modulation depth for each modulation harmonic (1,...,Nfreq)
+            phi: array of same shape as delta containing pointwise modulation phase for each modulation harmonic
+            Nsb: number of numerical sidebands to consider when solving for fields. 
+            This is not the same as the number of modulation frequencies Nfreq. For physically meaningful results, Nsb >= Nfreq. 
+    """
+
+    def __init__(self, omega, dL, eps_r, omega_mod, delta, phi, Nsb, npml, bloch_phases=None):
+        super().__init__(omega, dL, eps_r, npml, bloch_phases=bloch_phases)
+        self.omega_mod = omega_mod
+        self.delta = delta
+        self.phi = phi
+        self.Nsb = Nsb
+
+    def solve(self, source_z):
+        """ Outward facing function (what gets called by user) that takes a source grid and returns the field components """
+        # flatten the permittivity and source grid
+        source_vec = self._grid_to_vec(source_z)
+        eps_vec = self._grid_to_vec(self.eps_r)
+        Nfreq = npa.shape(self.delta)[0]
+        delta_matrix = self.delta.reshape([Nfreq, npa.prod(self.shape)])
+        phi_matrix = self.phi.reshape([Nfreq, npa.prod(self.shape)])
+        # create the A matrix for this polarization
+        entries_a, indices_a = self._make_A(eps_vec, delta_matrix, phi_matrix)
+
+        # solve field componets usng A and the source
+        Fx_vec, Fy_vec, Fz_vec = self._solve_fn(eps_vec, entries_a, indices_a, source_vec)
+
+        # put all field components into a tuple, convert to grid shape and return them all
+        Fx = self._vec_to_grid(Fx_vec)
+        Fy = self._vec_to_grid(Fy_vec)
+        Fz = self._vec_to_grid(Fz_vec)
+
+        return Fx, Fy, Fz
+
+    def _make_A(self, eps_vec, delta_matrix, phi_matrix):
+        """ Builds the multi-frequency electromagnetic operator A in Ax = b """
+        M = 2*self.Nsb + 1
+        N = self.Nx * self.Ny
+        W = self.omega + npa.arange(-self.Nsb,self.Nsb+1)*self.omega_mod
+
+        C = sp.kron(sp.eye(M), - 1 / MU_0 * self.Dxf.dot(self.Dxb) - 1 / MU_0 * self.Dyf.dot(self.Dyb))
+        entries_c, indices_c = get_entries_indices(C)
+
+        # diagonal entries representing static refractive index
+        # this part is just a block diagonal version of the single frequency fdfd_ez
+        entries_diag = - EPSILON_0 * npa.kron(W**2, eps_vec)
+        indices_diag = npa.vstack((npa.arange(M*N), npa.arange(M*N)))
+
+        entries_a = npa.hstack((entries_diag, entries_c))
+        indices_a = npa.hstack((indices_diag, indices_c))
+
+        # off-diagonal entries representing dynamic modulation
+        # this part couples different frequencies due to modulation
+        # for a derivation of these entries, see Y. Shi, W. Shin, and S. Fan. Optica 3(11), 2016.
+        Nfreq = npa.shape(delta_matrix)[0]
+        for k in npa.arange(Nfreq):
+            # super-diagonal entries (note the +1j phase)
+            mod_p = - 0.5 * EPSILON_0 * delta_matrix[k,:] * npa.exp(1j*phi_matrix[k,:])
+            entries_p = npa.kron(W[:-k-1]**2, mod_p)
+            indices_p = npa.vstack((npa.arange((M-k-1)*N), npa.arange((k+1)*N, M*N)))
+            entries_a = npa.hstack((entries_p, entries_a))
+            indices_a = npa.hstack((indices_p,indices_a))
+            # sub-diagonal entries (note the -1j phase)
+            mod_m = - 0.5 * EPSILON_0 * delta_matrix[k,:] * npa.exp(-1j*phi_matrix[k,:]) 
+            entries_m = npa.kron(W[k+1:]**2, mod_m)
+            indices_m = npa.vstack((npa.arange((k+1)*N, M*N), npa.arange((M-k-1)*N)))
+            entries_a = npa.hstack((entries_m, entries_a))
+            indices_a = npa.hstack((indices_m,indices_a))
+
+        return entries_a, indices_a
+
+    def _solve_fn(self, eps_vec, entries_a, indices_a, Jz_vec):
+        """ Multi-frequency version of _solve_fn() defined in fdfd_ez """
+        M = 2*self.Nsb + 1
+        N = self.Nx * self.Ny
+        W = self.omega + npa.arange(-self.Nsb,self.Nsb+1)*self.omega_mod 
+        P = sp.kron(sp.spdiags(W,[0],M,M), sp.eye(N))
+        entries_p, indices_p = get_entries_indices(P)
+        b_vec = 1j * sp_mult(entries_p,indices_p,Jz_vec)
+        Ez_vec = sp_solve(entries_a, indices_a, b_vec)
+        Hx_vec, Hy_vec = self._Ez_to_Hx_Hy(Ez_vec)
+        return Hx_vec, Hy_vec, Ez_vec
+
+    def _Ez_to_Hx(self, Ez_vec):
+        """ Multi-frequency version of _Ez_to_Hx() defined in fdfd """
+        M = 2*self.Nsb + 1
+        Winv = 1/(self.omega + npa.arange(-self.Nsb,self.Nsb+1)*self.omega_mod)
+        Dyb_mf = sp.kron(sp.spdiags(Winv,[0],M,M), self.Dyb)
+        entries_Dyb_mf, indices_Dyb_mf = get_entries_indices(Dyb_mf)
+        return -1 / 1j / MU_0 * sp_mult(entries_Dyb_mf, indices_Dyb_mf, Ez_vec)
+
+    def _Ez_to_Hy(self, Ez_vec):
+        """ Multi-frequency version of _Ez_to_Hy() defined in fdfd """
+        M = 2*self.Nsb + 1
+        Winv = 1/(self.omega + npa.arange(-self.Nsb,self.Nsb+1)*self.omega_mod)
+        Dxb_mf = sp.kron(sp.spdiags(Winv,[0],M,M), self.Dxb)
+        entries_Dxb_mf, indices_Dxb_mf = get_entries_indices(Dxb_mf)
+        return  1 / 1j / MU_0 * sp_mult(entries_Dxb_mf, indices_Dxb_mf, Ez_vec)
+
+    def _Ez_to_Hx_Hy(self, Ez_vec):
+        """ Multi-frequency version of _Ez_to_Hx_Hy() defined in fdfd """
+        Hx_vec = self._Ez_to_Hx(Ez_vec)
+        Hy_vec = self._Ez_to_Hy(Ez_vec)
+        return Hx_vec, Hy_vec
+
+    def _vec_to_grid(self, vec):
+        """ Multi-frequency version of _vec_to_grid() defined in fdfd """
+        # grid shape has Nx*Ny cells per frequency sideband
+        grid_shape = (2*self.Nsb + 1, self.Nx, self.Ny)
+        return npa.reshape(vec, grid_shape)
+
 class fdfd_3d(fdfd):
     """ 3D FDFD class (work in progress) """
 

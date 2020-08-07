@@ -7,5 +7,6 @@ echo "testing all gradient checkers in $TEST_DIR"
 
 # runs all of the gradient specific tests
 python $TEST_DIR/test_gradients_fdfd.py
+python $TEST_DIR/test_gradients_fdfd_mf.py
 python $TEST_DIR/test_gradients_fdtd.py
 python $TEST_DIR/test_primitives.py
