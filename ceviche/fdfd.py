@@ -191,6 +191,58 @@ class fdfd_ez(fdfd):
         Hx_vec, Hy_vec = self._Ez_to_Hx_Hy(Ez_vec)
         return Hx_vec, Hy_vec, Ez_vec
 
+class fdfd_hz(fdfd):
+    """ FDFD class for linear Ez polarization """
+
+    def __init__(self, omega, dL, eps_r, npml, bloch_phases=None):
+        super().__init__(omega, dL, eps_r, npml, bloch_phases=bloch_phases)
+
+    def _grid_average_2d(self, eps_vec):
+
+        eps_grid = self._vec_to_grid(eps_vec)
+        eps_grid_xx = 1 / 2 * (eps_grid + npa.roll(eps_grid, axis=1, shift=1))
+        eps_grid_yy = 1 / 2 * (eps_grid + npa.roll(eps_grid, axis=0, shift=1))
+        eps_vec_xx = self._grid_to_vec(eps_grid_xx)
+        eps_vec_yy = self._grid_to_vec(eps_grid_yy)
+        eps_vec_xx = eps_vec_xx
+        eps_vec_yy = eps_vec_yy
+        return eps_vec_xx, eps_vec_yy
+
+    def _make_A(self, eps_vec):
+
+        eps_vec_xx, eps_vec_yy = self._grid_average_2d(eps_vec)
+        eps_vec_xx_inv = 1 / (eps_vec_xx + 1e-5)  # the 1e-5 is for numerical stability
+        eps_vec_yy_inv = 1 / (eps_vec_yy + 1e-5)  # autograd throws 'divide by zero' errors.
+
+        indices_diag = npa.vstack((npa.arange(self.N), npa.arange(self.N)))
+
+        entries_DxEpsy,   indices_DxEpsy   = spsp_mult(self.entries_Dxb, self.indices_Dxb, eps_vec_yy_inv, indices_diag, self.N)
+        entires_DxEpsyDx, indices_DxEpsyDx = spsp_mult(entries_DxEpsy, indices_DxEpsy, self.entries_Dxf, self.indices_Dxf, self.N)
+
+        entries_DyEpsx,   indices_DyEpsx   = spsp_mult(self.entries_Dyb, self.indices_Dyb, eps_vec_xx_inv, indices_diag, self.N)
+        entires_DyEpsxDy, indices_DyEpsxDy = spsp_mult(entries_DyEpsx, indices_DyEpsx, self.entries_Dyf, self.indices_Dyf, self.N)
+
+        entries_d = 1 / EPSILON_0 * npa.hstack((entires_DxEpsyDx, entires_DyEpsxDy))
+        indices_d = npa.hstack((indices_DxEpsyDx, indices_DyEpsxDy))
+
+        entries_diag = MU_0 * self.omega**2 * npa.ones(self.N)
+
+        entries_a = npa.hstack((entries_d, entries_diag))
+        indices_a = npa.hstack((indices_d, indices_diag))
+
+        return entries_a, indices_a
+
+    def _solve_fn(self, eps_vec, entries_a, indices_a, Mz_vec):
+
+        b_vec = 1j * self.omega * Mz_vec          # needed so fields are SI units
+        Hz_vec = sp_solve(entries_a, indices_a, b_vec)
+        eps_vec_xx, eps_vec_yy = self._grid_average_2d(eps_vec)
+
+        # strip out the x and y components of E and find the Hz component
+        Ex_vec, Ey_vec = self._Hz_to_Ex_Ey(Hz_vec, eps_vec_xx, eps_vec_yy)
+
+        return Ex_vec, Ey_vec, Hz_vec
+
 
 class fdfd_mf_ez(fdfd):
     """ FDFD class for multifrequency linear Ez polarization. New variables:
@@ -305,58 +357,6 @@ class fdfd_mf_ez(fdfd):
         # grid shape has Nx*Ny cells per frequency sideband
         grid_shape = (2*self.Nsb + 1, self.Nx, self.Ny)
         return npa.reshape(vec, grid_shape)
-
-class fdfd_hz(fdfd):
-    """ FDFD class for linear Ez polarization """
-
-    def __init__(self, omega, dL, eps_r, npml, bloch_phases=None):
-        super().__init__(omega, dL, eps_r, npml, bloch_phases=bloch_phases)
-
-    def _grid_average_2d(self, eps_vec):
-
-        eps_grid = self._vec_to_grid(eps_vec)
-        eps_grid_xx = 1 / 2 * (eps_grid + npa.roll(eps_grid, axis=1, shift=1))
-        eps_grid_yy = 1 / 2 * (eps_grid + npa.roll(eps_grid, axis=0, shift=1))
-        eps_vec_xx = self._grid_to_vec(eps_grid_xx)
-        eps_vec_yy = self._grid_to_vec(eps_grid_yy)
-        eps_vec_xx = eps_vec_xx
-        eps_vec_yy = eps_vec_yy
-        return eps_vec_xx, eps_vec_yy
-
-    def _make_A(self, eps_vec):
-
-        eps_vec_xx, eps_vec_yy = self._grid_average_2d(eps_vec)
-        eps_vec_xx_inv = 1 / (eps_vec_xx + 1e-5)  # the 1e-5 is for numerical stability
-        eps_vec_yy_inv = 1 / (eps_vec_yy + 1e-5)  # autograd throws 'divide by zero' errors.
-
-        indices_diag = npa.vstack((npa.arange(self.N), npa.arange(self.N)))
-
-        entries_DxEpsy,   indices_DxEpsy   = spsp_mult(self.entries_Dxb, self.indices_Dxb, eps_vec_yy_inv, indices_diag, self.N)
-        entires_DxEpsyDx, indices_DxEpsyDx = spsp_mult(entries_DxEpsy, indices_DxEpsy, self.entries_Dxf, self.indices_Dxf, self.N)
-
-        entries_DyEpsx,   indices_DyEpsx   = spsp_mult(self.entries_Dyb, self.indices_Dyb, eps_vec_xx_inv, indices_diag, self.N)
-        entires_DyEpsxDy, indices_DyEpsxDy = spsp_mult(entries_DyEpsx, indices_DyEpsx, self.entries_Dyf, self.indices_Dyf, self.N)
-
-        entries_d = 1 / EPSILON_0 * npa.hstack((entires_DxEpsyDx, entires_DyEpsxDy))
-        indices_d = npa.hstack((indices_DxEpsyDx, indices_DyEpsxDy))
-
-        entries_diag = MU_0 * self.omega**2 * npa.ones(self.N)
-
-        entries_a = npa.hstack((entries_d, entries_diag))
-        indices_a = npa.hstack((indices_d, indices_diag))
-
-        return entries_a, indices_a
-
-    def _solve_fn(self, eps_vec, entries_a, indices_a, Mz_vec):
-
-        b_vec = 1j * self.omega * Mz_vec          # needed so fields are SI units
-        Hz_vec = sp_solve(entries_a, indices_a, b_vec)
-        eps_vec_xx, eps_vec_yy = self._grid_average_2d(eps_vec)
-
-        # strip out the x and y components of E and find the Hz component
-        Ex_vec, Ey_vec = self._Hz_to_Ex_Ey(Hz_vec, eps_vec_xx, eps_vec_yy)
-
-        return Ex_vec, Ey_vec, Hz_vec
 
 class fdfd_3d(fdfd):
     """ 3D FDFD class (work in progress) """

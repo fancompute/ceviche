@@ -80,12 +80,12 @@ class TestFDFD(unittest.TestCase):
             eps_r = params[:self.N].reshape((self.Nx, self.Ny))
             delta = params[self.N:(self.Nfreq+1)*self.N].reshape((self.Nfreq, self.Nx, self.Ny))
             phi = params[(self.Nfreq+1)*self.N:].reshape((self.Nfreq, self.Nx, self.Ny))
-            # set the permittivity
+            # set the permittivity, modulation depth, and modulation phase
             f.eps_r = eps_r
             f.delta = delta
             f.phi = phi
             # set the source amplitude to the permittivity at that point
-            Hx, Hy, Ez = f.solve(eps_r * self.source_ez)
+            Hx, Hy, Ez = f.solve((eps_r + npa.sum(delta*npa.exp(1j*phi),axis=0))* self.source_ez)
 
             return npa.sum(npa.square(npa.abs(Ez))) \
                  + npa.sum(npa.square(npa.abs(Hx))) \
@@ -110,9 +110,10 @@ class TestFDFD(unittest.TestCase):
 
         def J_fdfd(c):
 
-            # set the permittivity
+            # set the permittivity, modulation depth, and modulation phase
             f.eps_r = c * self.eps_r
-
+            f.delta = c * self.delta
+            f.phi = c * self.phi
             # set the source amplitude to the permittivity at that point
             Hx, Hy, Ez = f.solve(c * self.eps_r * self.source_ez)
 
