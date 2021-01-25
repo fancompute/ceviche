@@ -11,7 +11,7 @@ def real(val, outline=None, ax=None, cbar=False, cmap='RdBu', outline_alpha=0.5)
         fig, ax = plt.subplots(1, 1, constrained_layout=True)
     
     vmax = np.abs(val).max()
-    h = ax.imshow(np.real(val.T), cmap=cmap, origin='lower left', vmin=-vmax, vmax=vmax)
+    h = ax.imshow(np.real(val.T), cmap=cmap, origin='lower', vmin=-vmax, vmax=vmax)
     
     if outline is not None:
         ax.contour(outline.T, 0, colors='k', alpha=outline_alpha)
