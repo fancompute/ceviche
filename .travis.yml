@@ -1,8 +1,7 @@
 sudo: false
 language: python
-python: 3.7
+python: 3.7.13
 install:
-  pip install -U importlib-metadata
   pip install --quiet -r requirements.txt
 script:
   python -m unittest discover tests
