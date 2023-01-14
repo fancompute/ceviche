@@ -6,6 +6,7 @@ with open('README.md', 'r') as f:
     readme = f.read()
 
 dependencies = [
+        'importlib-metadata > 4',
         'numpy>=1.16.2',
         'scipy>=1.2.1',
         'matplotlib>=3.0.3',
