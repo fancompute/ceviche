@@ -57,7 +57,7 @@ def insert_mode(omega, dx, x, y, epsr, target=None, npml=0, m=1, filtering=False
     inserted into it.
     """
     if target is None:
-        target = np.zeros(epsr.shape, dtype=np.complex)
+        target = np.zeros(epsr.shape, dtype=complex)
 
     epsr_cross = epsr[x, y]
     _, mode_field = get_modes(epsr_cross, omega, dx, npml, m=m, filtering=filtering)
