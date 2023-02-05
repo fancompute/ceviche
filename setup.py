@@ -15,13 +15,13 @@ dependencies = [
 
 setup(
     name='ceviche',
-    version='0.1.2',
+    version='0.1.3',
     description='Ceviche',
     long_description=readme,
     long_description_content_type="text/markdown",
-    author='Tyler Hughes',
-    author_email='tylerwhughes91@gmail.com',
-    url='https://github.com/twhughes/ceviche',
+    author='Ceviche Package Contributors',
+    author_email='fancompute+noreply@gmail.com',
+    url='https://github.com/fancompute/ceviche',
     packages=find_packages(),
     install_requires=dependencies,
     classifiers=[

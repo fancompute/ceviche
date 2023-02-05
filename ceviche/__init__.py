@@ -1,7 +1,7 @@
 # used for setup.py
 name = "ceviche"
 
-__version__ = '0.1.2'
+__version__ = '0.1.3'
 
 from .fdtd import fdtd
 from .fdfd import fdfd_ez, fdfd_hz, fdfd_mf_ez
