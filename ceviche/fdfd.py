@@ -6,7 +6,7 @@ from .primitives import sp_solve, sp_mult, spsp_mult
 from .derivatives import compute_derivative_matrices
 from .utils import get_entries_indices
 
-# notataion is similar to that used in: http://www.jpier.org/PIERB/pierb36/11.11092006.pdf
+# notataion is similar to that used in: https://www.jpier.org/ac_api/download.php?id=11092006
 
 class fdfd():
     """ Base class for FDFD simulation """
