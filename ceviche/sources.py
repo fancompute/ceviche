@@ -1,4 +1,5 @@
 import autograd.numpy as npa
+from constants import C_0
 
 """ Source functions go here.  For now it's just TFSF """
 
